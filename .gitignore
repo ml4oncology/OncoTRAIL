@@ -1,0 +1,9 @@
+**/.ipynb_checkpoints
+**/__pycache__
+**/._*
+.DS_store
+data/
+results/
+models/
+notebooks/archive
+notebooks/external-examples
