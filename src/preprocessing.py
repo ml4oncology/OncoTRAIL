@@ -94,6 +94,8 @@ def preprocessing(dataPath, LLMpath, saveDir, targetCol):
     embeddings = embeddings.reshape( embeddings.shape[0], -1)
 
     np.savez( f'{saveDir}/embedding_{file_name}.npz', embeddings = embeddings, target = target )
+
+    # to do: add name of LLM in file name
     
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
