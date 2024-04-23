@@ -9,13 +9,15 @@ nGPU=0
 dataDir='/cluster/home/t127556uhn/gitrepo/2024/LLM-notes-classification/data/interim'
 saveDir='/cluster/home/t127556uhn/gitrepo/2024/LLM-notes-classification/data/embedding'
 
-dataFileName='embedding_train_noteAnchored_ED_visit_firstVisit_medOnc_ConsultLetterClinic'
+LLMName='BioMistral'
+
+dataFileName=embedding_${LLMName}_train_noteAnchored_ED_visit_mostRecentVisit_medOnc_ConsultLetterClinic
 numFiles=16
 
-# dataFileName='embedding_valid_noteAnchored_ED_visit_firstVisit_medOnc_ConsultLetterClinic'
+# dataFileName=embedding_${LLMName}_valid_noteAnchored_ED_visit_mostRecentVisit_medOnc_ConsultLetterClinic
 # numFiles=4
 
-# dataFileName='embedding_test_noteAnchored_ED_visit_firstVisit_medOnc_ConsultLetterClinic'
+# dataFileName=embedding_${LLMName}_test_noteAnchored_ED_visit_mostRecentVisit_medOnc_ConsultLetterClinic
 # numFiles=11
 
 pySLURMargs.py $userName $memory $condaEnv $nGPU "../src/mergeEmbedding.py $dataDir $dataFileName $saveDir $numFiles"

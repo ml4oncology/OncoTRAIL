@@ -8,6 +8,7 @@ nGPU=1
 
 dataDir='/cluster/home/t127556uhn/gitrepo/2024/LLM-notes-classification/data/interim'
 LLMpath='/cluster/projects/gliugroup/2BLAST/HuggingFace_LLMs/BioMistral-7B'
+LLMName='BioMistral'
 saveDir='/cluster/home/t127556uhn/gitrepo/2024/LLM-notes-classification/data/interim'
 targetCol='target_ED_visit'
 
@@ -22,9 +23,9 @@ dataType='test'
 
 for (( i = 0; i <= upper_limit; i++ )); do
     
-    dataPath="${dataDir}/${dataType}_noteAnchored_ED_visit_firstVisit_medOnc_ConsultLetterClinic_part${i}.csv"
+    dataPath="${dataDir}/${dataType}_noteAnchored_ED_visit_mostRecentVisit_medOnc_ConsultLetterClinic_part${i}.csv"
 
-    pySLURMargs.py $userName $memory $condaEnv $nGPU "../src/preprocessing.py $dataPath $LLMpath $saveDir $targetCol" 
+    pySLURMargs.py $userName $memory $condaEnv $nGPU "../src/preprocessing.py $dataPath $LLMpath $LLMName $saveDir $targetCol" 
 
 done
 

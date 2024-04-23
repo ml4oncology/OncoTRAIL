@@ -33,7 +33,7 @@ def get_quant_config():
     )
     return quant_config
 
-def preprocessing(dataPath, LLMpath, saveDir, targetCol):
+def preprocessing(dataPath, LLMpath, LLMName, saveDir, targetCol):
 
     # extract file name
     file_name = os.path.basename(dataPath)
@@ -93,7 +93,7 @@ def preprocessing(dataPath, LLMpath, saveDir, targetCol):
     embeddings = np.array( embeddings_list )
     embeddings = embeddings.reshape( embeddings.shape[0], -1)
 
-    np.savez( f'{saveDir}/embedding_{file_name}.npz', embeddings = embeddings, target = target )
+    np.savez( f'{saveDir}/embedding_{LLMName}_{file_name}.npz', embeddings = embeddings, target = target )
 
     # to do: add name of LLM in file name
     
@@ -101,8 +101,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("dataPath", help = "data file path", type = str) # data file path
     parser.add_argument("LLMpath", help = "path to LLM", type = str) # path to LLM
+    parser.add_argument("LLMName", help = "name of LLM", type = str) # name of LLM
     parser.add_argument("saveDir", help = "save directory", type = str) # save directory
     parser.add_argument("targetCol", help = "name of target column", type = str) # name of target column
     args = parser.parse_args()
 
-    preprocessing( args.dataPath, args.LLMpath, args.saveDir, args.targetCol )
+    preprocessing( args.dataPath, args.LLMpath, args.LLMName, args.saveDir, args.targetCol )

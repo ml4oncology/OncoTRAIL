@@ -7,12 +7,13 @@ condaEnv="~/miniforge3/envs/LLMfinetune/bin/python3"
 nGPU=0
 
 dataDir='/cluster/home/t127556uhn/gitrepo/2024/LLM-notes-classification/data/embedding'
-trainDataPath=${dataDir}/embedding_train_noteAnchored_ED_visit_firstVisit_medOnc_ConsultLetterClinic.npz
-validDataPath=${dataDir}/embedding_valid_noteAnchored_ED_visit_firstVisit_medOnc_ConsultLetterClinic.npz
-testDataPath=${dataDir}/embedding_test_noteAnchored_ED_visit_firstVisit_medOnc_ConsultLetterClinic.npz
+LLMName=BioMistral
+trainDataPath=${dataDir}/embedding_${LLMName}_train_noteAnchored_ED_visit_mostRecentVisit_medOnc_ConsultLetterClinic.npz
+validDataPath=${dataDir}/embedding_${LLMName}_valid_noteAnchored_ED_visit_mostRecentVisit_medOnc_ConsultLetterClinic.npz
+testDataPath=${dataDir}/embedding_${LLMName}_test_noteAnchored_ED_visit_mostRecentVisit_medOnc_ConsultLetterClinic.npz
 
 modelName='XGB'
-setupStr='bioMistral_firstVisit_medOnc_ConsultLetterClinic'
+setupStr='BioMistral_mostRecentVisit_medOnc_ConsultLetterClinic'
 modelDir='/cluster/home/t127556uhn/gitrepo/2024/LLM-notes-classification/models'
 resultsDir='/cluster/home/t127556uhn/gitrepo/2024/LLM-notes-classification/results'
 
