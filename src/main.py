@@ -12,7 +12,7 @@ import pandas as pd
 from bayes_opt import BayesianOptimization
 from lightgbm import LGBMClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import average_precision_score, roc_auc_score
+from sklearn.metrics import average_precision_score, roc_auc_score, log_loss
 from xgboost import XGBClassifier
 from functools import partial
 from config import bayesopt_param, model_static_param, model_tuning_param
@@ -27,6 +27,29 @@ def main( trainDataPath, validDataPath, testDataPath, modelName, setupStr, model
     'XGB': XGBClassifier,
     'LGBM': LGBMClassifier
     }
+
+    # generate train-validation-test split
+
+    # # split into train-validation-test data
+    # train_data, valid_data, test_data = create_train_val_test_splits( df_treat, testStartDate )
+
+    # # remove entries in train and validation data with wrong EPR dates
+    # train_data = train_data.loc[ ( train_data['maxEPRdate'].dt.year >= 2005 ) & ( train_data['maxEPRdate'].dt.year <= 2022 ) ]
+    # valid_data = valid_data.loc[ ( valid_data['maxEPRdate'].dt.year >= 2005 ) & ( valid_data['maxEPRdate'].dt.year <= 2022 ) ]
+
+    # # remove records with potential leakage -- EPR date is after the treatment date
+    # train_data = train_data.loc[ pd.to_datetime( train_data['treatment_date'], utc=True ) > pd.to_datetime( train_data['maxEPRdate'], utc=True ) ]
+    # valid_data = valid_data.loc[ pd.to_datetime( valid_data['treatment_date'], utc=True ) > pd.to_datetime( valid_data['maxEPRdate'], utc=True ) ]
+
+    # # delete notes in train, validation data split after certain date
+    # train_data = train_data.loc[ train_data['treatment_date'] < testStartDate ]
+    # valid_data = valid_data.loc[ valid_data['treatment_date'] < testStartDate ]
+
+    # # save train, validation, test data
+    # train_data[['mrn','treatment_date','note','target_ED_visit']].to_csv( f"{saveDir}/train_noteAnchored_{eventName}_{configName}.csv" )
+    # valid_data[['mrn','treatment_date','note','target_ED_visit']].to_csv( f"{saveDir}/valid_noteAnchored_{eventName}_{configName}.csv" )
+    # test_data[['mrn','treatment_date','note','target_ED_visit']].to_csv( f"{saveDir}/test_noteAnchored_{eventName}_{configName}.csv" )
+
 
     print('Load train, validation, test data.\n')
 
@@ -64,8 +87,9 @@ def main( trainDataPath, validDataPath, testDataPath, modelName, setupStr, model
         model.fit(train_X, train_Y)
         assert model.classes_[1] == 1 # positive class is at index 1
         pred = model.predict_proba(valid_X)[: ,1]
-        return roc_auc_score(valid_Y, pred)
-
+        # return roc_auc_score(valid_Y, pred)
+        return -log_loss(valid_Y, pred)
+    
     print('Perform hyperparameter tuning.\n')
 
     # hyperparameter tuning
@@ -111,9 +135,13 @@ def main( trainDataPath, validDataPath, testDataPath, modelName, setupStr, model
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("trainDataPath", help = "path of training data", type = str) # path of training data
-    parser.add_argument("validDataPath", help = "path of validation data", type = str) # path of validation data
-    parser.add_argument("testDataPath", help = "path of test data", type = str) # path of training data
+    # parser.add_argument("trainDataPath", help = "path of training data", type = str) # path of training data
+    # parser.add_argument("validDataPath", help = "path of validation data", type = str) # path of validation data
+    # parser.add_argument("testDataPath", help = "path of test data", type = str) # path of training data
+    parser.add_argument("notesPath", help = "path of notes", type = str ) # path of notes
+    parser.add_argument("embeddingPath", help = "path of embedding", type = str) # path of embedding
+    parser.add_argument("splitConfig", help = "configuration of train-valid-test split", type = str) # configuration of train-valid-test split
+    parser.add_argument("testStartDate", )
     parser.add_argument("modelName", help = "model name", type = str) # name of machine learning model
     parser.add_argument("setupStr", help = "set up string", type = str) # name of set up string
     parser.add_argument("modelDir", help = "model directory", type = str) # directory to save model
