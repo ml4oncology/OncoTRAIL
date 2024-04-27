@@ -20,9 +20,7 @@ from util import save_pickle
 from sklearn.preprocessing import StandardScaler
 from split import genDataSplit
 
-def main( trainDataPath, validDataPath, testDataPath, modelName, setupStr, modelDir, resultsDir ):
-
-    # notesPath, embeddingPath, splitConfig
+def main( notesPath, embeddingPath, splitConfig, modelName, setupStr, modelDir, resultsDir ):
 
     # algorithm dictionary
     algs = {
@@ -31,31 +29,16 @@ def main( trainDataPath, validDataPath, testDataPath, modelName, setupStr, model
     'LGBM': LGBMClassifier
     }
 
-    # # load data frame
-    # df = pd.read_csv(f'{notesPath}', index_col=0)
+    # load data frame
+    df = pd.read_csv(f'{notesPath}', index_col=0)
 
-    # # load embedding
-    # with np.load(f'{embeddingPath}') as data:
-    #     embedding = data['embedding']
-    #     target = data['target']
+    # load embedding
+    with np.load(f'{embeddingPath}') as data:
+        embedding = data['embedding']
+        target = data['target']
 
-    # # generate train-validation-test split
-    # X_train, Y_train, X_valid, Y_valid, X_test, Y_test = genDataSplit( df, startTestDate, splitConfig, embedding, target )
-
-    print('Load train, validation, test data.\n')
-
-    # load train, validation, test data
-    with np.load(f'{trainDataPath}') as data:
-        X_train = data['embedding']
-        Y_train = data['target']
-    
-    with np.load(f'{validDataPath}') as data:
-        X_valid = data['embedding']
-        Y_valid = data['target']
-
-    with np.load(f'{testDataPath}') as data:
-        X_test = data['embedding']
-        Y_test = data['target']
+    # generate train-validation-test split
+    X_train, Y_train, X_valid, Y_valid, X_test, Y_test = genDataSplit( df, startTestDate, splitConfig, embedding, target )
 
     # preprocess the data by scaling and centering
     scaler = StandardScaler()
@@ -99,7 +82,7 @@ def main( trainDataPath, validDataPath, testDataPath, modelName, setupStr, model
     best_params = {}
     best_params['params'] = best_param
     
-    save_pickle(best_params, save_dir=f'{modelDir}', filename=f'{modelName}_{setupStr}')
+    save_pickle(best_params, save_dir=f'{modelDir}', filename=f'{modelName}_{setupStr}_{splitConfig}')
 
     print('Re-train on best parameters and evaluate the best model.\n')
 
@@ -124,16 +107,13 @@ def main( trainDataPath, validDataPath, testDataPath, modelName, setupStr, model
     test_results.rename(index={0:'test'},inplace=True)
 
     results = pd.concat([train_results, valid_results, test_results])
-    results.to_csv(f'{resultsDir}/{modelName}_{setupStr}.csv')
+    results.to_csv(f'{resultsDir}/{modelName}_{setupStr}_{splitConfig}.csv')
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("trainDataPath", help = "path of training data", type = str) # path of training data
-    parser.add_argument("validDataPath", help = "path of validation data", type = str) # path of validation data
-    parser.add_argument("testDataPath", help = "path of test data", type = str) # path of training data
-    # parser.add_argument("notesPath", help = "path of notes", type = str ) # path of notes
-    # parser.add_argument("embeddingPath", help = "path of embedding", type = str) # path of embedding
-    # parser.add_argument("splitConfig", help = "configuration of train-valid-test split", type = str) # configuration of train-valid-test split
+    parser.add_argument("notesPath", help = "path of notes", type = str ) # path of notes
+    parser.add_argument("embeddingPath", help = "path of embedding", type = str) # path of embedding
+    parser.add_argument("splitConfig", help = "configuration of train-valid-test split", type = str) # configuration of train-valid-test split
     parser.add_argument("modelName", help = "model name", type = str) # name of machine learning model
     parser.add_argument("setupStr", help = "set up string", type = str) # name of set up string
     parser.add_argument("modelDir", help = "model directory", type = str) # directory to save model
@@ -141,4 +121,27 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    main( args.trainDataPath, args.validDataPath, args.testDataPath, args.modelName, args.setupStr, args.modelDir, args.resultsDir )
+    main( args.notesPath, args.embeddingPath, args.splitConfig, args.modelName, args.setupStr, args.modelDir, args.resultsDir )
+
+    # trainDataPath, validDataPath, testDataPath
+    # notesPath, embeddingPath, splitConfig
+
+    # args.trainDataPath, args.validDataPath, args.testDataPath
+    # parser.add_argument("trainDataPath", help = "path of training data", type = str) # path of training data
+    # parser.add_argument("validDataPath", help = "path of validation data", type = str) # path of validation data
+    # parser.add_argument("testDataPath", help = "path of test data", type = str) # path of training data
+
+    # print('Load train, validation, test data.\n')
+
+    # # load train, validation, test data
+    # with np.load(f'{trainDataPath}') as data:
+    #     X_train = data['embedding']
+    #     Y_train = data['target']
+    
+    # with np.load(f'{validDataPath}') as data:
+    #     X_valid = data['embedding']
+    #     Y_valid = data['target']
+
+    # with np.load(f'{testDataPath}') as data:
+    #     X_test = data['embedding']
+    #     Y_test = data['target']
