@@ -46,7 +46,7 @@ fp.write('#SBATCH -J py\n')
 fp.write('#SBATCH --get-user-env\n')
 fp.write('#SBATCH --ntasks=1\n')
 fp.write('#SBATCH --mem=' + memory + 'GB\n')
-fp.write('#SBATCH --time=1-00:00:00\n')
+fp.write('#SBATCH --time=2-00:00:00\n')
 if int(nGPU) > 0:
     fp.write('#SBATCH --partition=gpu\n')
     fp.write('#SBATCH --account=gliugroup_gpu\n')

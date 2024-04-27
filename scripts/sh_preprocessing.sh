@@ -7,8 +7,12 @@ condaEnv="~/miniforge3/envs/LLMfinetune/bin/python3"
 nGPU=1
 
 dataDir='/cluster/home/t127556uhn/gitrepo/2024/LLM-notes-classification/data/interim'
-LLMpath='/cluster/projects/gliugroup/2BLAST/HuggingFace_LLMs/BioMistral-7B'
-LLMName='BioMistral'
+# LLMpath='/cluster/projects/gliugroup/2BLAST/HuggingFace_LLMs/BioMistral-7B'
+# LLMName='BioMistral'
+
+LLMpath='/cluster/projects/gliugroup/2BLAST/HuggingFace_LLMs/Mistral-7B-v0.1'
+LLMName='Mistral'
+
 saveDir='/cluster/home/t127556uhn/gitrepo/2024/LLM-notes-classification/data/interim'
 targetCol='target_ED_visit'
 
@@ -18,14 +22,35 @@ targetCol='target_ED_visit'
 # upper_limit=3
 # dataType='valid'
 
-upper_limit=10
-dataType='test'
+# upper_limit=10
+# dataType='test'
 
+# for (( i = 0; i <= upper_limit; i++ )); do
+    
+#     dataPath="${dataDir}/${dataType}_noteAnchored_ED_visit_mostRecentVisit_medOnc_ConsultLetterClinic_part${i}.csv"
+
+#     pySLURMargs.py $userName $memory $condaEnv $nGPU "../src/preprocessing.py $dataPath $LLMpath $LLMName $saveDir $targetCol" 
+
+# done
+
+upper_limit=30
+
+LLMpath='/cluster/projects/gliugroup/2BLAST/HuggingFace_LLMs/Mistral-7B-v0.1'
+LLMName='Mistral'
 for (( i = 0; i <= upper_limit; i++ )); do
     
-    dataPath="${dataDir}/${dataType}_noteAnchored_ED_visit_mostRecentVisit_medOnc_ConsultLetterClinic_part${i}.csv"
+    dataPath="${dataDir}/noteAnchored_ED_visit_mostRecentVisit_medOnc_ConsultLetterClinic_part${i}.csv"
 
     pySLURMargs.py $userName $memory $condaEnv $nGPU "../src/preprocessing.py $dataPath $LLMpath $LLMName $saveDir $targetCol" 
 
 done
 
+LLMpath='/cluster/projects/gliugroup/2BLAST/HuggingFace_LLMs/BioMistral-7B'
+LLMName='BioMistral'
+for (( i = 0; i <= upper_limit; i++ )); do
+    
+    dataPath="${dataDir}/noteAnchored_ED_visit_mostRecentVisit_medOnc_ConsultLetterClinic_part${i}.csv"
+
+    pySLURMargs.py $userName $memory $condaEnv $nGPU "../src/preprocessing.py $dataPath $LLMpath $LLMName $saveDir $targetCol" 
+
+done

@@ -8,7 +8,8 @@ nGPU=0
 
 #dataPath='/cluster/home/t127556uhn/gitrepo/2024/LLM-notes-classification/data/notes/train_noteAnchored_ED_visit_mostRecentVisit_medOnc_ConsultLetterClinic.csv'
 #dataPath='/cluster/home/t127556uhn/gitrepo/2024/LLM-notes-classification/data/notes/valid_noteAnchored_ED_visit_mostRecentVisit_medOnc_ConsultLetterClinic.csv'
-dataPath='/cluster/home/t127556uhn/gitrepo/2024/LLM-notes-classification/data/notes/test_noteAnchored_ED_visit_mostRecentVisit_medOnc_ConsultLetterClinic.csv'
+#dataPath='/cluster/home/t127556uhn/gitrepo/2024/LLM-notes-classification/data/notes/test_noteAnchored_ED_visit_mostRecentVisit_medOnc_ConsultLetterClinic.csv'
+dataPath='/cluster/home/t127556uhn/gitrepo/2024/LLM-notes-classification/data/notes/noteAnchored_ED_visit_mostRecentVisit_medOnc_ConsultLetterClinic.csv'
 saveDir='/cluster/home/t127556uhn/gitrepo/2024/LLM-notes-classification/data/interim'
 numRowsPerPart=1500
 
