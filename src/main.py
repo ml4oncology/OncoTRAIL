@@ -130,26 +130,3 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     main( args.notesPath, args.embeddingPath, args.splitConfig, args.hyperParamEval, args.modelName, args.setupStr, args.modelDir, args.resultsDir )
-
-    # trainDataPath, validDataPath, testDataPath
-    # notesPath, embeddingPath, splitConfig
-
-    # args.trainDataPath, args.validDataPath, args.testDataPath
-    # parser.add_argument("trainDataPath", help = "path of training data", type = str) # path of training data
-    # parser.add_argument("validDataPath", help = "path of validation data", type = str) # path of validation data
-    # parser.add_argument("testDataPath", help = "path of test data", type = str) # path of training data
-
-    # print('Load train, validation, test data.\n')
-
-    # # load train, validation, test data
-    # with np.load(f'{trainDataPath}') as data:
-    #     X_train = data['embedding']
-    #     Y_train = data['target']
-    
-    # with np.load(f'{validDataPath}') as data:
-    #     X_valid = data['embedding']
-    #     Y_valid = data['target']
-
-    # with np.load(f'{testDataPath}') as data:
-    #     X_test = data['embedding']
-    #     Y_test = data['target']
