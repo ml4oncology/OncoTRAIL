@@ -34,9 +34,14 @@ resultsDir='/cluster/home/t127556uhn/gitrepo/2024/LLM-notes-classification/resul
 # done
 
 notesPath='/cluster/home/t127556uhn/gitrepo/2024/LLM-notes-classification/data/notes/noteAnchored_ED_visit_mostRecentVisit_medOnc_ConsultLetterClinic.csv'
-splitConfig='Random'
+
+for splitConfig in 'Temporal' 'Random'
+do
 
 for LLMName in 'Mistral' 'BioMistral'
+do
+
+for hyperParamEval in 'logloss' 'auroc'
 do
 
 embeddingPath=/cluster/home/t127556uhn/gitrepo/2024/LLM-notes-classification/data/embedding/embedding_${LLMName}_noteAnchored_ED_visit_mostRecentVisit_medOnc_ConsultLetterClinic.npz
@@ -45,7 +50,11 @@ setupStr=${LLMName}_mostRecentVisit_medOnc_ConsultLetterClinic
 for modelName in 'LGBM' 'LR' 'XGB'
 do
 
-pySLURMargs.py $userName $memory $condaEnv $nGPU "../src/main.py $notesPath $embeddingPath $splitConfig $modelName $setupStr $modelDir $resultsDir"
+pySLURMargs.py $userName $memory $condaEnv $nGPU "../src/main.py $notesPath $embeddingPath $splitConfig $hyperParamEval $modelName $setupStr $modelDir $resultsDir"
+
+done
+
+done
 
 done
 

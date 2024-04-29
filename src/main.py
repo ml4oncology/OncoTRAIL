@@ -20,7 +20,10 @@ from util import save_pickle
 from sklearn.preprocessing import StandardScaler
 from split import genDataSplit
 
-def main( notesPath, embeddingPath, splitConfig, modelName, setupStr, modelDir, resultsDir ):
+def main( notesPath, embeddingPath, splitConfig, hyperParamEval, modelName, setupStr, modelDir, resultsDir ):
+
+    # save string for file
+    file_save_str = f'{modelName}_{setupStr}_{splitConfig}_{hyperParamEval}'
 
     # algorithm dictionary
     algs = {
@@ -31,6 +34,7 @@ def main( notesPath, embeddingPath, splitConfig, modelName, setupStr, modelDir, 
 
     # load data frame
     df = pd.read_csv(f'{notesPath}', index_col=0)
+    df.reset_index(drop=True,inplace=True)
 
     # load embedding
     with np.load(f'{embeddingPath}') as data:
@@ -61,8 +65,11 @@ def main( notesPath, embeddingPath, splitConfig, modelName, setupStr, modelDir, 
         model.fit(train_X, train_Y)
         assert model.classes_[1] == 1 # positive class is at index 1
         pred = model.predict_proba(valid_X)[: ,1]
-        return roc_auc_score(valid_Y, pred)
-        # return -log_loss(valid_Y, pred)
+
+        if hyperParamEval == 'auroc':
+            return roc_auc_score(valid_Y, pred)
+        elif hyperParamEval == 'logloss':
+            return -log_loss(valid_Y, pred)
     
     print('Perform hyperparameter tuning.\n')
 
@@ -82,7 +89,7 @@ def main( notesPath, embeddingPath, splitConfig, modelName, setupStr, modelDir, 
     best_params = {}
     best_params['params'] = best_param
     
-    save_pickle(best_params, save_dir=f'{modelDir}', filename=f'{modelName}_{setupStr}_{splitConfig}')
+    save_pickle(best_params, save_dir=f'{modelDir}', filename=f'{file_save_str}')
 
     print('Re-train on best parameters and evaluate the best model.\n')
 
@@ -107,13 +114,14 @@ def main( notesPath, embeddingPath, splitConfig, modelName, setupStr, modelDir, 
     test_results.rename(index={0:'test'},inplace=True)
 
     results = pd.concat([train_results, valid_results, test_results])
-    results.to_csv(f'{resultsDir}/{modelName}_{setupStr}_{splitConfig}.csv')
+    results.to_csv(f'{resultsDir}/{file_save_str}.csv')
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("notesPath", help = "path of notes", type = str ) # path of notes
     parser.add_argument("embeddingPath", help = "path of embedding", type = str) # path of embedding
     parser.add_argument("splitConfig", help = "configuration of train-valid-test split", type = str) # configuration of train-valid-test split
+    parser.add_argument("hyperParamEval", help = "function for hyperparameter evaluation", type = str) # hyperparameter evaluation function
     parser.add_argument("modelName", help = "model name", type = str) # name of machine learning model
     parser.add_argument("setupStr", help = "set up string", type = str) # name of set up string
     parser.add_argument("modelDir", help = "model directory", type = str) # directory to save model
@@ -121,7 +129,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    main( args.notesPath, args.embeddingPath, args.splitConfig, args.modelName, args.setupStr, args.modelDir, args.resultsDir )
+    main( args.notesPath, args.embeddingPath, args.splitConfig, args.hyperParamEval, args.modelName, args.setupStr, args.modelDir, args.resultsDir )
 
     # trainDataPath, validDataPath, testDataPath
     # notesPath, embeddingPath, splitConfig
