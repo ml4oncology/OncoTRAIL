@@ -1,12 +1,26 @@
+from models import LR, XGB, LGBM
 # hyperparameter tuning
 
 startTestDate = '2015-01-01'
+
+algs = {
+    'LR': LR,
+    'XGB': XGB,
+    'LGBM': LGBM
+    }
+
+# bayesopt_param = {
+#     'LR': {'init_points': 2, 'n_iter': 5}, 
+#     'XGB': {'init_points': 2, 'n_iter': 5},
+#     'LGBM': {'init_points': 2, 'n_iter': 5},
+# }
 
 bayesopt_param = {
     'LR': {'init_points': 10, 'n_iter': 25}, 
     'XGB': {'init_points': 100, 'n_iter': 100},
     'LGBM': {'init_points': 250, 'n_iter': 250},
 }
+
 model_static_param = {
     'LR': {
         'penalty': 'l1', 

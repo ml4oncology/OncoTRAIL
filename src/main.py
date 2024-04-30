@@ -19,6 +19,8 @@ from config import bayesopt_param, model_static_param, model_tuning_param, start
 from util import save_pickle
 from sklearn.preprocessing import StandardScaler
 from split import genDataSplit
+from models import LR, XGB, LGBM
+from train import Trainer
 
 def main( notesPath, embeddingPath, splitConfig, hyperParamEval, modelName, setupStr, modelDir, resultsDir ):
 
@@ -26,10 +28,16 @@ def main( notesPath, embeddingPath, splitConfig, hyperParamEval, modelName, setu
     file_save_str = f'{modelName}_{setupStr}_{splitConfig}_{hyperParamEval}'
 
     # algorithm dictionary
+    # algs = {
+    # 'LR': LogisticRegression,
+    # 'XGB': XGBClassifier,
+    # 'LGBM': LGBMClassifier
+    # }
+
     algs = {
-    'LR': LogisticRegression,
-    'XGB': XGBClassifier,
-    'LGBM': LGBMClassifier
+    'LR': LR,
+    'XGB': XGB,
+    'LGBM': LGBM
     }
 
     # load data frame
@@ -50,71 +58,81 @@ def main( notesPath, embeddingPath, splitConfig, hyperParamEval, modelName, setu
     X_valid = scaler.transform(X_valid)
     X_test = scaler.transform(X_test)
 
-    # define helper functions
+    # # define helper functions
 
-    def convert_params(params):
-        # convert necessary hyperparams to integers
-        for param in ['n_estimators', 'max_depth', 'num_leaves', 'min_data_in_leaf', 'min_child_weight', 'bagging_freq']:
-            if param in params: params[param] = int(params[param])
-        return params
+    # def convert_params(params):
+    #     # convert necessary hyperparams to integers
+    #     for param in ['n_estimators', 'max_depth', 'num_leaves', 'min_data_in_leaf', 'min_child_weight', 'bagging_freq']:
+    #         if param in params: params[param] = int(params[param])
+    #     return params
 
-    def eval_func(alg, data, **kwargs):
-        train_X, train_Y, valid_X, valid_Y = data
-        kwargs = convert_params(kwargs)
-        model = algs[alg](**kwargs, **model_static_param[alg])
-        model.fit(train_X, train_Y)
-        assert model.classes_[1] == 1 # positive class is at index 1
-        pred = model.predict_proba(valid_X)[: ,1]
+    # def eval_func(alg, data, **kwargs):
+    #     train_X, train_Y, valid_X, valid_Y = data
+    #     kwargs = convert_params(kwargs)
+    #     model = algs[alg](**kwargs, **model_static_param[alg])
+    #     model.fit(train_X, train_Y)
+    #     assert model.model.classes_[1] == 1 # positive class is at index 1
+    #     # pred = model.predict_proba(valid_X)[: ,1]
+    #     pred = model.predict(valid_X)
 
-        if hyperParamEval == 'auroc':
-            return roc_auc_score(valid_Y, pred)
-        elif hyperParamEval == 'logloss':
-            return -log_loss(valid_Y, pred)
+    #     if hyperParamEval == 'auroc':
+    #         return roc_auc_score(valid_Y, pred)
+    #     elif hyperParamEval == 'logloss':
+    #         return -log_loss(valid_Y, pred)
     
-    print('Perform hyperparameter tuning.\n')
+    # print('Perform hyperparameter tuning.\n')
 
-    # hyperparameter tuning
-    optim_config = bayesopt_param[modelName]
-    hyperparam_config = model_tuning_param[modelName]
-    data = (X_train, Y_train, X_valid, Y_valid)
-    bo = BayesianOptimization(
-        f=partial(eval_func, alg=modelName, data=data),
-        pbounds=hyperparam_config,
-        verbose=2,
-        random_state=42
-    )
-    bo.maximize(**optim_config)
-    best_param = bo.max['params']
-    best_param = convert_params(best_param)
-    best_params = {}
-    best_params['params'] = best_param
+    # # hyperparameter tuning
+    # optim_config = bayesopt_param[modelName]
+    # hyperparam_config = model_tuning_param[modelName]
+    # data = (X_train, Y_train, X_valid, Y_valid)
+    # bo = BayesianOptimization(
+    #     f=partial(eval_func, alg=modelName, data=data),
+    #     pbounds=hyperparam_config,
+    #     verbose=2,
+    #     random_state=42
+    # )
+    # bo.maximize(**optim_config)
+    # best_param = bo.max['params']
+    # best_param = convert_params(best_param)
+    # best_params = {}
+    # best_params['params'] = best_param
     
-    save_pickle(best_params, save_dir=f'{modelDir}', filename=f'{file_save_str}')
+    # save_pickle(best_params, save_dir=f'{modelDir}', filename=f'{file_save_str}')
 
-    print('Re-train on best parameters and evaluate the best model.\n')
+    # print('Re-train on best parameters and evaluate the best model.\n')
 
-    # train and evaluate best model
-    model = algs[modelName](**best_params[f'params'], **model_static_param[modelName])
-    model.fit(X_train, Y_train)
+    # # train and evaluate best model
+    # model = algs[modelName](**best_params[f'params'], **model_static_param[modelName])
+    # model.fit(X_train, Y_train)
 
-    def evaluate(model, X, Y):
-        # check model.classes_ to confirm prediction of positive label is at index 1
-        pred = model.predict_proba(X)[: ,1]
-        auprc = average_precision_score(Y, pred)
-        auroc = roc_auc_score(Y, pred)
-        result = {'AUPRC': auprc, 'AUROC': auroc}
+    trainer = Trainer(X_train, Y_train, X_valid, Y_valid, 'AUROC', resultsDir, modelName, file_save_str)
+    train_pred, val_pred = trainer.run()
+    # call trainer run here 
 
-        return pd.DataFrame(result, index = [0])
+    print(train_pred.shape)
+    print(val_pred.shape)
+
+    # def evaluate(model, X, Y):
+    #     # check model.classes_ to confirm prediction of positive label is at index 1
+    #     pred = model.predict(X)
+    #     # pred = model.predict_proba(X)[: ,1]
+    #     auprc = average_precision_score(Y, pred)
+    #     auroc = roc_auc_score(Y, pred)
+    #     LogLoss = log_loss(Y, pred)
+    #     result = {'AUPRC': auprc, 'AUROC': auroc, 'LogLoss': LogLoss}
+
+    #     return pd.DataFrame(result, index = [0])
     
-    train_results = evaluate(model, X_train, Y_train)
-    train_results.rename(index={0:'train'},inplace=True)
-    valid_results = evaluate(model, X_valid, Y_valid)
-    valid_results.rename(index={0:'valid'},inplace=True)
-    test_results = evaluate(model, X_test, Y_test)
-    test_results.rename(index={0:'test'},inplace=True)
+    # train_results = evaluate(model, X_train, Y_train)
+    # train_results.rename(index={0:'train'},inplace=True)
+    # valid_results = evaluate(model, X_valid, Y_valid)
+    # valid_results.rename(index={0:'valid'},inplace=True)
+    # test_results = evaluate(model, X_test, Y_test)
+    # test_results.rename(index={0:'test'},inplace=True)
 
-    results = pd.concat([train_results, valid_results, test_results])
-    results.to_csv(f'{resultsDir}/{file_save_str}.csv')
+    # results = pd.concat([train_results, valid_results, test_results])
+    # results.to_csv(f'{resultsDir}/{file_save_str}.csv')
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
