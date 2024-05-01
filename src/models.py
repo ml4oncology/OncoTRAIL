@@ -105,4 +105,122 @@ class LGBM(MLModel):
         model = LGBMClassifier(**params)
         self.model = model
 
+###############################################################################
+# Deep Learning Models
+###############################################################################
+class DLModel:
+    def __init__(self):
+
+        # NOTE: BCEWithLogitLoss COMBINES Sigmoid and BCELoss. This is more 
+        # numerically stable than using Sigmoid followed by BCELoss. As a 
+        # result, the model output during training should NOT use a Simgoid 
+        # layer at the end
+        self.loss_type = nn.BCEWithLogitsLoss
+        self.use_gpu = torch.cuda.is_available()
+        self.model = None
+    
+    def eval(self):
+        # enters evaluation mode - deactivates dropout
+        self.model.eval()
+        
+    def train(self):
+        # enters training mode - activates dropout
+        self.model.train()
+        
+    def state_dict(self):
+        # return the model weights
+        return self.model.state_dict()
+            
+    def load_weights(self, state_dict):
+        if isinstance(state_dict, str):
+            map_location = None if self.use_gpu else torch.device('cpu')
+            state_dict = torch.load(state_dict, map_location=map_location)
+        self.model.load_state_dict(state_dict)
+
+    def clip_gradients(self, clip_value=1):
+        nn.utils.clip_grad_value_(self.model.parameters(), clip_value=clip_value)
+        
+class MLP(DLModel):
+    def __init__(
+        self, 
+        n_features,
+        n_targets,
+        hidden_size1=128,
+        hidden_size2=64,
+        dropout=0,
+        optimizer='adam',
+        learning_rate=1e-2,
+        weight_decay=0,
+        momentum=0,
+        beta1=0.9,
+        beta2=0.999,
+        **kwargs
+    ):
+        super().__init__(**kwargs)
+        optimizer_types = {'adam': optim.Adam, 'sgd': optim.SGD}
+        params = {
+            'input_size': n_features,
+            'output_size': n_targets,
+            'hidden_size1': hidden_size1,
+            'hidden_size2': hidden_size2,
+            'dropout': dropout,
+        }
+        self.model = NN(**params)
+        self.criterion = self.loss_type(reduction='none')
+        if optimizer == 'sgd':
+            params = {'momentum': momentum}
+        elif optimizer == 'adam':
+            params = {'betas': (beta1, beta2)}
+        self.optimizer = optimizer_types[optimizer](
+            self.model.parameters(), 
+            lr=learning_rate, 
+            weight_decay=weight_decay, 
+            **params
+        )
+        if self.use_gpu:
+            self.model.cuda()
+            
+    def predict(self, X, grad=False, bound_pred=True):
+        """
+        Args: 
+            grad (bool): If True, enable gradients for backward pass
+            bound_pred (bool): If True, bound the predictions by using Sigmoid 
+                over the model output
+        """
+        if not torch.is_tensor(X):
+            X = torch.Tensor(X.astype(float))
+        
+        if self.use_gpu: 
+            X = X.cuda()
+            
+        with torch.set_grad_enabled(grad):
+            # NOTE: need to call .detach() is True
+            pred = self.model(X)
+            
+        if bound_pred: 
+            pred = torch.sigmoid(pred)
+            
+        return pred
+    
+class NN(nn.Module):
+    def __init__(
+        self, 
+        input_size,
+        hidden_size1,
+        hidden_size2,
+        output_size,
+        dropout=0,
+    ):
+        super(NN, self).__init__()
+        self.layer1 = nn.Linear(input_size, hidden_size1)
+        self.layer2 = nn.Linear(hidden_size1, hidden_size2)
+        self.output = nn.Linear(hidden_size2, output_size)
+        self.relu = nn.ReLU()
+        self.dropout = nn.Dropout(dropout)
+        
+    def forward(self, X):
+        X = self.dropout(self.relu(self.layer1(X)))
+        X = self.dropout(self.relu(self.layer2(X)))
+        return self.output(X)
+    
 # methods needed: fit, model.classes_, predict

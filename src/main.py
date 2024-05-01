@@ -19,7 +19,6 @@ from config import bayesopt_param, model_static_param, model_tuning_param, start
 from util import save_pickle
 from sklearn.preprocessing import StandardScaler
 from split import genDataSplit
-from models import LR, XGB, LGBM
 from train import Trainer
 
 def main( notesPath, embeddingPath, splitConfig, hyperParamEval, modelName, setupStr, modelDir, resultsDir ):
@@ -34,11 +33,11 @@ def main( notesPath, embeddingPath, splitConfig, hyperParamEval, modelName, setu
     # 'LGBM': LGBMClassifier
     # }
 
-    algs = {
-    'LR': LR,
-    'XGB': XGB,
-    'LGBM': LGBM
-    }
+    # algs = {
+    # 'LR': LR,
+    # 'XGB': XGB,
+    # 'LGBM': LGBM
+    # }
 
     # load data frame
     df = pd.read_csv(f'{notesPath}', index_col=0)
@@ -106,12 +105,13 @@ def main( notesPath, embeddingPath, splitConfig, hyperParamEval, modelName, setu
     # model = algs[modelName](**best_params[f'params'], **model_static_param[modelName])
     # model.fit(X_train, Y_train)
 
-    trainer = Trainer(X_train, Y_train, X_valid, Y_valid, 'AUROC', resultsDir, modelName, file_save_str)
-    train_pred, val_pred = trainer.run()
+    trainer = Trainer(X_train, Y_train, X_valid, Y_valid, X_test, 'AUROC', modelDir, modelName, file_save_str)
+    train_pred, val_pred, test_pred = trainer.run()
     # call trainer run here 
 
     print(train_pred.shape)
     print(val_pred.shape)
+    print(test_pred.shape)
 
     # def evaluate(model, X, Y):
     #     # check model.classes_ to confirm prediction of positive label is at index 1

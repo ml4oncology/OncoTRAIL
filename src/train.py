@@ -12,19 +12,26 @@ import pandas as pd
 import torch
 from util import save_pickle
 from config import bayesopt_param, model_static_param, model_tuning_param, algs
+import logging
 torch.manual_seed(0)
 np.random.seed(0)
+
+logger = logging.getLogger(__name__)
 
 ###############################################################################
 # Tune Models
 ###############################################################################
 class Tuner:
-    def __init__(self, X_train, Y_train, X_valid, Y_valid, score_func, output_path, alg):
+    def __init__(self, X_train, Y_train, X_valid, Y_valid, X_test, score_func, output_path, alg):
         
         self.X_train = X_train
         self.Y_train = Y_train
         self.X_valid = X_valid
         self.Y_valid = Y_valid
+        self.X_test = X_test
+
+        self.n_features = X_train.shape[1]
+        self.n_targets = 1
 
         if score_func == 'AUROC':
             self.score_func = roc_auc_score
@@ -35,6 +42,7 @@ class Tuner:
         self.model_static_param = copy.deepcopy(model_static_param)[alg]
         self.model_tuning_param = copy.deepcopy(model_tuning_param)[alg]
         self.bayesopt_param = copy.deepcopy(bayesopt_param)[alg]
+        self.algName = alg
         self.alg = copy.deepcopy(algs)[alg]
     
     def bayesopt(
@@ -83,22 +91,20 @@ class Tuner:
 # Train Models
 ###############################################################################
 class Trainer(Tuner):
-    def __init__(self, X_train, Y_train, X_valid, Y_valid, score_func, output_path, alg, strIdentifier, **kwargs):
+    def __init__(self, X_train, Y_train, X_valid, Y_valid, X_test, score_func, output_path, alg, strIdentifier, **kwargs):
         """
         Args:
             **kwargs (dict): the parameters of MLModels
         """
-        super().__init__(X_train, Y_train, X_valid, Y_valid, score_func, output_path, alg)
+        super().__init__(X_train, Y_train, X_valid, Y_valid, X_test, score_func, output_path, alg)
         self.strIdentifier = strIdentifier
         
     def run(
         self, 
-        bayes_kwargs=None,
-        **kwargs
+        bayes_kwargs=None
     ):
         """
         Args:
-            train_kwargs: keyword arguments fed into Trainer.train_model
             bayes_kwargs: keyword arguments fed into BayesianOptimization
         """
         if bayes_kwargs is None: bayes_kwargs = {}
@@ -122,12 +128,18 @@ class Trainer(Tuner):
         val_pred = self.predict(model, self.X_valid)
 
         # Prediction
+        test_pred = self.predict(model, self.X_test)
         
-        return train_pred, val_pred
+        return train_pred, val_pred, test_pred
             
     def train_model(self, **kwargs):
-            
-        model = self.train_ml_model(**kwargs, **self.model_static_param)
+
+        if self.algName in ['LR', 'XGB', 'LGBM']:    
+            model = self.train_ml_model(**kwargs, **self.model_static_param)
+        elif self.algName in ['MLP']:
+            model = self.train_dl_model(**kwargs, **self.model_static_param)
+        else:
+            raise Exception("Not implemented yet.")
     
         return model
         
@@ -137,6 +149,110 @@ class Trainer(Tuner):
         
         model.fit(self.X_train, self.Y_train)        
         return model
+    
+    def train_dl_model(
+        self, 
+        epochs=200, 
+        batch_size=128, 
+        early_stop_count=10, 
+        early_stop_tol=1e-4,
+        clip_gradients=False,
+        save=False,
+        save_checkpoints=False,
+        **kwargs
+    ):
+        """Train deep learning models"""
+        model = self.alg(self.n_features,self.n_targets,**kwargs)
+
+        train_dataset = self.transform_to_tensor_dataset(self.X_train, self.Y_train)
+        valid_dataset = self.transform_to_tensor_dataset(self.X_valid, self.Y_valid)
+        def collate_fn(batch):
+            feats, targets = zip(*batch)
+            feats, targets = torch.stack(feats), torch.stack(targets)
+            if model.use_gpu: targets = targets.cuda()
+            return feats, targets
+            
+        loader_params = dict(batch_size=batch_size, collate_fn=collate_fn)
+        train_loader = DataLoader(dataset=train_dataset, **loader_params)
+        valid_loader = DataLoader(dataset=valid_dataset, **loader_params)
+        
+        best_val_loss = prev_val_loss = np.inf
+        best_model_weights = None
+        early_stop_counter = 0 
+        perf = {} # performance scores
+        
+        # lr_scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(model.optimizer, T_0=10)
+        for epoch in range(epochs):
+            model.train() # activate dropout
+            train_loss = 0
+            for i, batch in enumerate(train_loader):
+                model.optimizer.zero_grad() # clear gradients
+                feats, targets = batch
+                preds = model.predict(feats, grad=True, bound_pred=False)
+
+                loss = model.criterion(preds.view(-1), targets)
+                loss = loss.mean(dim=0)
+                train_loss += loss
+                
+                preds = torch.sigmoid(preds) # bound the model prediction
+                
+                loss = loss.mean()
+                loss.backward() # back propagation, compute gradients
+                if clip_gradients: model.clip_gradients()
+                model.optimizer.step() # apply gradients
+            # lr_scheduler.step()
+            
+            model.eval() # deactivates dropout
+            valid_loss = self._validate_dl_model(model, valid_loader)
+            if model.use_gpu: train_loss = train_loss.cpu().detach()
+            perf[epoch] = {
+                'Train Loss': train_loss / (i + 1),
+                'Valid Loss': valid_loss
+            }
+            msg = [f'{k}: {v.mean():.4f}' for k, v in perf[epoch].items()]
+            logger.info(f"Epoch {epoch}, {(', ').join(msg)}")
+            
+            # save best model so far
+            cur_val_loss = valid_loss.mean()
+            if cur_val_loss < best_val_loss:
+                best_val_loss = cur_val_loss
+                best_model_weights = model.state_dict()
+                early_stop_counter = 0
+                
+                if save_checkpoints:
+                    save_path = f"{self.output_path}/train_perf/{self.strIdentifier}-checkpoint"
+                    torch.save({
+                        'epoch': epoch,
+                        'model_state_dict': best_model_weights,
+                        'optimizer_state_dict': model.optimizer.state_dict()
+                    }, save_path)
+
+            # early stopping
+            if ((early_stop_counter > early_stop_count) or 
+                (prev_val_loss - cur_val_loss < early_stop_tol)): 
+                break
+            early_stop_counter += 1
+            prev_val_loss = cur_val_loss
+            
+        if save:
+            save_path = f"{self.output_path}/train_perf"
+            save_pickle(perf, save_path, f"{self.strIdentifier}_perf")
+            save_path = f'{self.output_path}/{self.strIdentifier}'
+            torch.save(best_model_weights, save_path)
+
+        model.load_weights(best_model_weights)
+        return model
+    
+    def _validate_dl_model(self, model, loader):
+        total_loss = 0
+        for i, batch in enumerate(loader):
+            feats, targets = batch
+            preds = model.predict(feats, grad=False, bound_pred=False)
+            loss = model.criterion(preds.view(-1), targets)
+            loss = loss.mean(dim=0)
+            total_loss += loss
+        if model.use_gpu: total_loss = total_loss.cpu().detach()
+        return total_loss / (i + 1)
     
     def _eval_func(self, **kwargs):
         """Evaluation function for bayesian optimization
@@ -150,8 +266,19 @@ class Trainer(Tuner):
     
     def predict(self, model, data):
 
-        pred = model.predict(data)
+        if self.algName in ['LR', 'XGB', 'LGBM']:
+            pred = model.predict(data)
+        elif self.algName in ['MLP']:
+            pred = self._nn_predict(model, data)
+        else:
+            raise Exception("Not implemented yet.")
             
+        return pred
+    
+    def _nn_predict(self, model, data):
+        model.eval() # deactivates dropout
+        pred = model.predict(data, grad=False, bound_pred=True)
+        if model.use_gpu: pred = pred.cpu()
         return pred
     
     def convert_hyperparams(self, params):
@@ -175,196 +302,19 @@ class Trainer(Tuner):
                 
         return params
     
-    # def train_dl_model(
-    #     self, 
-    #     alg, 
-    #     epochs=200, 
-    #     batch_size=128, 
-    #     early_stop_count=10, 
-    #     early_stop_tol=1e-4,
-    #     clip_gradients=False,
-    #     save=False,
-    #     save_checkpoints=False,
-    #     **kwargs
-    # ):
-    #     """Train deep learning models"""
-    #     model = self.models.get_model(
-    #         alg, self.n_features, self.n_targets, **kwargs
-    #     )
-        
-    #     X_train, Y_train = self.datasets['Train'], self.labels['Train']
-    #     X_valid, Y_valid = self.datasets['Valid'], self.labels['Valid']
-    #     if alg == 'NN':
-    #         train_dataset = self.transform_to_tensor_dataset(X_train, Y_train)
-    #         valid_dataset = self.transform_to_tensor_dataset(X_valid, Y_valid)
-    #         def collate_fn(batch):
-    #             feats, targets = zip(*batch)
-    #             feats, targets = torch.stack(feats), torch.stack(targets)
-    #             if model.use_gpu: targets = targets.cuda()
-    #             return feats, targets
-            
-    #     loader_params = dict(batch_size=batch_size, collate_fn=collate_fn)
-    #     train_loader = DataLoader(dataset=train_dataset, **loader_params)
-    #     valid_loader = DataLoader(dataset=valid_dataset, **loader_params)
-        
-    #     best_val_loss = prev_val_loss = np.inf
-    #     best_model_weights = None
-    #     early_stop_counter = 0 
-    #     perf = {} # performance scores
-        
-    #     # lr_scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(model.optimizer, T_0=10)
-    #     for epoch in range(epochs):
-    #         model.train() # activate dropout
-    #         train_loss = 0
-    #         for i, batch in enumerate(train_loader):
-    #             model.optimizer.zero_grad() # clear gradients
-    #             if alg in ['RNN', 'TCN']:
-    #                 preds, targets, _ = model.predict(
-    #                     batch, grad=True, bound_pred=False
-    #                 )
-    #             elif alg == 'NN':
-    #                 feats, targets = batch
-    #                 preds = model.predict(feats, grad=True, bound_pred=False)
+    def transform_to_tensor_dataset(self, X, Y):
+        try:
+            X = X.astype(float)
+        except Exception as e:
+            logger.warning(f'Could not convert to float. Please check your input X')
+            return None
+        X = torch.tensor(X, dtype=torch.float32)
+        Y = torch.tensor(Y, dtype=torch.float32)
+        return TensorDataset(X, Y)
+    
 
-    #             loss = model.criterion(preds, targets)
-    #             loss = loss.mean(dim=0)
-    #             train_loss += loss
-                
-    #             if self.task_type == 'C':
-    #                 preds = torch.sigmoid(preds) # bound the model prediction
-                
-    #             loss = loss.mean()
-    #             loss.backward() # back propagation, compute gradients
-    #             if clip_gradients: model.clip_gradients()
-    #             model.optimizer.step() # apply gradients
-    #         # lr_scheduler.step()
-            
-    #         model.eval() # deactivates dropout
-    #         valid_loss = self._validate_dl_model(model, alg, valid_loader)
-    #         if model.use_gpu: train_loss = train_loss.cpu().detach()
-    #         perf[epoch] = {
-    #             'Train Loss': train_loss / (i + 1),
-    #             'Valid Loss': valid_loss
-    #         }
-    #         msg = [f'{k}: {v.mean():.4f}' for k, v in perf[epoch].items()]
-    #         logger.info(f"Epoch {epoch}, {(', ').join(msg)}")
-            
-    #         # save best model so far
-    #         cur_val_loss = valid_loss.mean()
-    #         if cur_val_loss < best_val_loss:
-    #             best_val_loss = cur_val_loss
-    #             best_model_weights = model.state_dict()
-    #             early_stop_counter = 0
-                
-    #             if save_checkpoints:
-    #                 save_path = f"{self.output_path}/train_perf/{alg}-checkpoint"
-    #                 torch.save({
-    #                     'epoch': epoch,
-    #                     'model_state_dict': best_model_weights,
-    #                     'optimizer_state_dict': model.optimizer.state_dict()
-    #                 }, save_path)
+    
+    
+    
 
-    #         # early stopping
-    #         if ((early_stop_counter > early_stop_count) or 
-    #             (prev_val_loss - cur_val_loss < early_stop_tol)): 
-    #             break
-    #         early_stop_counter += 1
-    #         prev_val_loss = cur_val_loss
-            
-    #     if save:
-    #         if self.n_targets == 1: alg += f'_{self.target_events[0]}'
-    #         save_path = f"{self.output_path}/train_perf"
-    #         save_pickle(perf, save_path, f"{alg}_perf")
-    #         save_path = f'{self.output_path}/{alg}'
-    #         torch.save(best_model_weights, save_path)
-
-    #     model.load_weights(best_model_weights)
-    #     return model
-    
-    # def predict(self, model, split, alg, calibrated=True):
-    #     if self.task_type == 'R': calibrated = False
-
-    #     X, Y = self.datasets[split], self.labels[split]
-    #     if alg == 'NN': 
-    #         pred = self._nn_predict(model, X)
-    #     else: 
-    #         pred = model.predict(X)
-            
-    #     # make your life easier by ensuring pred and Y have same data format
-    #     pred = pd.DataFrame(pred, index=Y.index, columns=Y.columns)
-            
-    #     return pred
-    
-    # def _nn_predict(self, model, X):
-    #     model.eval() # deactivates dropout
-    #     pred = model.predict(X, grad=False, bound_pred=True)
-    #     if model.use_gpu: pred = pred.cpu()
-    #     return pred
-    
-    # def _validate_dl_model(self, model, alg, loader):
-    #     total_loss = 0
-    #     for i, batch in enumerate(loader):
-    #         if alg in ['RNN', 'TCN']:
-    #             preds, targets, _ = model.predict(
-    #                 batch, grad=True, bound_pred=False
-    #             )
-    #         elif alg == 'NN':
-    #             feats, targets = batch
-    #             preds = model.predict(feats, grad=True, bound_pred=False)
-    #         loss = model.criterion(preds, targets)
-    #         loss = loss.mean(dim=0)
-    #         total_loss += loss
-    #     if model.use_gpu: total_loss = total_loss.cpu().detach()
-    #     return total_loss / (i + 1)
-    
-    # def _eval_func(self, alg, split='Valid', **kwargs):
-    #     """Evaluation function for bayesian optimization
-        
-    #     Returns:
-    #         Either the mean (macro-mean) of 
-    #             1. auroc scores
-    #             2. root mean squared error
-    #         of all target types
-    #     """
-    #     kwargs = self.convert_hyperparams(kwargs)
-    #     try:
-    #         model = self.train_model(alg, calibrate=False, save=False, **kwargs)
-    #     except Exception as e:
-    #         raise e
-    #         logger.warning(e)
-    #         return -1e9
-    #     pred = self.predict(model, split, alg, calibrated=False)
-    #     if pred.isnull().any().any():
-    #         # TODO: figure out how to prevent this
-    #         logger.warning('Invalid prediction - contains NaNs')
-    #         return -1e9
-    #     return self.score_func(self.labels[split], pred)
-    
-    # def convert_hyperparams(self, params):
-    #     cat_param_choices = np.geomspace(start=16, stop=4096, num=9)
-    #     for param, value in params.items():
-    #         if param == 'max_depth': params[param] = int(value)
-    #         if param == 'n_estimators': params[param] = int(value)
-    #         if param == 'min_child_weight': params[param] = int(value)
-    #         if param == 'hidden_layers': params[param] = int(value)
-    #         if param == 'kernel_size': params[param] = int(value)
-    #         if param == 'model': params[param] = 'LSTM' if value > 0.5 else 'GRU'
-    #         if param == 'optimizer': params[param] = 'adam' if value > 0.5 else 'sgd'
-    #         if (param == 'batch_size' or 
-    #             param.startswith('hidden_size') or 
-    #             params.startswith('num_channel')):
-    #             idx = abs(cat_param_choices - value).argmin()
-    #             params[param] = round(cat_param_choices[idx])
-                
-    #     return params
-    
-    # def transform_to_tensor_dataset(self, X, Y):
-    #     try:
-    #         X = X.astype(float)
-    #     except Exception as e:
-    #         logger.warning(f'Could not convert to float. Please check your input X')
-    #         return None
-    #     X = torch.tensor(X.to_numpy(), dtype=torch.float32)
-    #     Y = torch.tensor(Y.to_numpy(), dtype=torch.float32)
-    #     return TensorDataset(X, Y)
     
