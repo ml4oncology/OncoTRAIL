@@ -70,8 +70,8 @@ model_tuning_param = {
     },
     'MLP': {
         'batch_size': (64, 4096),
-        'hidden_size1': (16, 256),
-        'hidden_size2': (16, 256),
+        'hidden_size1': (16, 1000),
+        'hidden_size2': (16, 1000),
         'dropout': (0, 0.5),
         'optimizer': (0, 1),
         'learning_rate': (0.0001, 0.1),
