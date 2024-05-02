@@ -165,7 +165,7 @@ class Trainer(Tuner):
         early_stop_count=10, 
         early_stop_tol=1e-4,
         clip_gradients=False,
-        save=False,
+        save=True,
         save_checkpoints=False,
         **kwargs
     ):

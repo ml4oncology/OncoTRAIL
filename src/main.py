@@ -45,8 +45,11 @@ def main( notesPath, embeddingPath, splitConfig, hyperParamEval, modelName, setu
     X_test = scaler.transform(X_test)
 
     # call trainer on predictions
-    trainer = Trainer(X_train, Y_train, X_valid, Y_valid, X_test, 'AUROC', modelDir, modelName, file_save_str)
+    trainer = Trainer(X_train, Y_train, X_valid, Y_valid, X_test, hyperParamEval, modelDir, modelName, file_save_str)
     train_pred, val_pred, test_pred = trainer.run()
+
+    # save data
+    np.savez(  f'{resultsDir}/predData_{file_save_str}.npz', train_pred = train_pred, val_pred = val_pred, test_pred = test_pred, Y_train = Y_train, Y_valid = Y_valid, Y_test = Y_test  )
 
     # evaluate errors
      
