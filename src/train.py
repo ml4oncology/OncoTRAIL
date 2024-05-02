@@ -36,7 +36,7 @@ class Tuner:
         if score_func == 'AUROC':
             self.score_func = roc_auc_score
         elif score_func == 'logloss':
-            self.score_func = -1.0*log_loss
+            self.score_func = lambda y_true, y_pred: -1.0*log_loss(y_true, y_pred)
         self.output_path = output_path
         
         self.model_static_param = copy.deepcopy(model_static_param)[alg]
