@@ -33,7 +33,7 @@ def get_quant_config():
     )
     return quant_config
 
-def preprocessing(dataPath, LLMpath, LLMName, saveDir, targetCol):
+def preprocessing(dataPath, LLMpath, LLMName, saveDir):
 
     # extract file name
     file_name = os.path.basename(dataPath)
@@ -41,8 +41,14 @@ def preprocessing(dataPath, LLMpath, LLMName, saveDir, targetCol):
 
     # load the clinical notes file
     clinical_notes = pd.read_csv(f'{dataPath}', index_col=False)
-    clinical_notes[targetCol] = clinical_notes[targetCol].astype(int)
-    target = clinical_notes[targetCol].to_numpy()
+
+    # find the target columns
+    cols = clinical_notes.columns
+    target_cols = cols[cols.str.contains('target')].tolist()
+    clinical_notes[target_cols] = clinical_notes[target_cols].astype(int)
+    embedding_target_dict = {}
+    for elem in target_cols:
+        embedding_target_dict[elem] = clinical_notes[elem].to_numpy()
 
     # convert note data to list
     notesList = clinical_notes['note'].tolist()
@@ -55,7 +61,8 @@ def preprocessing(dataPath, LLMpath, LLMName, saveDir, targetCol):
     model = AutoModelForSequenceClassification.from_pretrained(LLMpath, num_labels=2,\
                                                             quantization_config=get_quant_config(),\
                                                             id2label=id2label, label2id=label2id, device_map='auto')
-    model.config.pad_token_id = model.config.eos_token_id
+    if model.config.pad_token_id is None:
+        model.config.pad_token_id = model.config.eos_token_id
 
     # set up tokenizer
     tokenizer = AutoTokenizer.from_pretrained(LLMpath)
@@ -65,7 +72,7 @@ def preprocessing(dataPath, LLMpath, LLMName, saveDir, targetCol):
 
     embeddings_list = []
 
-    def text_to_embedding(text):
+    def decoder_text_to_embedding(text):
 
         tokenized_texts = tokenizer( text, truncation=True, return_tensors = "pt" )
 
@@ -78,12 +85,30 @@ def preprocessing(dataPath, LLMpath, LLMName, saveDir, targetCol):
         sequence_lengths = torch.eq(input_ids, model.config.pad_token_id).int().argmax(-1) - 1
         sequence_lengths = sequence_lengths % input_ids.shape[-1]
 
-        return hidden_states[:, sequence_lengths].cpu().numpy()
+        return hidden_states[:, sequence_lengths].cpu().numpy()[0]
+
+    def longformer_text_to_embedding(text):
+
+        tokenized_texts = tokenizer( text, truncation=True, return_tensors = "pt" )
+
+        with torch.no_grad():
+            transformer_outputs = model.longformer(**tokenized_texts, output_hidden_states=True)
+
+        hidden_states = transformer_outputs[0]
+
+        return hidden_states[:,0,:].cpu().numpy()[0]
+    
+    if LLMName in ['Mistral', 'BioMistral']:
+        text_to_embedding = decoder_text_to_embedding
+    elif LLMName in ['ClinicalLongformer']:
+        text_to_embedding = longformer_text_to_embedding
+    else:
+        raise Exception("Not implemented yet.")
 
     ctr = 0
     for note in notesList:
 
-        embeddings_list.append( text_to_embedding(note)[0] )
+        embeddings_list.append( text_to_embedding(note) )
         print( ctr )
         ctr = ctr + 1
 
@@ -92,16 +117,16 @@ def preprocessing(dataPath, LLMpath, LLMName, saveDir, targetCol):
 
     embeddings = np.array( embeddings_list )
     embeddings = embeddings.reshape( embeddings.shape[0], -1)
+    embedding_target_dict['embeddings'] = embeddings
 
-    np.savez( f'{saveDir}/embedding_{LLMName}_{file_name}.npz', embeddings = embeddings, target = target )
-    
+    np.savez( f'{saveDir}/embedding_{LLMName}_{file_name}.npz', **embedding_target_dict )
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("dataPath", help = "data file path", type = str) # data file path
     parser.add_argument("LLMpath", help = "path to LLM", type = str) # path to LLM
     parser.add_argument("LLMName", help = "name of LLM", type = str) # name of LLM
     parser.add_argument("saveDir", help = "save directory", type = str) # save directory
-    parser.add_argument("targetCol", help = "name of target column", type = str) # name of target column
     args = parser.parse_args()
 
-    preprocessing( args.dataPath, args.LLMpath, args.LLMName, args.saveDir, args.targetCol )
+    preprocessing( args.dataPath, args.LLMpath, args.LLMName, args.saveDir )

@@ -21,7 +21,7 @@ bayesopt_param = {
     'LR': {'init_points': 10, 'n_iter': 25}, 
     'XGB': {'init_points': 100, 'n_iter': 100},
     'LGBM': {'init_points': 250, 'n_iter': 250},
-    'MLP': {'init_points': 100, 'n_iter': 200}
+    'MLP': {'init_points': 500, 'n_iter': 250}
 }
 
 model_static_param = {
@@ -70,8 +70,8 @@ model_tuning_param = {
     },
     'MLP': {
         'batch_size': (64, 4096),
-        'hidden_size1': (16, 1000),
-        'hidden_size2': (16, 1000),
+        'hidden_size1': (16, 4000),
+        'hidden_size2': (16, 4000),
         'dropout': (0, 0.5),
         'optimizer': (0, 1),
         'learning_rate': (0.0001, 0.1),

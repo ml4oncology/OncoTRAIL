@@ -21,19 +21,28 @@ from sklearn.preprocessing import StandardScaler
 from split import genDataSplit
 from train import Trainer
 
-def main( notesPath, embeddingPath, splitConfig, hyperParamEval, modelName, setupStr, modelDir, resultsDir ):
+def main( notesPath, embeddingPath, splitConfig, hyperParamEval, modelName, setupStr, targetName, modelDir, resultsDir ):
 
     # save string for file
-    file_save_str = f'{modelName}_{setupStr}_{splitConfig}_{hyperParamEval}'
+    file_save_str = f'{modelName}_{setupStr}_{splitConfig}_{hyperParamEval}_{targetName}'
 
     # load data frame
     df = pd.read_csv(f'{notesPath}', index_col=0)
     df.reset_index(drop=True,inplace=True)
 
+    # get indices of target != -1
+    mask = ( df[targetName] != -1 ).to_numpy()
+
     # load embedding
     with np.load(f'{embeddingPath}') as data:
-        embedding = data['embedding']
-        target = data['target']
+        embedding = data['embeddings']
+        target = data[targetName]
+    
+    # only extract embedding and target where index != -1
+    embedding = embedding[mask,:]
+    target = target[mask]
+    df = df.loc[mask, ['mrn', 'treatment_date', 'note', targetName]]
+    df.reset_index(drop=True,inplace=True)
 
     # generate train-validation-test split
     X_train, Y_train, X_valid, Y_valid, X_test, Y_test = genDataSplit( df, startTestDate, splitConfig, embedding, target )
@@ -79,9 +88,10 @@ if __name__ == "__main__":
     parser.add_argument("hyperParamEval", help = "function for hyperparameter evaluation", type = str) # hyperparameter evaluation function
     parser.add_argument("modelName", help = "model name", type = str) # name of machine learning model
     parser.add_argument("setupStr", help = "set up string", type = str) # name of set up string
+    parser.add_argument("targetName", help = "name of target", type = str) # name of target
     parser.add_argument("modelDir", help = "model directory", type = str) # directory to save model
     parser.add_argument("resultsDir", help = "results directory", type = str) # directory to save results
 
     args = parser.parse_args()
 
-    main( args.notesPath, args.embeddingPath, args.splitConfig, args.hyperParamEval, args.modelName, args.setupStr, args.modelDir, args.resultsDir )
+    main( args.notesPath, args.embeddingPath, args.splitConfig, args.hyperParamEval, args.modelName, args.setupStr, args.targetName, args.modelDir, args.resultsDir )

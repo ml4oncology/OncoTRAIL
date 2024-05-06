@@ -11,19 +11,27 @@ import numpy as np
 import pandas as pd
 
 def mergeEmbedding(dataDir, dataFileName, saveDir, numFiles):
-    
-    embedding_list = []
-    target_list = []
+
+    # initialize the dictionary here
+    target_embedding_list = {}
 
     for idx in range(numFiles):
         with np.load(f'{dataDir}/{dataFileName}_part{idx}.npz') as data:
-            embedding_list.append( data['embeddings'] )
-            target_list.append( data['target'] )
-    
-    embedding = np.concatenate( embedding_list )
-    target = np.concatenate( target_list )
 
-    np.savez( f'{saveDir}/{dataFileName}.npz', embedding = embedding, target = target )
+            # initialize all keys in the dictionary
+            dict_keys = list(data.keys())
+            if idx == 0:
+                for elem in dict_keys:
+                    target_embedding_list[elem] = []
+
+            for elem in dict_keys:
+                target_embedding_list[elem].append( data[elem] )
+
+    target_embedding_concat = {}
+    for key in target_embedding_list:
+        target_embedding_concat[key] = np.concatenate( target_embedding_list[key] )
+
+    np.savez( f'{saveDir}/{dataFileName}.npz', **target_embedding_concat )
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
