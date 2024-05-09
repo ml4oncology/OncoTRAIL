@@ -162,7 +162,7 @@ class Trainer(Tuner):
         self, 
         epochs=200, 
         batch_size=128, 
-        early_stop_count=10, 
+        early_stop_count=20, 
         early_stop_tol=1e-4,
         clip_gradients=False,
         save=True,
@@ -236,8 +236,7 @@ class Trainer(Tuner):
                     }, save_path)
 
             # early stopping
-            if ((early_stop_counter > early_stop_count) or 
-                (prev_val_loss - cur_val_loss < early_stop_tol)): 
+            if (early_stop_counter > early_stop_count): #(prev_val_loss - cur_val_loss < early_stop_tol)
                 break
             early_stop_counter += 1
             prev_val_loss = cur_val_loss
@@ -302,6 +301,7 @@ class Trainer(Tuner):
             if param == 'kernel_size': params[param] = int(value)
             if param == 'model': params[param] = 'LSTM' if value > 0.5 else 'GRU'
             if param == 'optimizer': params[param] = 'adam' if value > 0.5 else 'sgd'
+            if param == 'three_layers': params[param] = True if value > 0.5 else False
             if (param == 'batch_size' or 
                 param.startswith('hidden_size') or 
                 param.startswith('num_channel')):

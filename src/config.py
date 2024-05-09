@@ -72,6 +72,8 @@ model_tuning_param = {
         'batch_size': (64, 4096),
         'hidden_size1': (16, 4000),
         'hidden_size2': (16, 4000),
+        'hidden_size3': (16, 4000),
+        'three_layers': (0, 1),
         'dropout': (0, 0.5),
         'optimizer': (0, 1),
         'learning_rate': (0.0001, 0.1),

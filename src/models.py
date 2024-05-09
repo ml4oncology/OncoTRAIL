@@ -147,6 +147,8 @@ class MLP(DLModel):
         n_targets,
         hidden_size1=128,
         hidden_size2=64,
+        hidden_size3=32,
+        three_layers=0,
         dropout=0,
         optimizer='adam',
         learning_rate=1e-2,
@@ -163,6 +165,8 @@ class MLP(DLModel):
             'output_size': n_targets,
             'hidden_size1': hidden_size1,
             'hidden_size2': hidden_size2,
+            'hidden_size3': hidden_size3,
+            'three_layers': three_layers,
             'dropout': dropout,
         }
         self.model = NN(**params)
@@ -206,21 +210,28 @@ class NN(nn.Module):
     def __init__(
         self, 
         input_size,
+        output_size,
         hidden_size1,
         hidden_size2,
-        output_size,
+        hidden_size3,
+        three_layers,
         dropout=0,
     ):
         super(NN, self).__init__()
+        self.three_layers = three_layers
         self.layer1 = nn.Linear(input_size, hidden_size1)
         self.layer2 = nn.Linear(hidden_size1, hidden_size2)
-        self.output = nn.Linear(hidden_size2, output_size)
+        if self.three_layers:
+            self.layer3 = nn.Linear(hidden_size2, hidden_size3)
+            self.output = nn.Linear(hidden_size3, output_size)
+        else:
+            self.output = nn.Linear(hidden_size2, output_size)
         self.relu = nn.ReLU()
         self.dropout = nn.Dropout(dropout)
         
     def forward(self, X):
         X = self.dropout(self.relu(self.layer1(X)))
         X = self.dropout(self.relu(self.layer2(X)))
+        if self.three_layers:
+            X = self.dropout(self.relu(self.layer3(X)))
         return self.output(X)
-    
-# methods needed: fit, model.classes_, predict
