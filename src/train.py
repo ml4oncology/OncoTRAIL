@@ -189,7 +189,8 @@ class Trainer(Tuner):
         early_stop_counter = 0 
         perf = {} # performance scores
         
-        # lr_scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(model.optimizer, T_0=10)
+        lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(model.optimizer, T_0=10)
+        iters = len(train_loader)
         for epoch in range(epochs):
             model.train() # activate dropout
             train_loss = 0
@@ -208,7 +209,7 @@ class Trainer(Tuner):
                 loss.backward() # back propagation, compute gradients
                 if clip_gradients: model.clip_gradients()
                 model.optimizer.step() # apply gradients
-            # lr_scheduler.step()
+                lr_scheduler.step(epoch + i/iters)
             
             model.eval() # deactivates dropout
             valid_loss = self._validate_dl_model(model, valid_loader)
