@@ -10,9 +10,6 @@ logger = logging.getLogger(__name__)
 
 def genDataSplit(df, testStartDate, splitConfig, embedding, target):
     
-    if 'idx' not in df:
-        df['idx'] = df.index
-    
     if splitConfig == 'Temporal':
         train_eval_data, valid_data, test_data = create_train_val_test_splits(df, testStartDate)
         # delete notes in train, validation data split after certain date
@@ -25,10 +22,10 @@ def genDataSplit(df, testStartDate, splitConfig, embedding, target):
 
     train_data, eval_data = create_random_split(train_eval_data, test_size=0.15)
 
-    train_idx = train_data.idx.to_list()
-    eval_idx = eval_data.idx.to_list()
-    valid_idx = valid_data.idx.to_list()
-    test_idx = test_data.idx.to_list()
+    train_idx = train_data.index.to_list()
+    eval_idx = eval_data.index.to_list()
+    valid_idx = valid_data.index.to_list()
+    test_idx = test_data.index.to_list()
 
     X_train = embedding[train_idx,:]
     Y_train = target[train_idx]

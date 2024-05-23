@@ -12,7 +12,7 @@ from .config import startTestDate
 from .split import genDataSplit
 from .train import Trainer
 
-def main( notesPath, embeddingPath, splitConfig, hyperParamEval, modelName, setupStr, targetName, modelDir, resultsDir ):
+def main(notesPath, embeddingPath, splitConfig, hyperParamEval, modelName, setupStr, targetName, modelDir, resultsDir):
 
     # save string for file
     file_save_str = f'{modelName}_{setupStr}_{splitConfig}_{hyperParamEval}_{targetName}'
@@ -58,7 +58,7 @@ def main( notesPath, embeddingPath, splitConfig, hyperParamEval, modelName, setu
     train_pred, val_pred, test_pred = trainer.run()
 
     # save data
-    np.savez(  f'{resultsDir}/predData_{file_save_str}.npz', train_pred = train_pred, val_pred = val_pred, test_pred = test_pred, Y_train = Y_train, Y_valid = Y_valid, Y_test = Y_test  )
+    np.savez(f'{resultsDir}/predData_{file_save_str}.npz', train_pred = train_pred, val_pred = val_pred, test_pred = test_pred, Y_train = Y_train, Y_valid = Y_valid, Y_test = Y_test)
 
     # evaluate errors
     def evaluate(Y, pred, split):
@@ -90,4 +90,4 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    main( args.notesPath, args.embeddingPath, args.splitConfig, args.hyperParamEval, args.modelName, args.setupStr, args.targetName, args.modelDir, args.resultsDir )
+    main(args.notesPath, args.embeddingPath, args.splitConfig, args.hyperParamEval, args.modelName, args.setupStr, args.targetName, args.modelDir, args.resultsDir)
