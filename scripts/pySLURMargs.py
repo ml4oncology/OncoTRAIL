@@ -69,7 +69,5 @@ print('--- BEGIN SLURM ---')
 for l in fp:
     print(l),
 print('--- END SLURM ---')
-x = 'y'
 time.sleep(3)
-if(x == 'y'):
-    os.system('/usr/local/slurm/bin/sbatch ' + fname)
+os.system('/usr/local/slurm/bin/sbatch ' + fname)
