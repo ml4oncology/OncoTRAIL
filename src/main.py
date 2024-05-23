@@ -1,18 +1,10 @@
 import numpy as np
 import pandas as pd
-import os
 import argparse
-from pathlib import Path
-import json
-import math
-import re
-import sys
 import numpy as np
 import pandas as pd
 from sklearn.metrics import average_precision_score, roc_auc_score, log_loss
-from functools import partial
-from config import bayesopt_param, model_static_param, model_tuning_param, startTestDate
-from util import save_pickle
+from config import startTestDate
 from sklearn.preprocessing import StandardScaler
 from split import genDataSplit
 from train import Trainer

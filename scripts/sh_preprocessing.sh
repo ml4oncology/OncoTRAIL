@@ -14,7 +14,6 @@ LLMpath='/cluster/projects/gliugroup/2BLAST/HuggingFace_LLMs/Mistral-7B-v0.1'
 LLMName='Mistral'
 
 saveDir='/cluster/home/t127556uhn/gitrepo/2024/LLM-notes-classification/data/interim'
-targetCol='target_ED_visit'
 
 # upper_limit=15
 # dataType='train'
@@ -34,23 +33,44 @@ targetCol='target_ED_visit'
 # done
 
 upper_limit=30
+note_config=mostRecentVisit-medOnc-ConsultLetterClinic
 
-LLMpath='/cluster/projects/gliugroup/2BLAST/HuggingFace_LLMs/Mistral-7B-v0.1'
-LLMName='Mistral'
-for (( i = 0; i <= upper_limit; i++ )); do
-    
-    dataPath="${dataDir}/noteAnchored_ED_visit_mostRecentVisit_medOnc_ConsultLetterClinic_part${i}.csv"
+for note_config in "mostRecentVisit-appendFirst-medOnc-ConsultLetterClinic" "firstVisitOnly-medOnc-ConsultLetterClinic" ; do
 
-    pySLURMargs.py $userName $memory $condaEnv $nGPU "../src/preprocessing.py $dataPath $LLMpath $LLMName $saveDir $targetCol" 
+    if [[ $note_config == "mostRecentVisit-appendFirst-medOnc-ConsultLetterClinic" ]]; then
+        upper_limit=30
+    elif [[ $note_config == "firstVisitOnly-medOnc-ConsultLetterClinic" ]]; then
+        upper_limit=5
+    fi
 
-done
+    LLMpath='/cluster/projects/gliugroup/2BLAST/HuggingFace_LLMs/Clinical-Longformer'
+    LLMName='ClinicalLongformer'
+    for (( i = 0; i <= upper_limit; i++ )); do
+        
+        dataPath="${dataDir}/noteAnchored_${note_config}_part${i}.csv"
 
-LLMpath='/cluster/projects/gliugroup/2BLAST/HuggingFace_LLMs/BioMistral-7B'
-LLMName='BioMistral'
-for (( i = 0; i <= upper_limit; i++ )); do
-    
-    dataPath="${dataDir}/noteAnchored_ED_visit_mostRecentVisit_medOnc_ConsultLetterClinic_part${i}.csv"
+        pySLURMargs.py $userName $memory $condaEnv $nGPU "../src/preprocessing.py $dataPath $LLMpath $LLMName $saveDir" 
 
-    pySLURMargs.py $userName $memory $condaEnv $nGPU "../src/preprocessing.py $dataPath $LLMpath $LLMName $saveDir $targetCol" 
+    done
+
+    LLMpath='/cluster/projects/gliugroup/2BLAST/HuggingFace_LLMs/Mistral-7B-v0.1'
+    LLMName='Mistral'
+    for (( i = 0; i <= upper_limit; i++ )); do
+        
+        dataPath="${dataDir}/noteAnchored_${note_config}_part${i}.csv"
+
+        pySLURMargs.py $userName $memory $condaEnv $nGPU "../src/preprocessing.py $dataPath $LLMpath $LLMName $saveDir" 
+
+    done
+
+    LLMpath='/cluster/projects/gliugroup/2BLAST/HuggingFace_LLMs/BioMistral-7B'
+    LLMName='BioMistral'
+    for (( i = 0; i <= upper_limit; i++ )); do
+        
+        dataPath="${dataDir}/noteAnchored_${note_config}_part${i}.csv"
+
+        pySLURMargs.py $userName $memory $condaEnv $nGPU "../src/preprocessing.py $dataPath $LLMpath $LLMName $saveDir" 
+
+    done
 
 done

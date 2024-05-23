@@ -9,7 +9,7 @@ nGPU=0
 modelDir='/cluster/home/t127556uhn/gitrepo/2024/LLM-notes-classification/models'
 resultsDir='/cluster/home/t127556uhn/gitrepo/2024/LLM-notes-classification/results'
 
-for anchorType in "mostRecentVisit-appendFirst-medOnc-ConsultLetterClinic" "firstVisitOnly-medOnc-ConsultLetterClinic" "mostRecentVisit-medOnc-ConsultLetterClinic"  
+for anchorType in "firstVisitOnly-medOnc-ConsultLetterClinic" "mostRecentVisit-medOnc-ConsultLetterClinic" "mostRecentVisit-appendFirst-medOnc-ConsultLetterClinic" 
 do
 
     notesPath=/cluster/home/t127556uhn/gitrepo/2024/LLM-notes-classification/data/notes/noteAnchored_${anchorType}.csv
@@ -29,7 +29,7 @@ do
     embeddingPath=/cluster/home/t127556uhn/gitrepo/2024/LLM-notes-classification/data/embedding/embedding_${LLMName}_noteAnchored_${anchorType}.npz
     setupStr=${LLMName}_${anchorType}
 
-    for modelName in 'MLP' # 'LGBM' 'XGB' 'LR'
+    for modelName in 'LR' 'LGBM' 'XGB' 'MLP' # 
     do
 
     if [[ $modelName == "MLP" ]]; then

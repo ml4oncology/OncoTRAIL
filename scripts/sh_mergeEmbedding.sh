@@ -10,7 +10,7 @@ dataDir='/cluster/home/t127556uhn/gitrepo/2024/LLM-notes-classification/data/int
 saveDir='/cluster/home/t127556uhn/gitrepo/2024/LLM-notes-classification/data/embedding'
 
 #LLMName='BioMistral'
-LLMName='Mistral'
+#LLMName='Mistral'
 
 # dataFileName=embedding_${LLMName}_train_noteAnchored_ED_visit_mostRecentVisit_medOnc_ConsultLetterClinic
 # numFiles=16
@@ -21,12 +21,35 @@ LLMName='Mistral'
 # dataFileName=embedding_${LLMName}_test_noteAnchored_ED_visit_mostRecentVisit_medOnc_ConsultLetterClinic
 # numFiles=11
 
-numFiles=31
+# numFiles=31
+# note_config=mostRecentVisit-medOnc-ConsultLetterClinic
 
-for LLMName in 'Mistral' 'BioMistral'
+# for LLMName in 'ClinicalLongformer' 'Mistral' 'BioMistral'
+# do
+
+# dataFileName=embedding_${LLMName}_noteAnchored_${note_config}
+# pySLURMargs.py $userName $memory $condaEnv $nGPU "../src/mergeEmbedding.py $dataDir $dataFileName $saveDir $numFiles"
+
+# done
+
+numFiles=31
+note_config=mostRecentVisit-appendFirst-medOnc-ConsultLetterClinic
+
+for LLMName in 'ClinicalLongformer' 'Mistral' 'BioMistral'
 do
 
-dataFileName=embedding_${LLMName}_noteAnchored_ED_visit_mostRecentVisit_medOnc_ConsultLetterClinic
+dataFileName=embedding_${LLMName}_noteAnchored_${note_config}
+pySLURMargs.py $userName $memory $condaEnv $nGPU "../src/mergeEmbedding.py $dataDir $dataFileName $saveDir $numFiles"
+
+done
+
+numFiles=6
+note_config=firstVisitOnly-medOnc-ConsultLetterClinic
+
+for LLMName in 'ClinicalLongformer' 'Mistral' 'BioMistral'
+do
+
+dataFileName=embedding_${LLMName}_noteAnchored_${note_config}
 pySLURMargs.py $userName $memory $condaEnv $nGPU "../src/mergeEmbedding.py $dataDir $dataFileName $saveDir $numFiles"
 
 done

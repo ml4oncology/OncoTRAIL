@@ -1,10 +1,5 @@
-from functools import partial
 import copy
-
 from bayes_opt import BayesianOptimization
-from bayes_opt.logger import JSONLogger, ScreenLogger
-from bayes_opt.event import Events
-from sklearn.calibration import CalibratedClassifierCV
 from sklearn.metrics import roc_auc_score, log_loss
 from torch.utils.data import DataLoader, TensorDataset
 import numpy as np
