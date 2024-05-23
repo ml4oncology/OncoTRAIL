@@ -9,11 +9,7 @@ import re
 import sys
 import numpy as np
 import pandas as pd
-from bayes_opt import BayesianOptimization
-from lightgbm import LGBMClassifier
-from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import average_precision_score, roc_auc_score, log_loss
-from xgboost import XGBClassifier
 from functools import partial
 from config import bayesopt_param, model_static_param, model_tuning_param, startTestDate
 from util import save_pickle
@@ -25,13 +21,14 @@ def main( notesPath, embeddingPath, splitConfig, hyperParamEval, modelName, setu
 
     # save string for file
     file_save_str = f'{modelName}_{setupStr}_{splitConfig}_{hyperParamEval}_{targetName}'
+    print(file_save_str)
 
     # load data frame
     df = pd.read_csv(f'{notesPath}', index_col=0)
     df.reset_index(drop=True,inplace=True)
 
     # get indices of target != -1
-    mask = ( df[targetName] != -1 ).to_numpy()
+    mask = (df[targetName] != -1).to_numpy()
 
     # load embedding
     with np.load(f'{embeddingPath}') as data:
@@ -45,16 +42,24 @@ def main( notesPath, embeddingPath, splitConfig, hyperParamEval, modelName, setu
     df.reset_index(drop=True,inplace=True)
 
     # generate train-validation-test split
-    X_train, Y_train, X_valid, Y_valid, X_test, Y_test = genDataSplit( df, startTestDate, splitConfig, embedding, target )
+    X_train, Y_train, X_eval, Y_eval, X_valid, Y_valid, X_test, Y_test = genDataSplit(df, startTestDate, splitConfig, embedding, target)
 
     # preprocess the data by scaling and centering
     scaler = StandardScaler()
     X_train = scaler.fit_transform(X_train)
+    X_eval = scaler.transform(X_eval)
     X_valid = scaler.transform(X_valid)
     X_test = scaler.transform(X_test)
 
+    # if Logistic Regression, merge train and evaluation data sets
+    if modelName == 'LR':
+        X_train = np.concatenate([X_train, X_eval])
+        Y_train = np.concatenate([Y_train, Y_eval])
+        X_eval = None
+        Y_eval = None
+
     # call trainer on predictions
-    trainer = Trainer(X_train, Y_train, X_valid, Y_valid, X_test, hyperParamEval, modelDir, modelName, file_save_str)
+    trainer = Trainer(X_train, Y_train, X_eval, Y_eval, X_valid, Y_valid, X_test, hyperParamEval, modelDir, modelName, file_save_str)
     train_pred, val_pred, test_pred = trainer.run()
 
     # save data

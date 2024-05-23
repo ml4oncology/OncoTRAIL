@@ -22,10 +22,12 @@ logger = logging.getLogger(__name__)
 # Tune Models
 ###############################################################################
 class Tuner:
-    def __init__(self, X_train, Y_train, X_valid, Y_valid, X_test, score_func, output_path, alg):
+    def __init__(self, X_train, Y_train, X_eval, Y_eval, X_valid, Y_valid, X_test, score_func, output_path, alg):
         
         self.X_train = X_train
         self.Y_train = Y_train
+        self.X_eval = X_eval
+        self.Y_eval = Y_eval
         self.X_valid = X_valid
         self.Y_valid = Y_valid
         self.X_test = X_test
@@ -65,6 +67,7 @@ class Tuner:
             pbounds=hyperparam_config, 
             verbose=2,
             random_state=random_state, 
+            allow_duplicate_points=True,
             **bopt_kwargs
         )
         
@@ -99,12 +102,12 @@ class Tuner:
 # Train Models
 ###############################################################################
 class Trainer(Tuner):
-    def __init__(self, X_train, Y_train, X_valid, Y_valid, X_test, score_func, output_path, alg, strIdentifier, **kwargs):
+    def __init__(self, X_train, Y_train, X_eval, Y_eval, X_valid, Y_valid, X_test, score_func, output_path, alg, strIdentifier, **kwargs):
         """
         Args:
             **kwargs (dict): the parameters of MLModels
         """
-        super().__init__(X_train, Y_train, X_valid, Y_valid, X_test, score_func, output_path, alg)
+        super().__init__(X_train, Y_train, X_eval, Y_eval, X_valid, Y_valid, X_test, score_func, output_path, alg)
         self.strIdentifier = strIdentifier
         
     def run(
@@ -155,7 +158,10 @@ class Trainer(Tuner):
         """Train machine learning models"""
         model = self.alg(**kwargs)
         
-        model.fit(self.X_train, self.Y_train)        
+        if self.algName in ['XGB', 'LGBM']:
+            model.fit(self.X_train, self.Y_train, eval_set = [(self.X_eval,self.Y_eval)])
+        else:
+            model.fit(self.X_train, self.Y_train)        
         return model
     
     def train_dl_model(
@@ -173,7 +179,7 @@ class Trainer(Tuner):
         model = self.alg(self.n_features,self.n_targets,**kwargs)
 
         train_dataset = self.transform_to_tensor_dataset(self.X_train, self.Y_train)
-        valid_dataset = self.transform_to_tensor_dataset(self.X_valid, self.Y_valid)
+        valid_dataset = self.transform_to_tensor_dataset(self.X_eval, self.Y_eval)
         def collate_fn(batch):
             feats, targets = zip(*batch)
             feats, targets = torch.stack(feats), torch.stack(targets)

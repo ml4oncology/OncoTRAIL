@@ -18,8 +18,11 @@ class MLModel:
     def predict(self, X):
         return self.model.predict_proba(X)[:,1]
     
-    def fit(self, X, Y):
-        self.model.fit(X, Y)
+    def fit(self, X, Y, eval_set=[(None,None)]):
+        if eval_set == [(None,None)]:
+            self.model.fit(X,Y)
+        else:
+            self.model.fit(X, Y, eval_set = eval_set)
     
 class LR(MLModel):
     def __init__(self, 
@@ -52,6 +55,8 @@ class XGB(MLModel):
         reg_lambda=1,
         reg_alpha=0,
         verbosity=0,
+        early_stopping_rounds=25,
+        eval_set=[(None,None)],
         **kwargs):
         super().__init__(**kwargs)
         params = {
@@ -63,6 +68,8 @@ class XGB(MLModel):
             'reg_lambda': reg_lambda,
             'reg_alpha': reg_alpha,
             'verbosity': verbosity,
+            'early_stopping_rounds': early_stopping_rounds,
+            'eval_set': eval_set,
             'random_state': self.random_state
         }
         model = XGBClassifier(**params)
@@ -84,6 +91,8 @@ class LGBM(MLModel):
         verbosity=-1,
         deterministic=True,
         force_col_wise=True,
+        early_stopping_rounds=25,
+        eval_set=[(None,None)],
         **kwargs):
         super().__init__(**kwargs)
         params = {
@@ -100,6 +109,8 @@ class LGBM(MLModel):
             'verbosity': verbosity,
             'deterministic': deterministic,
             'force_col_wise': force_col_wise,
+            'early_stopping_rounds': early_stopping_rounds,
+            'eval_set': eval_set,
             'random_state': self.random_state
         }
         model = LGBMClassifier(**params)

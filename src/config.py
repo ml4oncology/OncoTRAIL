@@ -33,13 +33,15 @@ model_static_param = {
         'solver': 'liblinear'
     },
     'XGB': {
-        'random_state': 42
+        'random_state': 42,
+        'early_stopping_rounds': 25
     },
     'LGBM': {
         'random_state': 42,
         'verbosity': -1,
         'deterministic': True,
-        'force_col_wise': True
+        'force_col_wise': True,
+        'early_stopping_rounds': 25
     },
     'MLP': {}
 }
