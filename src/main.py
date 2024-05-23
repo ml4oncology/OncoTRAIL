@@ -61,21 +61,17 @@ def main( notesPath, embeddingPath, splitConfig, hyperParamEval, modelName, setu
     np.savez(  f'{resultsDir}/predData_{file_save_str}.npz', train_pred = train_pred, val_pred = val_pred, test_pred = test_pred, Y_train = Y_train, Y_valid = Y_valid, Y_test = Y_test  )
 
     # evaluate errors
-     
-    def evaluate(Y, pred):
+    def evaluate(Y, pred, split):
         auprc = average_precision_score(Y, pred)
         auroc = roc_auc_score(Y, pred)
         LogLoss = log_loss(Y, pred)
         result = {'AUPRC': auprc, 'AUROC': auroc, 'LogLoss': LogLoss}
 
-        return pd.DataFrame(result, index = [0])
+        return pd.DataFrame(result, index = [split])
 
-    train_results = evaluate(Y_train, train_pred)
-    train_results.rename(index={0:'train'},inplace=True)
-    valid_results = evaluate(Y_valid, val_pred)
-    valid_results.rename(index={0:'valid'},inplace=True)
-    test_results = evaluate(Y_test, test_pred)
-    test_results.rename(index={0:'test'},inplace=True)
+    train_results = evaluate(Y_train, train_pred, split='train')
+    valid_results = evaluate(Y_valid, val_pred, split='valid')
+    test_results = evaluate(Y_test, test_pred, split='test')
 
     results = pd.concat([train_results, valid_results, test_results])
     results.to_csv(f'{resultsDir}/{file_save_str}.csv')

@@ -1,7 +1,6 @@
 from sklearn.linear_model import LogisticRegression
-from xgboost import XGBClassifier, XGBRegressor
+from xgboost import XGBClassifier
 from lightgbm import LGBMClassifier
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim

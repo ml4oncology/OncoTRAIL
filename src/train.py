@@ -13,12 +13,18 @@ from .util import save_pickle
 from .config import (
     bayesopt_param, 
     model_static_param, 
-    model_tuning_param, 
-    algs)
+    model_tuning_param)
+from .models import LR, XGB, LGBM, MLP
 torch.manual_seed(0)
 np.random.seed(0)
 
 logger = logging.getLogger(__name__)
+algs = {
+    'LR': LR,
+    'XGB': XGB,
+    'LGBM': LGBM,
+    'MLP': MLP
+    }
 
 ###############################################################################
 # Tune Models

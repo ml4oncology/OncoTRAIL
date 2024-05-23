@@ -1,15 +1,7 @@
-from models import LR, XGB, LGBM, MLP
+
 # hyperparameter tuning
 
 startTestDate = '2015-01-01'
-
-algs = {
-    'LR': LR,
-    'XGB': XGB,
-    'LGBM': LGBM,
-    'MLP': MLP
-    }
-
 # bayesopt_param = {
 #     'LR': {'init_points': 2, 'n_iter': 5}, 
 #     'XGB': {'init_points': 2, 'n_iter': 5},
