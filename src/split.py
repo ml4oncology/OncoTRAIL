@@ -3,7 +3,6 @@ Module to split the data
 Kevin He
 """
 import logging
-
 from sklearn.model_selection import GroupShuffleSplit
 import pandas as pd
 

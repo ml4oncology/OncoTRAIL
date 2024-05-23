@@ -3,11 +3,14 @@ import pandas as pd
 import argparse
 import numpy as np
 import pandas as pd
-from sklearn.metrics import average_precision_score, roc_auc_score, log_loss
-from config import startTestDate
+from sklearn.metrics import (
+    average_precision_score, 
+    roc_auc_score, 
+    log_loss)
 from sklearn.preprocessing import StandardScaler
-from split import genDataSplit
-from train import Trainer
+from .config import startTestDate
+from .split import genDataSplit
+from .train import Trainer
 
 def main( notesPath, embeddingPath, splitConfig, hyperParamEval, modelName, setupStr, targetName, modelDir, resultsDir ):
 
