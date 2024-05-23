@@ -3,41 +3,52 @@ import pandas as pd
 import argparse
 import numpy as np
 import pandas as pd
-from sklearn.metrics import (
-    average_precision_score, 
-    roc_auc_score, 
-    log_loss)
+from sklearn.metrics import average_precision_score, roc_auc_score, log_loss
 from sklearn.preprocessing import StandardScaler
-from .config import startTestDate
-from .split import genDataSplit
+from .config import start_test_date
+from .split import gen_data_split
 from .train import Trainer
 
-def main(notesPath, embeddingPath, splitConfig, hyperParamEval, modelName, setupStr, targetName, modelDir, resultsDir):
 
+def main(
+    notes_path,
+    embedding_path,
+    split_config,
+    hyperparam_eval,
+    model_name,
+    setup_str,
+    target_name,
+    model_dir,
+    results_dir,
+):
     # save string for file
-    file_save_str = f'{modelName}_{setupStr}_{splitConfig}_{hyperParamEval}_{targetName}'
+    file_save_str = (
+        f"{model_name}_{setup_str}_{split_config}_{hyperparam_eval}_{target_name}"
+    )
     print(file_save_str)
 
     # load data frame
-    df = pd.read_csv(f'{notesPath}', index_col=0)
-    df.reset_index(drop=True,inplace=True)
+    df = pd.read_csv(f"{notes_path}", index_col=0)
+    df.reset_index(drop=True, inplace=True)
 
     # get indices of target != -1
-    mask = (df[targetName] != -1).to_numpy()
+    mask = (df[target_name] != -1).to_numpy()
 
     # load embedding
-    with np.load(f'{embeddingPath}') as data:
-        embedding = data['embeddings']
-        target = data[targetName]
-    
+    with np.load(f"{embedding_path}") as data:
+        embedding = data["embeddings"]
+        target = data[target_name]
+
     # only extract embedding and target where index != -1
-    embedding = embedding[mask,:]
+    embedding = embedding[mask, :]
     target = target[mask]
-    df = df.loc[mask, ['mrn', 'treatment_date', 'note', targetName]]
-    df.reset_index(drop=True,inplace=True)
+    df = df.loc[mask, ["mrn", "treatment_date", "note", target_name]]
+    df.reset_index(drop=True, inplace=True)
 
     # generate train-validation-test split
-    X_train, Y_train, X_eval, Y_eval, X_valid, Y_valid, X_test, Y_test = genDataSplit(df, startTestDate, splitConfig, embedding, target)
+    X_train, Y_train, X_eval, Y_eval, X_valid, Y_valid, X_test, Y_test = gen_data_split(
+        df, start_test_date, split_config, embedding, target
+    )
 
     # preprocess the data by scaling and centering
     scaler = StandardScaler()
@@ -47,47 +58,92 @@ def main(notesPath, embeddingPath, splitConfig, hyperParamEval, modelName, setup
     X_test = scaler.transform(X_test)
 
     # if Logistic Regression, merge train and evaluation data sets
-    if modelName == 'LR':
+    if model_name == "LR":
         X_train = np.concatenate([X_train, X_eval])
         Y_train = np.concatenate([Y_train, Y_eval])
         X_eval = None
         Y_eval = None
 
     # call trainer on predictions
-    trainer = Trainer(X_train, Y_train, X_eval, Y_eval, X_valid, Y_valid, X_test, hyperParamEval, modelDir, modelName, file_save_str)
+    trainer = Trainer(
+        X_train,
+        Y_train,
+        X_eval,
+        Y_eval,
+        X_valid,
+        Y_valid,
+        X_test,
+        hyperparam_eval,
+        model_dir,
+        model_name,
+        file_save_str,
+    )
     train_pred, val_pred, test_pred = trainer.run()
 
     # save data
-    np.savez(f'{resultsDir}/predData_{file_save_str}.npz', train_pred = train_pred, val_pred = val_pred, test_pred = test_pred, Y_train = Y_train, Y_valid = Y_valid, Y_test = Y_test)
+    np.savez(
+        f"{results_dir}/predData_{file_save_str}.npz",
+        train_pred=train_pred,
+        val_pred=val_pred,
+        test_pred=test_pred,
+        Y_train=Y_train,
+        Y_valid=Y_valid,
+        Y_test=Y_test,
+    )
 
     # evaluate errors
     def evaluate(Y, pred, split):
         auprc = average_precision_score(Y, pred)
         auroc = roc_auc_score(Y, pred)
-        LogLoss = log_loss(Y, pred)
-        result = {'AUPRC': auprc, 'AUROC': auroc, 'LogLoss': LogLoss}
+        log_loss_value = log_loss(Y, pred)
+        result = {"AUPRC": auprc, "AUROC": auroc, "log_loss_value": log_loss_value}
 
-        return pd.DataFrame(result, index = [split])
+        return pd.DataFrame(result, index=[split])
 
-    train_results = evaluate(Y_train, train_pred, split='train')
-    valid_results = evaluate(Y_valid, val_pred, split='valid')
-    test_results = evaluate(Y_test, test_pred, split='test')
+    train_results = evaluate(Y_train, train_pred, split="train")
+    valid_results = evaluate(Y_valid, val_pred, split="valid")
+    test_results = evaluate(Y_test, test_pred, split="test")
 
     results = pd.concat([train_results, valid_results, test_results])
-    results.to_csv(f'{resultsDir}/{file_save_str}.csv')
+    results.to_csv(f"{results_dir}/{file_save_str}.csv")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("notesPath", help = "path of notes", type = str ) # path of notes
-    parser.add_argument("embeddingPath", help = "path of embedding", type = str) # path of embedding
-    parser.add_argument("splitConfig", help = "configuration of train-valid-test split", type = str) # configuration of train-valid-test split
-    parser.add_argument("hyperParamEval", help = "function for hyperparameter evaluation", type = str) # hyperparameter evaluation function
-    parser.add_argument("modelName", help = "model name", type = str) # name of machine learning model
-    parser.add_argument("setupStr", help = "set up string", type = str) # name of set up string
-    parser.add_argument("targetName", help = "name of target", type = str) # name of target
-    parser.add_argument("modelDir", help = "model directory", type = str) # directory to save model
-    parser.add_argument("resultsDir", help = "results directory", type = str) # directory to save results
+    parser.add_argument("notes_path", help="path of notes", type=str)  # path of notes
+    parser.add_argument(
+        "embedding_path", help="path of embedding", type=str
+    )  # path of embedding
+    parser.add_argument(
+        "split_config", help="configuration of train-valid-test split", type=str
+    )  # configuration of train-valid-test split
+    parser.add_argument(
+        "hyperparam_eval", help="function for hyperparameter evaluation", type=str
+    )  # hyperparameter evaluation function
+    parser.add_argument(
+        "model_name", help="model name", type=str
+    )  # name of machine learning model
+    parser.add_argument(
+        "setup_str", help="set up string", type=str
+    )  # name of set up string
+    parser.add_argument("target_name", help="name of target", type=str)  # name of target
+    parser.add_argument(
+        "model_dir", help="model directory", type=str
+    )  # directory to save model
+    parser.add_argument(
+        "results_dir", help="results directory", type=str
+    )  # directory to save results
 
     args = parser.parse_args()
 
-    main(args.notesPath, args.embeddingPath, args.splitConfig, args.hyperParamEval, args.modelName, args.setupStr, args.targetName, args.modelDir, args.resultsDir)
+    main(
+        args.notes_path,
+        args.embedding_path,
+        args.split_config,
+        args.hyperparam_eval,
+        args.model_name,
+        args.setup_str,
+        args.target_name,
+        args.model_dir,
+        args.results_dir,
+    )
