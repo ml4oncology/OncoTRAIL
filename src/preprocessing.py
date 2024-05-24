@@ -8,6 +8,7 @@ from transformers import (
     BitsAndBytesConfig,
 )
 import torch
+from pathlib import Path
 
 # Empty cuda cache
 torch.cuda.empty_cache()
@@ -30,7 +31,7 @@ def get_quant_config():
 def preprocessing(data_path, LLM_path, LLM_name, save_dir):
     # extract file name
     file_name = os.path.basename(data_path)
-    file_name = file_name[:-4]
+    file_name = Path(file_name).stem
 
     # load the clinical notes file
     clinical_notes = pd.read_csv(f"{data_path}", index_col=False)
