@@ -19,8 +19,8 @@ class MLModel:
     def predict(self, X):
         return self.model.predict_proba(X)[:, 1]
 
-    def fit(self, X, Y, eval_set=[(None, None)]):
-        if eval_set == [(None, None)]:
+    def fit(self, X, Y, eval_set=None):
+        if eval_set is None:
             self.model.fit(X, Y)
         else:
             self.model.fit(X, Y, eval_set=eval_set)

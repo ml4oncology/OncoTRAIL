@@ -1,17 +1,19 @@
 import copy
+import sys
 from bayes_opt import BayesianOptimization
 from sklearn.metrics import roc_auc_score, log_loss
 from torch.utils.data import DataLoader, TensorDataset
 import numpy as np
 import torch
 import logging
-from .util import save_pickle
-from .config import bayesopt_param, model_static_param, model_tuning_param
-from .models import LR, XGB, LGBM, MLP
+from util import save_pickle
+from config import bayesopt_param, model_static_param, model_tuning_param
+from models import LR, XGB, LGBM, MLP
 
 torch.manual_seed(0)
 np.random.seed(0)
 
+logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 algs = {"LR": LR, "XGB": XGB, "LGBM": LGBM, "MLP": MLP}
 

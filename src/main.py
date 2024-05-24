@@ -5,9 +5,16 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import average_precision_score, roc_auc_score, log_loss
 from sklearn.preprocessing import StandardScaler
-from .config import start_test_date
-from .split import gen_data_split
-from .train import Trainer
+from pathlib import Path
+import sys
+ROOT_DIR = Path(__file__).parent.parent.as_posix()
+sys.path.append(ROOT_DIR)
+from src.config import start_test_date
+from src.split import gen_data_split
+from src.train import Trainer
+import logging
+logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 
 def main(
@@ -25,7 +32,7 @@ def main(
     file_save_str = (
         f"{model_name}_{setup_str}_{split_config}_{hyperparam_eval}_{target_name}"
     )
-    print(file_save_str)
+    logger.info(file_save_str)
 
     # load data frame
     df = pd.read_csv(f"{notes_path}", index_col=0)
