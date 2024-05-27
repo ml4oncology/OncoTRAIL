@@ -9,6 +9,7 @@ nGPU=0
 rootDir=/cluster/home/t127556uhn/gitrepo/2024/LLM-notes-classification
 modelDir=${rootDir}/models
 resultsDir=${rootDir}/results
+tabular=1
 
 for anchorType in "firstVisitOnly-medOnc-ConsultLetterClinic" "mostRecentVisit-medOnc-ConsultLetterClinic" "mostRecentVisit-appendFirst-medOnc-ConsultLetterClinic" 
 do
@@ -30,7 +31,7 @@ do
     embeddingPath=${rootDir}/data/embedding/embedding_${LLMName}_noteAnchored_${anchorType}.npz
     setupStr=${LLMName}_${anchorType}
 
-    for modelName in 'LGBM' 'XGB' 'MLP' 'LR'
+    for modelName in 'LR' 'LGBM' 'XGB' 'MLP' 
     do
 
     if [[ $modelName == "MLP" ]]; then
@@ -39,7 +40,7 @@ do
         nGPU=0
     fi
 
-    pySLURMargs.py $userName $memory $condaEnv $nGPU "../src/main.py $notesPath $embeddingPath $splitConfig $hyperParamEval $modelName $setupStr $targetName $modelDir $resultsDir"
+    pySLURMargs.py $userName $memory $condaEnv $nGPU "../src/main.py $notesPath $embeddingPath $splitConfig $hyperParamEval $modelName $setupStr $tabular $targetName $modelDir $resultsDir"
 
     done
 

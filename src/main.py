@@ -24,13 +24,14 @@ def main(
     hyperparam_eval,
     model_name,
     setup_str,
+    tabular,
     target_name,
     model_dir,
     results_dir,
 ):
     # save string for file
     file_save_str = (
-        f"{model_name}_{setup_str}_{split_config}_{hyperparam_eval}_{target_name}"
+        f"{model_name}_{setup_str}_{split_config}_{hyperparam_eval}_tabular{int(tabular)}_{target_name}"
     )
     logger.info(file_save_str)
 
@@ -49,27 +50,24 @@ def main(
     # only extract embedding and target where index != -1
     embedding = embedding[mask, :]
     target = target[mask]
-    df = df.loc[mask, ["mrn", "treatment_date", "note", target_name]]
+    if tabular == 1:
+        df = df.loc[mask, ["mrn", "treatment_date", "note", "stats_physician", target_name]]
+    else:
+        df = df.loc[mask, ["mrn", "treatment_date", "note", target_name]]
     df.reset_index(drop=True, inplace=True)
 
     # generate train-validation-test split
     X_train, Y_train, X_eval, Y_eval, X_valid, Y_valid, X_test, Y_test = gen_data_split(
-        df, start_test_date, split_config, embedding, target
+        df, start_test_date, split_config, embedding, target, tabular, model_name
     )
 
     # preprocess the data by scaling and centering
     scaler = StandardScaler()
     X_train = scaler.fit_transform(X_train)
-    X_eval = scaler.transform(X_eval)
+    if X_eval is not None:
+        X_eval = scaler.transform(X_eval)
     X_valid = scaler.transform(X_valid)
     X_test = scaler.transform(X_test)
-
-    # if Logistic Regression, merge train and evaluation data sets
-    if model_name == "LR":
-        X_train = np.concatenate([X_train, X_eval])
-        Y_train = np.concatenate([Y_train, Y_eval])
-        X_eval = None
-        Y_eval = None
 
     # call trainer on predictions
     trainer = Trainer(
@@ -133,6 +131,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "setup_str", help="set up string", type=str
     )  # name of set up string
+    parser.add_argument(
+        "tabular", help="include tabular data", type=bool
+    ) # include tabular data
     parser.add_argument("target_name", help="name of target", type=str)  # name of target
     parser.add_argument(
         "model_dir", help="model directory", type=str
@@ -150,6 +151,7 @@ if __name__ == "__main__":
         args.hyperparam_eval,
         args.model_name,
         args.setup_str,
+        args.tabular,
         args.target_name,
         args.model_dir,
         args.results_dir,

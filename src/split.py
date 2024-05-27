@@ -1,12 +1,14 @@
 import logging
 import sys
+import numpy as np
+import pandas as pd
 from common.src.prep import Splitter
 
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 
-def gen_data_split(df, test_start_date, split_config, embedding, target):
+def gen_data_split(df, test_start_date, split_config, embedding, target, tabular, model_name):
     splitter = Splitter()
     if split_config == "Temporal":
         train_eval_data, valid_data, test_data = splitter.split_data(
@@ -33,4 +35,64 @@ def gen_data_split(df, test_start_date, split_config, embedding, target):
     X_test = embedding[test_idx, :]
     Y_test = target[test_idx]
 
+    # if Logistic Regression, merge train and evaluation data sets
+    if model_name == "LR":
+        X_train = np.concatenate([X_train, X_eval])
+        Y_train = np.concatenate([Y_train, Y_eval])
+        X_eval = None
+        Y_eval = None
+
+    if tabular == 1:
+        # convert physician name to tabular data and concatenate to embedding data
+        physician_names_train = find_unique_phys(train_data) 
+
+        # convert physician name to tabular for
+        # train data
+        if model_name == "LR":
+            train_physician = convert_physician_name_tabular(pd.concat([train_data, eval_data], axis=0), physician_names_train)
+        else:
+            train_physician = convert_physician_name_tabular(train_data, physician_names_train)
+        X_train = np.concatenate([X_train, train_physician], axis=1)
+        # eval data
+        if model_name != "LR":
+            eval_physician = convert_physician_name_tabular(eval_data, physician_names_train)
+            X_eval = np.concatenate([X_eval, eval_physician], axis=1)
+
+        # valid data
+        valid_physician = convert_physician_name_tabular(valid_data, physician_names_train)
+        X_valid = np.concatenate([X_valid, valid_physician], axis=1)
+        # test data
+        test_physician = convert_physician_name_tabular(test_data, physician_names_train)
+        X_test = np.concatenate([X_test, test_physician], axis=1)
+
     return X_train, Y_train, X_eval, Y_eval, X_valid, Y_valid, X_test, Y_test
+
+def convert_str_list(y):
+    # Remove the brackets and split the string by single quotes
+    words = y.strip("[]").split("'")
+
+    # Filter out empty strings and spaces
+    result = [word for word in words if word.strip()]
+
+    return result
+
+def find_unique_phys(df):
+    physician_names = df['stats_physician'].unique()
+    unique_physician_names = []
+    for elem in physician_names:
+        unique_physician_names = unique_physician_names + convert_str_list(elem)
+    unique_physician_names = list(set(unique_physician_names))
+    return np.array(unique_physician_names)
+
+def convert_physician_name_tabular(df, unique_phys):
+    physician_names_tabular = []
+    physician_names_values = df['stats_physician'].values
+
+    for elem in physician_names_values:
+        phys_list = np.array(convert_str_list(elem))
+        indices = np.where(np.isin(unique_phys, phys_list))[0]
+        temp = np.zeros(len(unique_phys))
+        temp[indices] = 1
+        physician_names_tabular.append(temp)
+
+    return np.array(physician_names_tabular)
