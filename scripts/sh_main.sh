@@ -30,7 +30,7 @@ do
     embeddingPath=${rootDir}/data/embedding/embedding_${LLMName}_noteAnchored_${anchorType}.npz
     setupStr=${LLMName}_${anchorType}
 
-    for modelName in 'LR' 'LGBM' 'XGB' 'MLP' # 
+    for modelName in 'LGBM' 'XGB' 'MLP' 'LR'
     do
 
     if [[ $modelName == "MLP" ]]; then
