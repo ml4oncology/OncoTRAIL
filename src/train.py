@@ -83,16 +83,16 @@ class Tuner:
         best_param = bo.max["params"]
         best_param = self.convert_hyperparams(best_param)
 
-        # save target values in bayesian optimization
-        target_vals = []
-        for _, res in enumerate(bo.res):
-            target_vals.append(res["target"])
-        target_vals = np.array(target_vals)
+        # # save target values in bayesian optimization
+        # target_vals = []
+        # for _, res in enumerate(bo.res):
+        #     target_vals.append(res["target"])
+        # target_vals = np.array(target_vals)
 
-        np.savez(
-            f"{self.output_path}/BayesOpttarget_vals_{filename}.npz",
-            target_vals=target_vals,
-        )
+        # np.savez(
+        #     f"{self.output_path}/BayesOpttarget_vals_{filename}.npz",
+        #     target_vals=target_vals,
+        # )
 
         # save the best hyperparameters
         save_pickle(best_param, f"{self.output_path}", filename)

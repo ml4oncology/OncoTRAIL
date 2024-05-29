@@ -7,11 +7,12 @@ condaEnv="~/miniforge3/envs/LLMfinetune/bin/python3"
 nGPU=0
 
 rootDir=/cluster/home/t127556uhn/gitrepo/2024/LLM-notes-classification
-modelDir=${rootDir}/models
-resultsDir=${rootDir}/results
+resultsRootDir=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/LLM-notes-classification
+modelDir=${resultsRootDir}/models
+resultsDir=${resultsRootDir}/results
 tabular=1
 
-for anchorType in "firstVisitOnly-medOnc-ConsultLetterClinic" "mostRecentVisit-medOnc-ConsultLetterClinic" "mostRecentVisit-appendFirst-medOnc-ConsultLetterClinic" 
+for anchorType in "mostRecentVisit-appendFirst-medOnc-ConsultLetterClinic" "mostRecentVisit-medOnc-ConsultLetterClinic" "firstVisitOnly-medOnc-ConsultLetterClinic"  
 do
 
     notesPath=${rootDir}/data/notes/noteAnchored_${anchorType}.csv
