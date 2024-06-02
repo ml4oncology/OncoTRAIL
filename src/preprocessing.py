@@ -34,7 +34,7 @@ def preprocessing(data_path, LLM_path, LLM_name, save_dir):
     file_name = Path(file_name).stem
 
     # load the clinical notes file
-    clinical_notes = pd.read_csv(f"{data_path}", index_col=False)
+    clinical_notes = pd.read_csv(data_path, index_col=False)
 
     # find the target columns
     cols = clinical_notes.columns

@@ -3,7 +3,7 @@ import sys
 import numpy as np
 import pandas as pd
 from common.src.prep import Splitter
-
+from sklearn.preprocessing import StandardScaler
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
@@ -41,6 +41,16 @@ def gen_data_split(df, test_start_date, split_config, embedding, target, tabular
         Y_train = np.concatenate([Y_train, Y_eval])
         X_eval = None
         Y_eval = None
+
+    # preprocess the data by scaling and centering
+    scaler = StandardScaler()
+    X_train = scaler.fit_transform(X_train)
+    if X_eval is not None:
+        X_eval = scaler.transform(X_eval)
+    X_valid = scaler.transform(X_valid)
+    X_test = scaler.transform(X_test)
+
+    # remove certain columns later
 
     if tabular == 1:
         # convert physician name to tabular data and concatenate to embedding data

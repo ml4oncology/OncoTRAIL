@@ -61,14 +61,6 @@ def main(
         df, start_test_date, split_config, embedding, target, tabular, model_name
     )
 
-    # preprocess the data by scaling and centering
-    scaler = StandardScaler()
-    X_train = scaler.fit_transform(X_train)
-    if X_eval is not None:
-        X_eval = scaler.transform(X_eval)
-    X_valid = scaler.transform(X_valid)
-    X_test = scaler.transform(X_test)
-
     # call trainer on predictions
     trainer = Trainer(
         X_train,
