@@ -29,6 +29,7 @@ def main(
     model_dir,
     results_dir,
 ):
+    # replace target name so that underscores are replaced by -
     # save string for file
     file_save_str = (
         f"{model_name}_{setup_str}_{split_config}_{hyperparam_eval}_tabular{int(tabular)}_{target_name}"

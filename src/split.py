@@ -100,9 +100,7 @@ def convert_physician_name_tabular(df, unique_phys):
 
     for elem in physician_names_values:
         phys_list = np.array(convert_str_list(elem))
-        indices = np.where(np.isin(unique_phys, phys_list))[0]
-        temp = np.zeros(len(unique_phys))
-        temp[indices] = 1
+        temp = [int(phys in phys_list) for phys in unique_phys]
         physician_names_tabular.append(temp)
 
     return np.array(physician_names_tabular)
