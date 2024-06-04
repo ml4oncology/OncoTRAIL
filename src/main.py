@@ -1,10 +1,7 @@
 import numpy as np
 import pandas as pd
 import argparse
-import numpy as np
-import pandas as pd
 from sklearn.metrics import average_precision_score, roc_auc_score, log_loss
-from sklearn.preprocessing import StandardScaler
 from pathlib import Path
 import sys
 ROOT_DIR = Path(__file__).parent.parent.as_posix()
@@ -29,10 +26,9 @@ def main(
     model_dir,
     results_dir,
 ):
-    # replace target name so that underscores are replaced by -
     # save string for file
     file_save_str = (
-        f"{model_name}_{setup_str}_{split_config}_{hyperparam_eval}_tabular{int(tabular)}_{target_name}"
+        f"{model_name}_{setup_str}_{split_config}_{hyperparam_eval}_tabular{int(tabular)}_{target_name.replace("_","-")}"
     )
     logger.info(file_save_str)
 
@@ -47,14 +43,20 @@ def main(
     with np.load(f"{embedding_path}") as data:
         embedding = data["embeddings"]
         target = data[target_name]
-
+    ########## need to adjust which columns to keep
+    # 
     # only extract embedding and target where index != -1
     embedding = embedding[mask, :]
     target = target[mask]
     if tabular == 1:
-        df = df.loc[mask, ["mrn", "treatment_date", "note", "stats_physician", target_name]]
+        cols = df.columns
+        targ_cols = cols[cols.str.contains("target")].tolist()
+        extra_cols = ["cohort", "split", "note", "stats_noteType"] + cols[cols.str.contains("date")].tolist()
+        extra_cols.remove("treatment_date")
+        keep_cols = [col for col in cols if col not in extra_cols + targ_cols]
+        df = df.loc[mask, keep_cols]
     else:
-        df = df.loc[mask, ["mrn", "treatment_date", "note", target_name]]
+        df = df.loc[mask, ["mrn", "treatment_date"]]
     df.reset_index(drop=True, inplace=True)
 
     # generate train-validation-test split

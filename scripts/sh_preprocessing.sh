@@ -14,9 +14,9 @@ rootDirLLM='/cluster/projects/gliugroup/2BLAST/HuggingFace_LLMs'
 for note_config in "mostRecentVisit-medOnc-ConsultLetterClinic" "mostRecentVisit-appendFirst-medOnc-ConsultLetterClinic" "firstVisitOnly-medOnc-ConsultLetterClinic" ; do
 
     if [[ $note_config == "firstVisitOnly-medOnc-ConsultLetterClinic" ]]; then
-        upper_limit=5
+        upper_limit=3
     else
-        upper_limit=30
+        upper_limit=25
     fi
 
     LLMpath=${rootDirLLM}/Clinical-Longformer

@@ -3,6 +3,7 @@ import sys
 import numpy as np
 import pandas as pd
 from common.src.prep import Splitter
+from common.src.prep import PrepData
 from sklearn.preprocessing import StandardScaler
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -26,6 +27,7 @@ def gen_data_split(df, test_start_date, split_config, embedding, target, tabular
     valid_idx = valid_data.index.to_list()
     test_idx = test_data.index.to_list()
 
+    # extract note data and target
     X_train = embedding[train_idx, :]
     Y_train = target[train_idx]
     X_eval = embedding[eval_idx, :]
@@ -42,7 +44,7 @@ def gen_data_split(df, test_start_date, split_config, embedding, target, tabular
         X_eval = None
         Y_eval = None
 
-    # preprocess the data by scaling and centering
+    # preprocess the note data by scaling and centering
     scaler = StandardScaler()
     X_train = scaler.fit_transform(X_train)
     if X_eval is not None:
@@ -50,9 +52,8 @@ def gen_data_split(df, test_start_date, split_config, embedding, target, tabular
     X_valid = scaler.transform(X_valid)
     X_test = scaler.transform(X_test)
 
-    # remove certain columns later
-
     if tabular == 1:
+
         # convert physician name to tabular data and concatenate to embedding data
         physician_names_train = find_unique_phys(train_data) 
 
@@ -63,6 +64,7 @@ def gen_data_split(df, test_start_date, split_config, embedding, target, tabular
         else:
             train_physician = convert_physician_name_tabular(train_data, physician_names_train)
         X_train = np.concatenate([X_train, train_physician], axis=1)
+        
         # eval data
         if model_name != "LR":
             eval_physician = convert_physician_name_tabular(eval_data, physician_names_train)
@@ -71,9 +73,32 @@ def gen_data_split(df, test_start_date, split_config, embedding, target, tabular
         # valid data
         valid_physician = convert_physician_name_tabular(valid_data, physician_names_train)
         X_valid = np.concatenate([X_valid, valid_physician], axis=1)
+        
         # test data
         test_physician = convert_physician_name_tabular(test_data, physician_names_train)
         X_test = np.concatenate([X_test, test_physician], axis=1)
+        
+        # remove columns that are not needed
+        train_data.drop(columns=["mrn", "treatment_date", "stats_physician"], inplace=True)
+        eval_data.drop(columns=["mrn", "treatment_date", "stats_physician"], inplace=True)
+        valid_data.drop(columns=["mrn", "treatment_date", "stats_physician"], inplace=True)
+        test_data.drop(columns=["mrn", "treatment_date", "stats_physician"], inplace=True)
+
+        # process the other numerical features
+        prep = PrepData()
+        train_data = prep.transform_data(train_data, data_name="training")
+        eval_data = prep.transform_data(eval_data, data_name="evaluation")
+        valid_data = prep.transform_data(valid_data, data_name="validation")
+        test_data = prep.transform_data(test_data, data_name="test")
+
+        if model_name != "LR":
+            X_train = np.concatenate([X_train, train_data.to_numpy()], axis=1)
+            X_eval = np.concatenate([X_eval, eval_data.to_numpy()], axis=1)
+        else:
+            X_train = np.concatenate([X_train, pd.concat([train_data, eval_data], axis=0).to_numpy()], axis=1)
+        
+        X_valid = np.concatenate([X_valid, valid_data.to_numpy()], axis=1)
+        X_test = np.concatenate([X_test, test_data.to_numpy()], axis=1)
 
     return X_train, Y_train, X_eval, Y_eval, X_valid, Y_valid, X_test, Y_test
 
