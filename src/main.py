@@ -27,24 +27,24 @@ def main(
     results_dir,
 ):
     # save string for file
+    target_name_nospace = target_name.replace("_","-")
     file_save_str = (
-        f"{model_name}_{setup_str}_{split_config}_{hyperparam_eval}_tabular{int(tabular)}_{target_name.replace("_","-")}"
+        f"{model_name}_{setup_str}_{split_config}_{hyperparam_eval}_tabular{int(tabular)}_{target_name_nospace}"
     )
     logger.info(file_save_str)
 
     # load data frame
-    df = pd.read_csv(f"{notes_path}", index_col=0)
+    df = pd.read_csv(notes_path, index_col=0)
     df.reset_index(drop=True, inplace=True)
 
     # get indices of target != -1
     mask = (df[target_name] != -1).to_numpy()
 
     # load embedding
-    with np.load(f"{embedding_path}") as data:
+    with np.load(embedding_path) as data:
         embedding = data["embeddings"]
         target = data[target_name]
-    ########## need to adjust which columns to keep
-    # 
+
     # only extract embedding and target where index != -1
     embedding = embedding[mask, :]
     target = target[mask]

@@ -77,12 +77,6 @@ def gen_data_split(df, test_start_date, split_config, embedding, target, tabular
         # test data
         test_physician = convert_physician_name_tabular(test_data, physician_names_train)
         X_test = np.concatenate([X_test, test_physician], axis=1)
-        
-        # remove columns that are not needed
-        train_data.drop(columns=["mrn", "treatment_date", "stats_physician"], inplace=True)
-        eval_data.drop(columns=["mrn", "treatment_date", "stats_physician"], inplace=True)
-        valid_data.drop(columns=["mrn", "treatment_date", "stats_physician"], inplace=True)
-        test_data.drop(columns=["mrn", "treatment_date", "stats_physician"], inplace=True)
 
         # process the other numerical features
         prep = PrepData()
@@ -90,6 +84,12 @@ def gen_data_split(df, test_start_date, split_config, embedding, target, tabular
         eval_data = prep.transform_data(eval_data, data_name="evaluation")
         valid_data = prep.transform_data(valid_data, data_name="validation")
         test_data = prep.transform_data(test_data, data_name="test")
+
+        # remove columns that are not needed
+        train_data.drop(columns=["mrn", "treatment_date", "stats_physician"], inplace=True)
+        eval_data.drop(columns=["mrn", "treatment_date", "stats_physician"], inplace=True)
+        valid_data.drop(columns=["mrn", "treatment_date", "stats_physician"], inplace=True)
+        test_data.drop(columns=["mrn", "treatment_date", "stats_physician"], inplace=True)
 
         if model_name != "LR":
             X_train = np.concatenate([X_train, train_data.to_numpy()], axis=1)
