@@ -14,9 +14,9 @@ for noteConfig in 'mostRecentVisit-medOnc-ConsultLetterClinic' 'mostRecentVisit-
 do 
 
     if [ $noteConfig == 'mostRecentVisit-medOnc-ConsultLetterClinic' ] || [ $noteConfig == 'mostRecentVisit-appendFirst-medOnc-ConsultLetterClinic' ]; then
-        numFiles=31
+        numFiles=26 #31
     elif [ $noteConfig == 'firstVisitOnly-medOnc-ConsultLetterClinic' ]; then
-        numFiles=6
+        numFiles=4 #6
     fi
 
     for LLMName in 'ClinicalLongformer' 'Mistral' 'BioMistral'

@@ -11,7 +11,7 @@ dataDir=${rootDirProj}/data/interim
 saveDir=${rootDirProj}/data/interim
 rootDirLLM='/cluster/projects/gliugroup/2BLAST/HuggingFace_LLMs'
 
-for note_config in "mostRecentVisit-medOnc-ConsultLetterClinic" "mostRecentVisit-appendFirst-medOnc-ConsultLetterClinic" "firstVisitOnly-medOnc-ConsultLetterClinic" ; do
+for note_config in "firstVisitOnly-medOnc-ConsultLetterClinic" "mostRecentVisit-medOnc-ConsultLetterClinic" "mostRecentVisit-appendFirst-medOnc-ConsultLetterClinic" ; do
 
     if [[ $note_config == "firstVisitOnly-medOnc-ConsultLetterClinic" ]]; then
         upper_limit=3

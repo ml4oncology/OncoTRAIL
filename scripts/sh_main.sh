@@ -7,23 +7,24 @@ condaEnv="~/miniforge3/envs/LLMfinetune/bin/python3"
 nGPU=0
 
 rootDir=/cluster/home/t127556uhn/gitrepo/2024/LLM-notes-classification
-resultsRootDir=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/LLM-notes-classification
+#resultsRootDir=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/LLM-notes-classification
+resultsRootDir=/cluster/home/t127556uhn/gitrepo/2024/LLM-notes-classification
 modelDir=${resultsRootDir}/models
 resultsDir=${resultsRootDir}/results
-tabular=1
+tabular=0
 
-for anchorType in "mostRecentVisit-appendFirst-medOnc-ConsultLetterClinic" "mostRecentVisit-medOnc-ConsultLetterClinic" "firstVisitOnly-medOnc-ConsultLetterClinic"  
+for anchorType in "firstVisitOnly-medOnc-ConsultLetterClinic" "mostRecentVisit-appendFirst-medOnc-ConsultLetterClinic" "mostRecentVisit-medOnc-ConsultLetterClinic" 
 do
 
     notesPath=${rootDir}/data/notes/noteAnchored_${anchorType}.csv
 
-    for targetName in target_esas_nausea_3pt_change target_ED_visit target_death_in_365d target_death_in_30d 
+    for targetName in target_death_in_365d target_esas_nausea_3pt_change target_ED_visit target_death_in_30d 
     do
 
     for splitConfig in 'Temporal' 'Random'
     do
 
-    for LLMName in ClinicalLongformer 'Mistral' 'BioMistral'
+    for LLMName in 'ClinicalLongformer' 'Mistral' 'BioMistral'
     do
 
     for hyperParamEval in 'logloss' 'AUROC'
@@ -32,7 +33,7 @@ do
     embeddingPath=${rootDir}/data/embedding/embedding_${LLMName}_noteAnchored_${anchorType}.npz
     setupStr=${LLMName}_${anchorType}
 
-    for modelName in 'LR' 'LGBM' 'XGB' 'MLP' 
+    for modelName in 'LR' 'MLP' 'LGBM' 'XGB'  
     do
 
     if [[ $modelName == "MLP" ]]; then

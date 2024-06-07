@@ -29,7 +29,7 @@ def main(
     # save string for file
     target_name_nospace = target_name.replace("_","-")
     file_save_str = (
-        f"{model_name}_{setup_str}_{split_config}_{hyperparam_eval}_tabular{int(tabular)}_{target_name_nospace}"
+        f"{model_name}_{setup_str}_{split_config}_{hyperparam_eval}_tabular{tabular}_{target_name_nospace}"
     )
     logger.info(file_save_str)
 
@@ -127,7 +127,7 @@ if __name__ == "__main__":
         "setup_str", help="set up string", type=str
     )  # name of set up string
     parser.add_argument(
-        "tabular", help="include tabular data", type=bool
+        "tabular", help="include tabular data", type=int
     ) # include tabular data
     parser.add_argument("target_name", help="name of target", type=str)  # name of target
     parser.add_argument(

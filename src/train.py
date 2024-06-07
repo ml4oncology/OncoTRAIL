@@ -204,7 +204,7 @@ class Trainer(Tuner):
         batch_size=128,
         early_stop_count=20,
         early_stop_tol=1e-4,
-        clip_gradients=False,
+        clip_gradients=True,
         save=True,
         save_checkpoints=False,
         **kwargs,
@@ -263,6 +263,9 @@ class Trainer(Tuner):
             perf[epoch] = {"Train Loss": train_loss / (i + 1), "Valid Loss": valid_loss}
             msg = [f"{k}: {v.mean():.4f}" for k, v in perf[epoch].items()]
             logger.info(f"Epoch {epoch}, {(', ').join(msg)}")
+
+            if np.isnan(train_loss / (i + 1)) or np.isnan(valid_loss):
+                break
 
             # save best model so far
             cur_val_loss = valid_loss.mean()
