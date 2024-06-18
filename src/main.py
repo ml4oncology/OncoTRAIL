@@ -26,6 +26,21 @@ def main(
     model_dir,
     results_dir,
 ):
+    """
+    Main code for predicting risk of undesired cancer events
+    using clinical notes and tabular data.
+
+    notes_path: file path to the notes and tabular data frame
+    embedding_path: file path to the embedding of the clinical note. implies selection of LLM
+    split_config: temporal or random split
+    hyperparam_eval: select best hyperparameters based on AUC or logloss
+    model_name: machine learning/deep learning model
+    setup_str: combination of LLM and note configuration
+    tabular: 0 - notes only, 1 - notes+tabular, 2 - tabular only 
+    target_name: name of target
+    model_dir: directory where to save trained model parameters
+    results_dir: directory where to save the results of the model runs
+    """
     # save string for file
     target_name_nospace = target_name.replace("_","-")
     file_save_str = (
@@ -48,7 +63,7 @@ def main(
     # only extract embedding and target where index != -1
     embedding = embedding[mask, :]
     target = target[mask]
-    if tabular == 1:
+    if tabular >= 1:
         cols = df.columns
         targ_cols = cols[cols.str.contains("target")].tolist()
         extra_cols = ["cohort", "split", "note", "stats_noteType"] + cols[cols.str.contains("date")].tolist()
