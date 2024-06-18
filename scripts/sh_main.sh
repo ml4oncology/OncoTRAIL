@@ -11,47 +11,49 @@ rootDir=/cluster/home/t127556uhn/gitrepo/2024/LLM-notes-classification
 resultsRootDir=/cluster/home/t127556uhn/gitrepo/2024/LLM-notes-classification
 modelDir=${resultsRootDir}/models
 resultsDir=${resultsRootDir}/results
-tabular=0
 
-for anchorType in "firstVisitOnly-medOnc-ConsultLetterClinic" "mostRecentVisit-appendFirst-medOnc-ConsultLetterClinic" "mostRecentVisit-medOnc-ConsultLetterClinic" 
-do
-
-    notesPath=${rootDir}/data/notes/noteAnchored_${anchorType}.csv
-
-    for targetName in target_death_in_365d target_esas_nausea_3pt_change target_ED_visit target_death_in_30d 
+for tabular in 0 1
+do 
+    for anchorType in "firstVisitOnly-medOnc-ConsultLetterClinic" "mostRecentVisit-appendFirst-medOnc-ConsultLetterClinic" "mostRecentVisit-medOnc-ConsultLetterClinic" 
     do
 
-    for splitConfig in 'Temporal' 'Random'
-    do
+        notesPath=${rootDir}/data/notes/noteAnchored_${anchorType}.csv
 
-    for LLMName in 'ClinicalLongformer' 'Mistral' 'BioMistral'
-    do
+        for targetName in target_esas_pain_3pt_change target_death_in_365d target_esas_nausea_3pt_change target_ED_visit target_death_in_30d 
+        do
 
-    for hyperParamEval in 'logloss' 'AUROC'
-    do
+        for splitConfig in 'Temporal' 'Random'
+        do
 
-    embeddingPath=${rootDir}/data/embedding/embedding_${LLMName}_noteAnchored_${anchorType}.npz
-    setupStr=${LLMName}_${anchorType}
+        for LLMName in 'ClinicalLongformer' 'Mistral' 'BioMistral'
+        do
 
-    for modelName in 'LR' 'MLP' 'LGBM' 'XGB'  
-    do
+        for hyperParamEval in 'logloss' 'AUROC'
+        do
 
-    if [[ $modelName == "MLP" ]]; then
-        nGPU=1
-    else
-        nGPU=0
-    fi
+        embeddingPath=${rootDir}/data/embedding/embedding_${LLMName}_noteAnchored_${anchorType}.npz
+        setupStr=${LLMName}_${anchorType}
 
-    pySLURMargs.py $userName $memory $condaEnv $nGPU "../src/main.py $notesPath $embeddingPath $splitConfig $hyperParamEval $modelName $setupStr $tabular $targetName $modelDir $resultsDir"
+        for modelName in 'LR' 'MLP' 'LGBM' 'XGB'  
+        do
+
+        if [[ $modelName == "MLP" ]]; then
+            nGPU=1
+        else
+            nGPU=0
+        fi
+
+        pySLURMargs.py $userName $memory $condaEnv $nGPU "../src/main.py $notesPath $embeddingPath $splitConfig $hyperParamEval $modelName $setupStr $tabular $targetName $modelDir $resultsDir"
+
+        done
+
+        done
+
+        done
+
+        done
+
+        done
 
     done
-
-    done
-
-    done
-
-    done
-
-    done
-
 done
