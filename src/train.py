@@ -8,14 +8,14 @@ import torch
 import logging
 from util import save_pickle
 from config import bayesopt_param, model_static_param, model_tuning_param
-from models import LR, XGB, LGBM, MLP
+from models import LR, XGB, LGBM, MLP, MidfusionMLP
 
 torch.manual_seed(0)
 np.random.seed(0)
 
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 logger = logging.getLogger(__name__)
-algs = {"LR": LR, "XGB": XGB, "LGBM": LGBM, "MLP": MLP}
+algs = {"LR": LR, "XGB": XGB, "LGBM": LGBM, "MLP": MLP, "Midusion": MidfusionMLP}
 
 
 ###############################################################################
@@ -371,6 +371,7 @@ class Trainer(Tuner):
                 param == "batch_size"
                 or param.startswith("hidden_size")
                 or param.startswith("num_channel")
+                or param.startswith("fusion_size")
             ):
                 idx = abs(cat_param_choices - value).argmin()
                 params[param] = round(cat_param_choices[idx])

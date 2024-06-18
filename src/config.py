@@ -68,4 +68,17 @@ model_tuning_param = {
         "weight_decay": (0.0001, 1),
         "momentum": (0, 0.9),
     },
+    "Midfusion": {
+        "batch_size": (64, 4096),
+        "fusion_size": (16, 2000),
+        "hidden_size1": (16, 4000),
+        "hidden_size2": (16, 4000),
+        "hidden_size3": (16, 4000),
+        "three_layers": (0, 1),
+        "dropout": (0, 0.5),
+        "optimizer": (0, 1),
+        "learning_rate": (0.0001, 0.1),
+        "weight_decay": (0.0001, 1),
+        "momentum": (0, 0.9),
+    },
 }
