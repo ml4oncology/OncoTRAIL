@@ -41,6 +41,12 @@ def main(
     model_dir: directory where to save trained model parameters
     results_dir: directory where to save the results of the model runs
     """
+
+    if model_name == 'Midfusion': assert tabular == 1, "Midfusion requires both tabular and note data."
+
+    # extract LLM_name from setup_str
+    LLM_name = setup_str.split("_")[0]
+
     # save string for file
     target_name_nospace = target_name.replace("_","-")
     file_save_str = (
@@ -92,6 +98,7 @@ def main(
         model_dir,
         model_name,
         file_save_str,
+        LLM_name,
     )
     train_pred, val_pred, test_pred = trainer.run()
 
