@@ -7,12 +7,12 @@ condaEnv="~/miniforge3/envs/LLMfinetune/bin/python3"
 nGPU=0
 
 rootDir=/cluster/home/t127556uhn/gitrepo/2024/LLM-notes-classification
-#resultsRootDir=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/LLM-notes-classification
-resultsRootDir=/cluster/home/t127556uhn/gitrepo/2024/LLM-notes-classification
+resultsRootDir=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/LLM-notes-classification
+#resultsRootDir=/cluster/home/t127556uhn/gitrepo/2024/LLM-notes-classification
 modelDir=${resultsRootDir}/models
 resultsDir=${resultsRootDir}/results
 
-for tabular in 0 1
+for tabular in 2 #0 1
 do 
     for anchorType in "firstVisitOnly-medOnc-ConsultLetterClinic" "mostRecentVisit-appendFirst-medOnc-ConsultLetterClinic" "mostRecentVisit-medOnc-ConsultLetterClinic" 
     do
