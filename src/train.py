@@ -370,7 +370,7 @@ class Trainer(Tuner):
                 params[param] = "LSTM" if value > 0.5 else "GRU"
             if param == "optimizer":
                 params[param] = "adam" if value > 0.5 else "sgd"
-            if param == "three_layers":
+            if param in ["three_layers","batchnorm"]:
                 params[param] = True if value > 0.5 else False
             if (
                 param == "batch_size"

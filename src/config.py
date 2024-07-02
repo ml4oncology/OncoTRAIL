@@ -89,5 +89,6 @@ model_tuning_param = {
         "learning_rate": (0.0001, 0.1),
         "weight_decay": (0.0001, 1),
         "momentum": (0, 0.9),
+        "batchnorm": (0,1)
     },
 }

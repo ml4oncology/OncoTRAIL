@@ -267,6 +267,7 @@ class MidfusionMLP(DLModel):
         hidden_size3=32,
         three_layers=0,
         dropout=0,
+        batchnorm=0,
         optimizer="adam",
         learning_rate=1e-2,
         weight_decay=0,
@@ -287,6 +288,7 @@ class MidfusionMLP(DLModel):
             "hidden_size3": hidden_size3,
             "three_layers": three_layers,
             "dropout": dropout,
+            "batchnorm": batchnorm,
         }
         self.model = NNFusion(**params)
         self.criterion = self.loss_type(reduction="none")
@@ -315,17 +317,24 @@ class NNFusion(nn.Module):
         hidden_size3,
         three_layers,
         dropout=0,
+        batchnorm=0
     ):
         super(NNFusion, self).__init__()
         self.three_layers = three_layers
+        self.batchnorm = batchnorm
         self.embedding_size = embedding_size
         self.fusion_layer1 = nn.Linear(embedding_size, fusion_size)
         self.fusion_layer2 = nn.Linear(input_size-embedding_size, fusion_size)
         self.layer1 = nn.Linear(2*fusion_size, hidden_size1)
         self.layer2 = nn.Linear(hidden_size1, hidden_size2)
+        if self.batchnorm==1:
+            self.bn1 = nn.BatchNorm1d(hidden_size1)
+            self.bn2 = nn.BatchNorm1d(hidden_size2)
         if self.three_layers:
             self.layer3 = nn.Linear(hidden_size2, hidden_size3)
             self.output = nn.Linear(hidden_size3, output_size)
+            if self.batchnorm==1:
+                self.bn3 = nn.BatchNorm1d(hidden_size3)
         else:
             self.output = nn.Linear(hidden_size2, output_size)
         self.relu = nn.ReLU()
@@ -338,8 +347,15 @@ class NNFusion(nn.Module):
         notes_embedding = self.dropout(self.relu(self.fusion_layer1(notes)))
         tabular_embedding = self.dropout(self.relu(self.fusion_layer2(tabular)))
         X = torch.cat((notes_embedding, tabular_embedding), dim=1)
-        X = self.dropout(self.relu(self.layer1(X)))
-        X = self.dropout(self.relu(self.layer2(X)))
+        if self.batchnorm==0:
+            X = self.dropout(self.relu(self.layer1(X)))
+            X = self.dropout(self.relu(self.layer2(X)))
+        else:
+            X = self.dropout(self.relu(self.bn1(self.layer1(X))))
+            X = self.dropout(self.relu(self.bn2(self.layer2(X))))   
         if self.three_layers:
-            X = self.dropout(self.relu(self.layer3(X)))
+            if self.batchnorm==0:
+                X = self.dropout(self.relu(self.layer3(X)))
+            else:
+                X = self.dropout(self.relu(self.bn3(self.layer3(X))))
         return self.output(X)
