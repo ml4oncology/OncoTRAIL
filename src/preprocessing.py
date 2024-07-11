@@ -110,11 +110,9 @@ def preprocessing(data_path, LLM_path, LLM_name, save_dir):
     else:
         raise Exception("Not implemented yet.")
 
-    ctr = 0
-    for note in notes_list:
+    for ctr, note in enumerate(notes_list):
         embeddings_list.append(text_to_embedding(note))
         print(ctr)
-        ctr = ctr + 1
 
         if ctr % 500 == 0:
             torch.cuda.empty_cache()

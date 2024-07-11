@@ -7,15 +7,15 @@ import numpy as np
 import torch
 import logging
 from util import save_pickle
-from config import bayesopt_param, model_static_param, model_tuning_param
-from models import LR, XGB, LGBM, MLP
+from config import bayesopt_param, model_static_param, model_tuning_param, LLM_embedding_dim
+from models import LR, XGB, LGBM, MLP, MidfusionMLP
 
 torch.manual_seed(0)
 np.random.seed(0)
 
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 logger = logging.getLogger(__name__)
-algs = {"LR": LR, "XGB": XGB, "LGBM": LGBM, "MLP": MLP}
+algs = {"LR": LR, "XGB": XGB, "LGBM": LGBM, "MLP": MLP, "Midfusion": MidfusionMLP}
 
 
 ###############################################################################
@@ -125,6 +125,7 @@ class Trainer(Tuner):
         output_path,
         alg,
         str_identifier,
+        LLM_name,
         **kwargs,
     ):
         """
@@ -144,6 +145,7 @@ class Trainer(Tuner):
             alg,
         )
         self.str_identifier = str_identifier
+        self.embedding_size = LLM_embedding_dim[LLM_name]
 
     def run(self, bayes_kwargs=None):
         """
@@ -181,7 +183,7 @@ class Trainer(Tuner):
     def train_model(self, **kwargs):
         if self.alg_name in ["LR", "XGB", "LGBM"]:
             model = self.train_ml_model(**kwargs, **self.model_static_param)
-        elif self.alg_name in ["MLP"]:
+        elif self.alg_name in ["MLP", "Midfusion"]:
             model = self.train_dl_model(**kwargs, **self.model_static_param)
         else:
             raise Exception("Not implemented yet.")
@@ -210,7 +212,10 @@ class Trainer(Tuner):
         **kwargs,
     ):
         """Train deep learning models"""
-        model = self.alg(self.n_features, self.n_targets, **kwargs)
+        if self.alg_name == 'MLP':
+            model = self.alg(self.n_features, self.n_targets, **kwargs)
+        elif self.alg_name == 'Midfusion':
+            model = self.alg(self.n_features, self.embedding_size, self.n_targets, **kwargs)
 
         train_dataset = self.transform_to_tensor_dataset(self.X_train, self.Y_train)
         valid_dataset = self.transform_to_tensor_dataset(self.X_eval, self.Y_eval)
@@ -328,7 +333,7 @@ class Trainer(Tuner):
     def predict(self, model, data):
         if self.alg_name in ["LR", "XGB", "LGBM"]:
             pred = model.predict(data)
-        elif self.alg_name in ["MLP"]:
+        elif self.alg_name in ["MLP", "Midfusion"]:
             pred = self._nn_predict(model, data)
         else:
             raise Exception("Not implemented yet.")
@@ -365,12 +370,13 @@ class Trainer(Tuner):
                 params[param] = "LSTM" if value > 0.5 else "GRU"
             if param == "optimizer":
                 params[param] = "adam" if value > 0.5 else "sgd"
-            if param == "three_layers":
+            if param in ["three_layers","batchnorm"]:
                 params[param] = True if value > 0.5 else False
             if (
                 param == "batch_size"
                 or param.startswith("hidden_size")
                 or param.startswith("num_channel")
+                or param.startswith("fusion_size")
             ):
                 idx = abs(cat_param_choices - value).argmin()
                 params[param] = round(cat_param_choices[idx])

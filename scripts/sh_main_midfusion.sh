@@ -8,11 +8,11 @@ nGPU=0
 
 rootDir=/cluster/home/t127556uhn/gitrepo/2024/LLM-notes-classification
 resultsRootDir=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/LLM-notes-classification
-#resultsRootDir=/cluster/home/t127556uhn/gitrepo/2024/LLM-notes-classification
 modelDir=${resultsRootDir}/models
 resultsDir=${resultsRootDir}/results
+nGPU=1
 
-for tabular in 2 #0 1
+for tabular in 1
 do 
     for anchorType in "firstVisitOnly-medOnc-ConsultLetterClinic" "mostRecentVisit-appendFirst-medOnc-ConsultLetterClinic" "mostRecentVisit-medOnc-ConsultLetterClinic" 
     do
@@ -34,14 +34,8 @@ do
         embeddingPath=${rootDir}/data/embedding/embedding_${LLMName}_noteAnchored_${anchorType}.npz
         setupStr=${LLMName}_${anchorType}
 
-        for modelName in 'LR' 'MLP' 'LGBM' 'XGB'  
+        for modelName in 'Midfusion'  
         do
-
-        if [[ $modelName == "MLP" ]]; then
-            nGPU=1
-        else
-            nGPU=0
-        fi
 
         pySLURMargs.py $userName $memory $condaEnv $nGPU "../src/main.py $notesPath $embeddingPath $splitConfig $hyperParamEval $modelName $setupStr $tabular $targetName $modelDir $resultsDir"
 

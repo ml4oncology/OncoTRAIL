@@ -6,18 +6,17 @@ memory=16
 condaEnv="~/miniforge3/envs/LLMfinetune/bin/python3"
 nGPU=0
 
-rootDir=/cluster/home/t127556uhn/gitrepo/2024/LLM-notes-classification
+#rootDir=/cluster/home/t127556uhn/gitrepo/2024/LLM-notes-classification
 resultsRootDir=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/LLM-notes-classification
-#resultsRootDir=/cluster/home/t127556uhn/gitrepo/2024/LLM-notes-classification
-modelDir=${resultsRootDir}/models
-resultsDir=${resultsRootDir}/results
+modelDir=${resultsRootDir}/models_deid
+resultsDir=${resultsRootDir}/results_deid
 
-for tabular in 2 #0 1
+for tabular in 0 1
 do 
     for anchorType in "firstVisitOnly-medOnc-ConsultLetterClinic" "mostRecentVisit-appendFirst-medOnc-ConsultLetterClinic" "mostRecentVisit-medOnc-ConsultLetterClinic" 
     do
 
-        notesPath=${rootDir}/data/notes/noteAnchored_${anchorType}.csv
+        notesPath=${resultsRootDir}/data/notes_deid/noteAnchored_${anchorType}_deid.csv
 
         for targetName in target_esas_pain_3pt_change target_death_in_365d target_esas_nausea_3pt_change target_ED_visit target_death_in_30d 
         do
@@ -31,7 +30,7 @@ do
         for hyperParamEval in 'logloss' 'AUROC'
         do
 
-        embeddingPath=${rootDir}/data/embedding/embedding_${LLMName}_noteAnchored_${anchorType}.npz
+        embeddingPath=${resultsRootDir}/data/embedding_deid/embedding_${LLMName}_noteAnchored_${anchorType}_deid.npz
         setupStr=${LLMName}_${anchorType}
 
         for modelName in 'LR' 'MLP' 'LGBM' 'XGB'  

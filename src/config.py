@@ -8,11 +8,18 @@ start_test_date = "2015-01-01"
 #     'MLP': {'init_points': 2, 'n_iter': 5}
 # }
 
+LLM_embedding_dim = {
+    "Mistral": 4096,
+    "BioMistral": 4096,
+    "ClinicalLongformer": 768
+}
+
 bayesopt_param = {
     "LR": {"init_points": 10, "n_iter": 25},
     "XGB": {"init_points": 100, "n_iter": 100},
     "LGBM": {"init_points": 250, "n_iter": 250},
     "MLP": {"init_points": 500, "n_iter": 250},
+    "Midfusion": {"init_points": 750, "n_iter": 250}
 }
 
 model_static_param = {
@@ -32,7 +39,9 @@ model_static_param = {
         "early_stopping_rounds": 25,
     },
     "MLP": {},
+    "Midfusion": {}
 }
+
 model_tuning_param = {
     "LR": {"C": (0.00001, 1)},
     "XGB": {
@@ -67,5 +76,19 @@ model_tuning_param = {
         "learning_rate": (0.0001, 0.1),
         "weight_decay": (0.0001, 1),
         "momentum": (0, 0.9),
+    },
+    "Midfusion": {
+        "batch_size": (64, 4096),
+        "fusion_size": (16, 2000),
+        "hidden_size1": (16, 4000),
+        "hidden_size2": (16, 4000),
+        "hidden_size3": (16, 4000),
+        "three_layers": (0, 1),
+        "dropout": (0, 0.5),
+        "optimizer": (0, 1),
+        "learning_rate": (0.0001, 0.1),
+        "weight_decay": (0.0001, 1),
+        "momentum": (0, 0.9),
+        "batchnorm": (0,1)
     },
 }
