@@ -33,7 +33,8 @@ user_name = sys.argv[1]
 memory = sys.argv[2]
 conda_env = sys.argv[3]
 n_GPU = sys.argv[4]
-mcmd = sys.argv[5:]
+run_time = sys.argv[5]
+mcmd = sys.argv[6:]
 
 os.environ['PATH'] = ('/usr/local/slurm/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/cluster/home/' 
                       + user_name + 
@@ -64,7 +65,7 @@ fp.write('#SBATCH -J py\n')
 fp.write('#SBATCH --get-user-env\n')
 fp.write('#SBATCH --ntasks=1\n')
 fp.write('#SBATCH --mem=' + memory + 'GB\n')
-fp.write('#SBATCH --time=2-00:00:00\n')
+fp.write('#SBATCH --time=' + run_time + '\n')
 if int(n_GPU) > 0:
     fp.write('#SBATCH --partition=gpu\n')
     fp.write('#SBATCH --account=gliugroup_gpu\n')

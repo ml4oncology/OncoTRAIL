@@ -5,8 +5,10 @@ userName="t127556uhn"
 memory=16
 condaEnv="~/miniforge3/envs/LLMfinetune/bin/python3"
 nGPU=0
+runTime='2-00:00:00'
 
-rootDir=/cluster/home/t127556uhn/gitrepo/2024/LLM-notes-classification
+#rootDir=/cluster/home/t127556uhn/gitrepo/2024/LLM-notes-classification
+rootDir=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/LLM-notes-classification
 resultsRootDir=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/LLM-notes-classification
 #resultsRootDir=/cluster/home/t127556uhn/gitrepo/2024/LLM-notes-classification
 modelDir=${resultsRootDir}/models
@@ -31,7 +33,7 @@ do
         for hyperParamEval in 'logloss' 'AUROC'
         do
 
-        embeddingPath=${rootDir}/data/embedding/embedding_${LLMName}_noteAnchored_${anchorType}.npz
+        embeddingPath=${resultsRootDir}/data/embedding/embedding_${LLMName}_noteAnchored_${anchorType}.npz
         setupStr=${LLMName}_${anchorType}
 
         for modelName in 'LR' 'MLP' 'LGBM' 'XGB'  
@@ -43,7 +45,7 @@ do
             nGPU=0
         fi
 
-        pySLURMargs.py $userName $memory $condaEnv $nGPU "../src/main.py $notesPath $embeddingPath $splitConfig $hyperParamEval $modelName $setupStr $tabular $targetName $modelDir $resultsDir"
+        pySLURMargs.py $userName $memory $condaEnv $nGPU $runTime "../src/main.py $notesPath $embeddingPath $splitConfig $hyperParamEval $modelName $setupStr $tabular $targetName $modelDir $resultsDir"
 
         done
 

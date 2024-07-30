@@ -5,6 +5,7 @@ userName="t127556uhn"
 memory=16
 condaEnv="~/miniforge3/envs/LLMfinetune/bin/python3"
 nGPU=0
+runTime='2-00:00:00'
 
 rootDir=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/LLM-notes-classification
 dataDir=${rootDir}/data/interim_deid
@@ -21,5 +22,5 @@ do
 
     note_config=noteAnchored_${noteConfig}
 
-    pySLURMargs.py $userName $memory $condaEnv $nGPU "../src/mergeDataFrames.py $dataDir $saveDir $note_config $suffix 0 $upper_limit"
+    pySLURMargs.py $userName $memory $condaEnv $nGPU $runTime "../src/mergeDataFrames.py $dataDir $saveDir $note_config 0 $upper_limit -s $suffix"
 done

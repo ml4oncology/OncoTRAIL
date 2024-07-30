@@ -103,7 +103,7 @@ def preprocessing(data_path, LLM_path, LLM_name, save_dir):
 
         return hidden_states[:, 0, :].cpu().numpy()[0]
 
-    if LLM_name in ["Mistral", "BioMistral"]:
+    if LLM_name in ["Mistral", "BioMistral", "Llama3-8B"]:
         text_to_embedding = decoder_text_to_embedding
     elif LLM_name in ["ClinicalLongformer"]:
         text_to_embedding = longformer_text_to_embedding
