@@ -11,7 +11,8 @@ start_test_date = "2015-01-01"
 LLM_embedding_dim = {
     "Mistral": 4096,
     "BioMistral": 4096,
-    "ClinicalLongformer": 768
+    "ClinicalLongformer": 768,
+    "Llama3-8B": 4096
 }
 
 bayesopt_param = {

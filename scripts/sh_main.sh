@@ -14,7 +14,7 @@ resultsRootDir=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/LLM-no
 modelDir=${resultsRootDir}/models
 resultsDir=${resultsRootDir}/results
 
-for tabular in 2 #0 1
+for tabular in 0 # 2 #0 1
 do 
     for anchorType in "firstVisitOnly-medOnc-ConsultLetterClinic" "mostRecentVisit-appendFirst-medOnc-ConsultLetterClinic" "mostRecentVisit-medOnc-ConsultLetterClinic" 
     do
@@ -27,7 +27,7 @@ do
         for splitConfig in 'Temporal' 'Random'
         do
 
-        for LLMName in 'ClinicalLongformer' 'Mistral' 'BioMistral'
+        for LLMName in 'Llama3-8B' # 'ClinicalLongformer' 'Mistral' 'BioMistral'
         do
 
         for hyperParamEval in 'logloss' 'AUROC'

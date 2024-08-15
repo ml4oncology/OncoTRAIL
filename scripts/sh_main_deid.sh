@@ -12,20 +12,20 @@ resultsRootDir=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/LLM-no
 modelDir=${resultsRootDir}/models_deid
 resultsDir=${resultsRootDir}/results_deid
 
-for tabular in 0 1
+for tabular in 0 # 1
 do 
-    for anchorType in "firstVisitOnly-medOnc-ConsultLetterClinic" "mostRecentVisit-appendFirst-medOnc-ConsultLetterClinic" "mostRecentVisit-medOnc-ConsultLetterClinic" 
+    for anchorType in "mostRecentVisit-medOnc-ConsultLetterClinic" # "firstVisitOnly-medOnc-ConsultLetterClinic" "mostRecentVisit-appendFirst-medOnc-ConsultLetterClinic" 
     do
 
         notesPath=${resultsRootDir}/data/notes_deid/noteAnchored_${anchorType}_deid.csv
 
-        for targetName in target_esas_pain_3pt_change target_death_in_365d target_esas_nausea_3pt_change target_ED_visit target_death_in_30d 
+        for targetName in target_sex # target_esas_pain_3pt_change target_death_in_365d target_esas_nausea_3pt_change target_ED_visit target_death_in_30d 
         do
 
         for splitConfig in 'Temporal' 'Random'
         do
 
-        for LLMName in 'ClinicalLongformer' 'Mistral' 'BioMistral'
+        for LLMName in 'Llama3-8B' 'ClinicalLongformer' 'Mistral' 'BioMistral'
         do
 
         for hyperParamEval in 'logloss' 'AUROC'
@@ -34,7 +34,7 @@ do
         embeddingPath=${resultsRootDir}/data/embedding_deid/embedding_${LLMName}_noteAnchored_${anchorType}_deid.npz
         setupStr=${LLMName}_${anchorType}
 
-        for modelName in 'MLP' # 'LR' 'LGBM' 'XGB'  
+        for modelName in 'MLP' 'LR' 'LGBM' 'XGB'  
         do
 
         if [[ $modelName == "MLP" ]]; then

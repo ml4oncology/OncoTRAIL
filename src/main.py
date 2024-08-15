@@ -43,6 +43,7 @@ def main(
     """
 
     if model_name == 'Midfusion': assert tabular == 1, "Midfusion requires both tabular and note data."
+    if target_name == 'target_sex': assert tabular == 0, "Implementation not yet available when sex is a target."
 
     # extract LLM_name from setup_str
     LLM_name = setup_str.split("_")[0]
@@ -58,17 +59,20 @@ def main(
     df = pd.read_csv(notes_path, index_col=0)
     df.reset_index(drop=True, inplace=True)
 
-    # get indices of target != -1
-    mask = (df[target_name] != -1).to_numpy()
-
     # load embedding
     with np.load(embedding_path) as data:
         embedding = data["embeddings"]
         target = data[target_name]
 
-    # only extract embedding and target where index != -1
-    embedding = embedding[mask, :]
-    target = target[mask]
+    # get indices of target != -1
+    mask = None
+    if target_name != 'target_sex':
+        mask = (df[target_name] != -1).to_numpy()
+
+        # only extract embedding and target where index != -1
+        embedding = embedding[mask, :]
+        target = target[mask]
+
     if tabular >= 1:
         cols = df.columns
         targ_cols = cols[cols.str.contains("target")].tolist()
@@ -77,7 +81,10 @@ def main(
         keep_cols = [col for col in cols if col not in extra_cols + targ_cols]
         df = df.loc[mask, keep_cols]
     else:
-        df = df.loc[mask, ["mrn", "treatment_date"]]
+        if mask is not None:
+            df = df.loc[mask, ["mrn", "treatment_date"]]
+        else:
+            df = df.loc[:, ["mrn", "treatment_date"]]
     df.reset_index(drop=True, inplace=True)
 
     # generate train-validation-test split

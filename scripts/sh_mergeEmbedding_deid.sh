@@ -5,7 +5,7 @@ userName="t127556uhn"
 memory=16
 condaEnv="~/miniforge3/envs/LLMfinetune/bin/python3"
 nGPU=0
-runTime='2-00:00:00'
+runTime='0-01:00:00'
 
 #rootDir=/cluster/home/t127556uhn/gitrepo/2024/LLM-notes-classification
 rootDir=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/LLM-notes-classification
@@ -22,7 +22,7 @@ do
         numFiles=28
     fi
 
-    for LLMName in 'ClinicalLongformer' 'Mistral' 'BioMistral'
+    for LLMName in 'Llama3-8B-Instruct' # 'Llama3-8B' # 'ClinicalLongformer' 'Mistral' 'BioMistral'
     do
 
         dataFileName=embedding_${LLMName}_noteAnchored_${noteConfig}

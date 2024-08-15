@@ -144,7 +144,7 @@ def process_prompting(data_path, LLM_path, LLM_name, save_dir, target_name):
         sequences = pipe(
                     messages,
                     max_new_tokens=200,
-                    do_sample=True,
+                    do_sample=False,
                     return_full_text=False,
                     top_k=1
                 )
