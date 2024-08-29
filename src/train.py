@@ -7,7 +7,12 @@ import numpy as np
 import torch
 import logging
 from util import save_pickle
-from config import bayesopt_param, model_static_param, model_tuning_param, LLM_embedding_dim
+from config import (
+    bayesopt_param,
+    model_static_param,
+    model_tuning_param,
+    LLM_embedding_dim,
+)
 from models import LR, XGB, LGBM, MLP, MidfusionMLP
 
 torch.manual_seed(0)
@@ -212,10 +217,12 @@ class Trainer(Tuner):
         **kwargs,
     ):
         """Train deep learning models"""
-        if self.alg_name == 'MLP':
+        if self.alg_name == "MLP":
             model = self.alg(self.n_features, self.n_targets, **kwargs)
-        elif self.alg_name == 'Midfusion':
-            model = self.alg(self.n_features, self.embedding_size, self.n_targets, **kwargs)
+        elif self.alg_name == "Midfusion":
+            model = self.alg(
+                self.n_features, self.embedding_size, self.n_targets, **kwargs
+            )
 
         train_dataset = self.transform_to_tensor_dataset(self.X_train, self.Y_train)
         valid_dataset = self.transform_to_tensor_dataset(self.X_eval, self.Y_eval)
@@ -280,9 +287,7 @@ class Trainer(Tuner):
                 early_stop_counter = 0
 
                 if save_checkpoints:
-                    save_path = (
-                        f"{self.output_path}/train_perf/{self.str_identifier}-checkpoint"
-                    )
+                    save_path = f"{self.output_path}/train_perf/{self.str_identifier}-checkpoint"
                     torch.save(
                         {
                             "epoch": epoch,
@@ -370,7 +375,7 @@ class Trainer(Tuner):
                 params[param] = "LSTM" if value > 0.5 else "GRU"
             if param == "optimizer":
                 params[param] = "adam" if value > 0.5 else "sgd"
-            if param in ["three_layers","batchnorm"]:
+            if param in ["three_layers", "batchnorm"]:
                 params[param] = True if value > 0.5 else False
             if (
                 param == "batch_size"

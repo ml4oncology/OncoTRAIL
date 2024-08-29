@@ -12,10 +12,14 @@ def stripNewLine(data_path, save_dir):
 
     # load the clinical notes file
     clinical_notes = pd.read_csv(data_path, index_col=False)
-    clinical_notes['note'] = clinical_notes['note'].apply(lambda x: x.rstrip('\n').replace('\n\n','\n'))
-    clinical_notes['note'] = clinical_notes['note'].apply(lambda x: re.sub(r'[\n]+', '\n', x))
+    clinical_notes["note"] = clinical_notes["note"].apply(
+        lambda x: x.rstrip("\n").replace("\n\n", "\n")
+    )
+    clinical_notes["note"] = clinical_notes["note"].apply(
+        lambda x: re.sub(r"[\n]+", "\n", x)
+    )
 
-    clinical_notes.to_csv(f'{save_dir}/{file_name}.csv')
+    clinical_notes.to_csv(f"{save_dir}/{file_name}.csv")
 
 
 if __name__ == "__main__":

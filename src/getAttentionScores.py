@@ -13,6 +13,7 @@ from pathlib import Path
 # Empty cuda cache
 torch.cuda.empty_cache()
 
+
 def get_quant_config():
     """Get quantization configurations for QLoRA - Quantized Low-Rank Adaptation
 
@@ -67,22 +68,38 @@ def getAttentionScores(data_path, LLM_path, LLM_name, save_dir):
 
         with torch.no_grad():
             transformer_outputs = model.model(
-                **tokenized_texts, output_hidden_states=True,
-                return_dict=True, output_attentions=True
+                **tokenized_texts,
+                output_hidden_states=True,
+                return_dict=True,
+                output_attentions=True,
             )
-        
-        return np.concatenate([transformer_outputs.attentions[0].cpu().detach().numpy(), transformer_outputs.attentions[-1].cpu().detach().numpy()],axis=0)
+
+        return np.concatenate(
+            [
+                transformer_outputs.attentions[0].cpu().detach().numpy(),
+                transformer_outputs.attentions[-1].cpu().detach().numpy(),
+            ],
+            axis=0,
+        )
 
     def longformer_text_to_attention(text):
         tokenized_texts = tokenizer(text, truncation=True, return_tensors="pt")
 
         with torch.no_grad():
             transformer_outputs = model.longformer(
-                **tokenized_texts, output_hidden_states=True,
-                return_dict=True, output_attentions=True
+                **tokenized_texts,
+                output_hidden_states=True,
+                return_dict=True,
+                output_attentions=True,
             )
 
-        return np.concatenate([transformer_outputs.attentions[0].cpu().detach().numpy(), transformer_outputs.attentions[-1].cpu().detach().numpy()],axis=0)
+        return np.concatenate(
+            [
+                transformer_outputs.attentions[0].cpu().detach().numpy(),
+                transformer_outputs.attentions[-1].cpu().detach().numpy(),
+            ],
+            axis=0,
+        )
 
     if LLM_name in ["Mistral", "BioMistral", "Llama3-8B", "Llama3-8B-Instruct"]:
         text_to_attention = decoder_text_to_attention
@@ -91,13 +108,17 @@ def getAttentionScores(data_path, LLM_path, LLM_name, save_dir):
     else:
         raise Exception("Not implemented yet.")
 
-    for ctr, note in enumerate(notes_list): 
+    for ctr, note in enumerate(notes_list):
         attention_scores = text_to_attention(note)
-        np.savez(f"{save_dir}/attention_{LLM_name}_{file_name}_note{ctr}.npz", attention_scores)
+        np.savez(
+            f"{save_dir}/attention_{LLM_name}_{file_name}_note{ctr}.npz",
+            attention_scores,
+        )
         print(ctr)
 
         if ctr % 500 == 0:
             torch.cuda.empty_cache()
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

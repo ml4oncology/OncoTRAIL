@@ -13,7 +13,7 @@ LLM_embedding_dim = {
     "BioMistral": 4096,
     "ClinicalLongformer": 768,
     "Llama3-8B": 4096,
-    "Llama3-8B-Instruct": 4096
+    "Llama3-8B-Instruct": 4096,
 }
 
 bayesopt_param = {
@@ -21,7 +21,7 @@ bayesopt_param = {
     "XGB": {"init_points": 100, "n_iter": 100},
     "LGBM": {"init_points": 250, "n_iter": 250},
     "MLP": {"init_points": 500, "n_iter": 250},
-    "Midfusion": {"init_points": 750, "n_iter": 250}
+    "Midfusion": {"init_points": 750, "n_iter": 250},
 }
 
 model_static_param = {
@@ -41,7 +41,7 @@ model_static_param = {
         "early_stopping_rounds": 25,
     },
     "MLP": {},
-    "Midfusion": {}
+    "Midfusion": {},
 }
 
 model_tuning_param = {
@@ -91,6 +91,6 @@ model_tuning_param = {
         "learning_rate": (0.0001, 0.1),
         "weight_decay": (0.0001, 1),
         "momentum": (0, 0.9),
-        "batchnorm": (0,1)
+        "batchnorm": (0, 1),
     },
 }

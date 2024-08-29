@@ -180,7 +180,8 @@ class DLModel:
             pred = torch.sigmoid(pred)
 
         return pred
-    
+
+
 class MLP(DLModel):
     def __init__(
         self,
@@ -225,6 +226,7 @@ class MLP(DLModel):
         if self.use_gpu:
             self.model.cuda()
 
+
 class NN(nn.Module):
     def __init__(
         self,
@@ -254,6 +256,7 @@ class NN(nn.Module):
         if self.three_layers:
             X = self.dropout(self.relu(self.layer3(X)))
         return self.output(X)
+
 
 class MidfusionMLP(DLModel):
     def __init__(
@@ -305,6 +308,7 @@ class MidfusionMLP(DLModel):
         if self.use_gpu:
             self.model.cuda()
 
+
 class NNFusion(nn.Module):
     def __init__(
         self,
@@ -317,23 +321,23 @@ class NNFusion(nn.Module):
         hidden_size3,
         three_layers,
         dropout=0,
-        batchnorm=0
+        batchnorm=0,
     ):
         super(NNFusion, self).__init__()
         self.three_layers = three_layers
         self.batchnorm = batchnorm
         self.embedding_size = embedding_size
         self.fusion_layer1 = nn.Linear(embedding_size, fusion_size)
-        self.fusion_layer2 = nn.Linear(input_size-embedding_size, fusion_size)
-        self.layer1 = nn.Linear(2*fusion_size, hidden_size1)
+        self.fusion_layer2 = nn.Linear(input_size - embedding_size, fusion_size)
+        self.layer1 = nn.Linear(2 * fusion_size, hidden_size1)
         self.layer2 = nn.Linear(hidden_size1, hidden_size2)
-        if self.batchnorm==1:
+        if self.batchnorm == 1:
             self.bn1 = nn.BatchNorm1d(hidden_size1)
             self.bn2 = nn.BatchNorm1d(hidden_size2)
         if self.three_layers:
             self.layer3 = nn.Linear(hidden_size2, hidden_size3)
             self.output = nn.Linear(hidden_size3, output_size)
-            if self.batchnorm==1:
+            if self.batchnorm == 1:
                 self.bn3 = nn.BatchNorm1d(hidden_size3)
         else:
             self.output = nn.Linear(hidden_size2, output_size)
@@ -342,19 +346,19 @@ class NNFusion(nn.Module):
 
     def forward(self, X):
         # split the input into two parts
-        notes = X[:, :self.embedding_size]
-        tabular = X[:, self.embedding_size:]
+        notes = X[:, : self.embedding_size]
+        tabular = X[:, self.embedding_size :]
         notes_embedding = self.dropout(self.relu(self.fusion_layer1(notes)))
         tabular_embedding = self.dropout(self.relu(self.fusion_layer2(tabular)))
         X = torch.cat((notes_embedding, tabular_embedding), dim=1)
-        if self.batchnorm==0:
+        if self.batchnorm == 0:
             X = self.dropout(self.relu(self.layer1(X)))
             X = self.dropout(self.relu(self.layer2(X)))
         else:
             X = self.dropout(self.relu(self.bn1(self.layer1(X))))
-            X = self.dropout(self.relu(self.bn2(self.layer2(X))))   
+            X = self.dropout(self.relu(self.bn2(self.layer2(X))))
         if self.three_layers:
-            if self.batchnorm==0:
+            if self.batchnorm == 0:
                 X = self.dropout(self.relu(self.layer3(X)))
             else:
                 X = self.dropout(self.relu(self.bn3(self.layer3(X))))

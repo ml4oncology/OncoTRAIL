@@ -6,7 +6,11 @@ from transformers import AutoTokenizer
 
 def tokenizeNotes(data_dir, model_name, model_path, notes_file_name):
     # notes = pd.read_csv(f"{data_dir}/{notes_file_name}.csv")
-    notes = pd.read_parquet(f"{data_dir}/{notes_file_name}.parquet.gzip", engine='pyarrow', use_nullable_dtypes = True)
+    notes = pd.read_parquet(
+        f"{data_dir}/{notes_file_name}.parquet.gzip",
+        engine="pyarrow",
+        use_nullable_dtypes=True,
+    )
     tokenizer = AutoTokenizer.from_pretrained(f"{model_path}/{model_name}")
     # Batched tokenization
     if tokenizer.padding_side is None:
@@ -18,15 +22,26 @@ def tokenizeNotes(data_dir, model_name, model_path, notes_file_name):
     concat_note_list = []
     tokenized_len_list = []
 
-    notes_grouped = notes.groupby('MRN')
+    notes_grouped = notes.groupby("MRN")
     for name, group in notes_grouped:
         mrn_list.append(name)
-        cat_note = group.groupby('MRN').agg(processed_note=('clinical_notes', lambda x: '\n'.join(x))).reset_index()['processed_note'].values[0]
+        cat_note = (
+            group.groupby("MRN")
+            .agg(processed_note=("clinical_notes", lambda x: "\n".join(x)))
+            .reset_index()["processed_note"]
+            .values[0]
+        )
         concat_note_list.append(cat_note)
         tokenized_note = tokenizer.tokenize(cat_note)
         tokenized_len_list.append(len(tokenized_note))
-    
-    concatenate_notes_df = pd.DataFrame({'mrn': mrn_list, 'concatenated_note': concat_note_list, 'tokenized_len': tokenized_len_list})
+
+    concatenate_notes_df = pd.DataFrame(
+        {
+            "mrn": mrn_list,
+            "concatenated_note": concat_note_list,
+            "tokenized_len": tokenized_len_list,
+        }
+    )
 
     concatenate_notes_df.to_csv(f"{data_dir}/{notes_file_name}_tokenized.csv")
 

@@ -4,12 +4,14 @@ import argparse
 from sklearn.metrics import average_precision_score, roc_auc_score, log_loss
 from pathlib import Path
 import sys
+
 ROOT_DIR = Path(__file__).parent.parent.as_posix()
 sys.path.append(ROOT_DIR)
 from src.config import start_test_date
 from src.split import gen_data_split
 from src.train import Trainer
 import logging
+
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
@@ -36,23 +38,23 @@ def main(
     hyperparam_eval: select best hyperparameters based on AUC or logloss
     model_name: machine learning/deep learning model
     setup_str: combination of LLM and note configuration
-    tabular: 0 - notes only, 1 - notes+tabular, 2 - tabular only 
+    tabular: 0 - notes only, 1 - notes+tabular, 2 - tabular only
     target_name: name of target
     model_dir: directory where to save trained model parameters
     results_dir: directory where to save the results of the model runs
     """
 
-    if model_name == 'Midfusion': assert tabular == 1, "Midfusion requires both tabular and note data."
-    if target_name == 'target_sex': assert tabular == 0, "Implementation not yet available when sex is a target."
+    if model_name == "Midfusion":
+        assert tabular == 1, "Midfusion requires both tabular and note data."
+    if target_name == "target_sex":
+        assert tabular == 0, "Implementation not yet available when sex is a target."
 
     # extract LLM_name from setup_str
     LLM_name = setup_str.split("_")[0]
 
     # save string for file
-    target_name_nospace = target_name.replace("_","-")
-    file_save_str = (
-        f"{model_name}_{setup_str}_{split_config}_{hyperparam_eval}_tabular{tabular}_{target_name_nospace}"
-    )
+    target_name_nospace = target_name.replace("_", "-")
+    file_save_str = f"{model_name}_{setup_str}_{split_config}_{hyperparam_eval}_tabular{tabular}_{target_name_nospace}"
     logger.info(file_save_str)
 
     # load data frame
@@ -66,7 +68,7 @@ def main(
 
     # get indices of target != -1
     mask = None
-    if target_name != 'target_sex':
+    if target_name != "target_sex":
         mask = (df[target_name] != -1).to_numpy()
 
         # only extract embedding and target where index != -1
@@ -76,7 +78,9 @@ def main(
     if tabular >= 1:
         cols = df.columns
         targ_cols = cols[cols.str.contains("target")].tolist()
-        extra_cols = ["cohort", "split", "note", "stats_noteType"] + cols[cols.str.contains("date")].tolist()
+        extra_cols = ["cohort", "split", "note", "stats_noteType"] + cols[
+            cols.str.contains("date")
+        ].tolist()
         extra_cols.remove("treatment_date")
         keep_cols = [col for col in cols if col not in extra_cols + targ_cols]
         df = df.loc[mask, keep_cols]
@@ -157,8 +161,10 @@ if __name__ == "__main__":
     )  # name of set up string
     parser.add_argument(
         "tabular", help="include tabular data", type=int
-    ) # include tabular data
-    parser.add_argument("target_name", help="name of target", type=str)  # name of target
+    )  # include tabular data
+    parser.add_argument(
+        "target_name", help="name of target", type=str
+    )  # name of target
     parser.add_argument(
         "model_dir", help="model directory", type=str
     )  # directory to save model
