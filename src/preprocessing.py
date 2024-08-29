@@ -13,6 +13,14 @@ from pathlib import Path
 # Empty cuda cache
 torch.cuda.empty_cache()
 
+def get_prompt(llm_name):
+    target_prompt = "die within the next year"
+    base_prompt =  ("You are a highly experienced and extremely competent medical oncologist from the world-renowned Princess Margaret Cancer Centre in Toronto, Ontario. " + 
+                    "Your task is to predict the probability that a patient undergoing systemic therapy for cancer will " + target_prompt + " based on the clinical note below. "
+                    )
+    if 'Instruct' in llm_name:
+        base_prompt = [{"role": "system", "content": base_prompt}]
+    return base_prompt
 
 def get_quant_config():
     """Get quantization configurations for QLoRA - Quantized Low-Rank Adaptation
@@ -28,7 +36,7 @@ def get_quant_config():
     return quant_config
 
 
-def preprocessing(data_path, LLM_path, LLM_name, save_dir):
+def preprocessing(data_path, LLM_path, LLM_name, save_dir, prepend=0):
     # extract file name
     file_name = os.path.basename(data_path)
     file_name = Path(file_name).stem
@@ -110,7 +118,14 @@ def preprocessing(data_path, LLM_path, LLM_name, save_dir):
     else:
         raise Exception("Not implemented yet.")
 
-    for ctr, note in enumerate(notes_list):
+    if prepend:
+        # get prompt
+        instr_prompt = get_prompt(LLM_name)
+        if 'Instruct' in LLM_name:
+            instr_prompt = tokenizer.apply_chat_template(instr_prompt, tokenize=False)
+        notes_list = [instr_prompt + '\n' + note for note in notes_list]
+
+    for ctr, note in enumerate(notes_list): 
         embeddings_list.append(text_to_embedding(note))
         print(ctr)
 
@@ -130,6 +145,7 @@ if __name__ == "__main__":
     parser.add_argument("LLM_path", help="path to LLM", type=str)  # path to LLM
     parser.add_argument("LLM_name", help="name of LLM", type=str)  # name of LLM
     parser.add_argument("save_dir", help="save directory", type=str)  # save directory
+    parser.add_argument('-p',"--prepend", help = "prepend instructions", type = int, default=0) # prepend note with instructions
     args = parser.parse_args()
 
-    preprocessing(args.data_path, args.LLM_path, args.LLM_name, args.save_dir)
+    preprocessing(args.data_path, args.LLM_path, args.LLM_name, args.save_dir, args.prepend)

@@ -33,7 +33,7 @@ do
                     for hyperParamEval in 'auroc' 'logloss'
                     do
                     
-                        pySLURMargs.py $userName $memory $condaEnv $nGPU $runTime "../src/test_newline_model.py $notesPath $splitConfig $hyperParamEval $modelName $modelDir $resultsDir $LLMpath $targetName"
+                        pySLURMargs.py $userName $memory $condaEnv $nGPU $runTime "../src/testNLmodel.py $notesPath $splitConfig $hyperParamEval $modelName $modelDir $resultsDir $LLMpath $targetName"
 
                     done
 

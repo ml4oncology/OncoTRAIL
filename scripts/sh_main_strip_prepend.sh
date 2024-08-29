@@ -9,15 +9,17 @@ runTime='2-00:00:00'
 
 #rootDir=/cluster/home/t127556uhn/gitrepo/2024/LLM-notes-classification
 resultsRootDir=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/LLM-notes-classification
-modelDir=${resultsRootDir}/models_strip
-resultsDir=${resultsRootDir}/results_strip
+modelDir=${resultsRootDir}/models_strip_prepend
+resultsDir=${resultsRootDir}/results_strip_prepend
+notesDir=${resultsRootDir}/data/notes_strip
+embeddingDir=${resultsRootDir}/data/embedding_strip_prepend
 
 for tabular in 0
 do 
-    for anchorType in "firstVisitOnly-medOnc-ConsultLetterClinic" "mostRecentVisit-appendFirst-medOnc-ConsultLetterClinic" "mostRecentVisit-medOnc-ConsultLetterClinic" 
+    for anchorType in "mostRecentVisit-medOnc-ConsultLetterClinic" # "firstVisitOnly-medOnc-ConsultLetterClinic" "mostRecentVisit-appendFirst-medOnc-ConsultLetterClinic"  
     do
 
-        notesPath=${resultsRootDir}/data/notes_strip/noteAnchored_${anchorType}.csv
+        notesPath=${notesDir}/noteAnchored_${anchorType}.csv
 
         for targetName in target_esas_pain_3pt_change target_death_in_365d target_esas_nausea_3pt_change target_ED_visit target_death_in_30d 
         do
@@ -25,13 +27,13 @@ do
         for splitConfig in 'Temporal' 'Random'
         do
 
-        for LLMName in 'Llama3-8B' # 'ClinicalLongformer' 'Mistral' 'BioMistral'
+        for LLMName in 'Llama3-8B-Instruct' # 'Llama3-8B'  # 'ClinicalLongformer' 'Mistral' 'BioMistral'
         do
 
         for hyperParamEval in 'logloss' 'AUROC'
         do
 
-        embeddingPath=${resultsRootDir}/data/embedding_strip/embedding_${LLMName}_noteAnchored_${anchorType}.npz
+        embeddingPath=${embeddingDir}/embedding_${LLMName}_noteAnchored_${anchorType}.npz
         setupStr=${LLMName}_${anchorType}
 
         for modelName in 'MLP' 'LR' 'LGBM' 'XGB'  

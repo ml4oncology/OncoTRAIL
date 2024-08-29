@@ -12,7 +12,8 @@ LLM_embedding_dim = {
     "Mistral": 4096,
     "BioMistral": 4096,
     "ClinicalLongformer": 768,
-    "Llama3-8B": 4096
+    "Llama3-8B": 4096,
+    "Llama3-8B-Instruct": 4096
 }
 
 bayesopt_param = {

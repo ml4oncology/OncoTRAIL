@@ -18,8 +18,9 @@ def processDataFramePromptingVariation(data_path, save_dir, num_mrns, num_replic
     # split into parts for parallel embedding processing
     for idx in range(len(clinical_notes_filter)):
         temp_df = clinical_notes_filter.loc[idx:idx,:].copy()
+        # temp_df = clinical_notes_filter.loc[idx:idx,:].copy().to_csv(f"{save_dir}/{file_name}_template_patient{idx}.csv")
         temp_df.loc[temp_df.index.repeat(num_replicates)].reset_index(drop=True).to_csv(
-            f"{save_dir}/{file_name}_part{idx}.csv"
+            f"{save_dir}/{file_name}_template_patient{idx}.csv"
         )
 
 

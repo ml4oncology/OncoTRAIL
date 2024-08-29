@@ -10,8 +10,8 @@ runTime='0-12:00:00'
 #rootDir='/cluster/home/t127556uhn/gitrepo/2024/LLM-notes-classification'
 rootDir=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/LLM-notes-classification
 saveDir=${rootDir}/data/prompting_variation_deid
-num_mrns=250
-num_replicates=100
+num_mrns=1000
+num_replicates=1
 
 for noteConfig in 'mostRecentVisit-medOnc-ConsultLetterClinic' # 'mostRecentVisit-appendFirst-medOnc-ConsultLetterClinic' 'firstVisitOnly-medOnc-ConsultLetterClinic'   
 do
