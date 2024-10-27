@@ -30,6 +30,7 @@ def genDeid():
 
 
 def genTarget(target_string):
+    print(target_string)
     additional_info = ""
     if target_string == "target_ED_visit":
         target_prompt = "visit the emergency department within the next 30 days"
@@ -62,6 +63,57 @@ def genTarget(target_string):
             + "and 10 indicating the worst possible severity. This assessment helps healthcare "
             + "providers manage symptoms and improve quality of life for patients. "
         )
+    elif "hemoglobin" in target_string:
+        target_prompt = (
+            "experience grade 3 anemia, defined by the CTCAE "
+            "(Common Terminology Criteria for Adverse Events) as a hemoglobin level under 80 g/L"
+        )
+    elif "neutrophils" in target_string:
+        target_prompt = (
+            "experience grade 3 neutrophil count decrease, defined by the CTCAE "
+            "(Common Terminology Criteria for Adverse Events) as a neutrophil count under 1 x 10e9/L"
+        )
+    elif "platelet" in target_string:
+        target_prompt = (
+            "experience grade 3 platelet count decrease, defined by the CTCAE "
+            "(Common Terminology Criteria for Adverse Events) as a platelet count under 50 x 10e9/L"
+        )
+    elif "AKI" in target_string:
+        if 'baseline' in target_string:
+            supplement = 'the baseline'
+        elif 'upperlimit' in target_string:
+            supplement = 'the upper limit of normal (353.68 umol/L)'
+
+        target_prompt = (
+            "experience grade 3 creatinine increase, defined by the CTCAE "
+            "(Common Terminology Criteria for Adverse Events) as creatinine increasing 3.0 times above"
+            f"{supplement}"
+        )
+    elif ("ALT" or "AST") in target_string:
+        if 'ALT' in target_string:
+            quantity = 'alanine aminotransferase'
+            uln_value = '40 U/L'
+
+        elif 'AST' in target_string:
+            quantity = 'aspartate aminotransferase'
+            uln_value = '34 U/L'
+
+        if 'baseline' in target_string:
+            supplement = 'the baseline'
+        elif 'upperlimit' in target_string:
+            supplement = f'the upper limit of normal ({uln_value})'
+
+        target_prompt = (
+            f"experience grade 3 {quantity} increase, defined by the CTCAE "
+            f"(Common Terminology Criteria for Adverse Events) as {quantity} increasing 5.0 times above"
+            f"{supplement}"
+        )
+    elif "bilirubin" in target_string:
+        target_prompt = (
+            "experience grade 3 blood bilirubin increase, defined by the CTCAE "
+            "(Common Terminology Criteria for Adverse Events) as blood bilirubin increasing 3.0 times above"
+            "the upper limit of normal (22 umol/L) or baseline if the baseline was abnormal"
+        )
 
     target_prompt = (
         "Your task is to predict the probability that a patient undergoing systemic therapy for cancer will "
@@ -75,19 +127,21 @@ def genTarget(target_string):
 
 def genHealthFactors(target_string):
     health_string = ""
-    if target_string == "target_death_in_365d":
-        health_string = (
-            "Consider all relevant factors, including the patient's current treatment regimen, "
-            + "underlying cancer type and stage, symptoms, response to treatment, frequency of visits, "
-            + "patterns in the Electronic Health Record, lifestyle factors, and any comorbid conditions. "
-            + "Additionally, incorporate current medical guidelines and the latest research on survival rates and "
-            + "risk factors associated with systemic cancer therapies. "
-        )
-    else:
-        raise Exception("Not implemented yet.")
+    # if target_string == "target_death_in_365d":
+    health_string = (
+        "Consider all relevant factors, including the patient's current treatment regimen, "
+        + "underlying cancer type and stage, symptoms, response to treatment, frequency of visits, "
+        + "patterns in the Electronic Health Record, lifestyle factors, and any comorbid conditions. "
+        + "Additionally, incorporate current medical guidelines, the latest research on survival rates, "
+        + "risk factors associated with systemic cancer therapies, and the latest medical research in general. "
+    )
+    # else:
+    #     raise Exception("Not implemented yet.")
 
     return health_string
-
+    # target_esas_pain_3pt_change, target_esas_tiredness_3pt_change, target_esas_nausea_3pt_change, target_esas_depression_3pt_change,
+    # target_esas_anxiety_3pt_change, target_esas_drowsiness_3pt_change, target_esas_appetite_3pt_change, target_esas_well_being_3pt_change,
+    # target_esas_shortness_of_breath_3pt_change, target_death_in_30d, target_ED_visit
 
 def genCOT():
     cot_prompt = (
@@ -99,21 +153,24 @@ def genCOT():
     return cot_prompt
 
 
-def genReasonExample(numeric_proba):
-    if numeric_proba == 1:
-        prob_val = 0.95
+def genReasonExample(numeric_proba, target_string):
+    if target_string == "target_death_in_365d":
+        if numeric_proba == 1:
+            prob_val = 0.95
+        else:
+            prob_val = "'high'"
+        reason_prompt = "Below is an example output:\n"
+        reason_prompt = reason_prompt + (
+            """{'Reason': "Based on the patient's advanced age (70), extensive liver metastases, and rapid deterioration, """
+            + """it is highly likely that the patient's condition will not improve with systemic therapy. The patient's inability """
+            + """to undergo chemotherapy as an outpatient and the fact that the medical oncologist has already advised against chemotherapy """
+            + """due to the patient's poor performance status suggest that the patient's prognosis is poor. The patient's symptoms, """
+            + """including weight loss, abdominal pain, and bedridden status, also indicate a high likelihood of mortality within the next year.", """
+            + f"""'Probability': {prob_val}"""
+            + """}"""
+        )
     else:
-        prob_val = "'high'"
-    reason_prompt = "Below is an example output:\n"
-    reason_prompt = reason_prompt + (
-        """{'Reason': "Based on the patient's advanced age (70), extensive liver metastases, and rapid deterioration, """
-        + """it is highly likely that the patient's condition will not improve with systemic therapy. The patient's inability """
-        + """to undergo chemotherapy as an outpatient and the fact that the medical oncologist has already advised against chemotherapy """
-        + """due to the patient's poor performance status suggest that the patient's prognosis is poor. The patient's symptoms, """
-        + """including weight loss, abdominal pain, and bedridden status, also indicate a high likelihood of mortality within the next year.", """
-        + f"""'Probability': {prob_val}"""
-        + """}"""
-    )
+        reason_prompt = ''
 
     return reason_prompt
 
@@ -152,7 +209,7 @@ def genPrompts(target_name, numeric_proba, save_dir):
     health_prompt = ["", health_factors]
 
     cot_prompt = genCOT()
-    reason_prompt = genReasonExample(numeric_proba)
+    reason_prompt = genReasonExample(numeric_proba, target_name)
 
     prompt_dict = {}
 
