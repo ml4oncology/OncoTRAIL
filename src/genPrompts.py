@@ -1,4 +1,5 @@
 import json
+import re
 import argparse
 
 
@@ -31,6 +32,7 @@ def genDeid():
 
 def genTarget(target_string):
     print(target_string)
+
     additional_info = ""
     if target_string == "target_ED_visit":
         target_prompt = "visit the emergency department within the next 30 days"
@@ -63,57 +65,88 @@ def genTarget(target_string):
             + "and 10 indicating the worst possible severity. This assessment helps healthcare "
             + "providers manage symptoms and improve quality of life for patients. "
         )
-    elif "hemoglobin" in target_string:
-        target_prompt = (
-            "experience grade 3 anemia, defined by the CTCAE "
-            "(Common Terminology Criteria for Adverse Events) as a hemoglobin level under 80 g/L"
-        )
-    elif "neutrophils" in target_string:
-        target_prompt = (
-            "experience grade 3 neutrophil count decrease, defined by the CTCAE "
-            "(Common Terminology Criteria for Adverse Events) as a neutrophil count under 1 x 10e9/L"
-        )
-    elif "platelet" in target_string:
-        target_prompt = (
-            "experience grade 3 platelet count decrease, defined by the CTCAE "
-            "(Common Terminology Criteria for Adverse Events) as a platelet count under 50 x 10e9/L"
-        )
-    elif "AKI" in target_string:
-        if 'baseline' in target_string:
-            supplement = 'the baseline'
-        elif 'upperlimit' in target_string:
-            supplement = 'the upper limit of normal (353.68 umol/L)'
+    elif re.search(r'grade\d+plus', target_string) is not None:
+        
+        # CTCAE constants
+        constants = dict()
+        constants['hemoglobin']=dict()
+        constants['hemoglobin']['grade2plus'] = 100
+        constants['hemoglobin']['grade3plus'] = 80
+        constants['neutrophil']=dict()
+        constants['neutrophil']['grade2plus'] = 1.5
+        constants['neutrophil']['grade3plus'] = 1
+        constants['platelet']=dict()
+        constants['platelet']['grade2plus'] = 75
+        constants['platelet']['grade3plus'] = 50
+        constants['AKI']=dict()
+        constants['AKI']['grade2plus'] = 1.5
+        constants['AKI']['grade3plus'] = 3
+        constants['AKI']['ULN'] = 353.68
+        constants['ALT']=dict()
+        constants['ALT']['grade2plus'] = 3
+        constants['ALT']['grade3plus'] = 5
+        constants['ALT']['ULN'] = 40
+        constants['AST']=dict()
+        constants['AST']['grade2plus'] = 3
+        constants['AST']['grade3plus'] = 5
+        constants['AST']['ULN'] = 34
+        constants['bilirubin']=dict()
+        constants['bilirubin']['grade2plus'] = 1.5
+        constants['bilirubin']['grade3plus'] = 3
+        constants['bilirubin']['ULN'] = 22
+        # map_quantities = {'AKI': 'creatinine increase', 
+        #                   'ALT': 'alanine aminotransferase increase', 
+        #                   'AST': 'aspartate aminotransferase increase', 
+        #                   'bilirubin': 'blood bilirubin increase',
+        #                   'hemoglobin': 'anemia',
+        #                   'neutrophil': 'neutrophil count decrease',
+        #                   'platelet': 'platelet count decrease'}
 
-        target_prompt = (
-            "experience grade 3 creatinine increase, defined by the CTCAE "
-            "(Common Terminology Criteria for Adverse Events) as creatinine increasing 3.0 times above"
-            f"{supplement}"
-        )
-    elif ("ALT" or "AST") in target_string:
-        if 'ALT' in target_string:
-            quantity = 'alanine aminotransferase'
-            uln_value = '40 U/L'
+        match = re.search(r'target_(.*?)_grade([1-5])plus', target_string)
+        # extract the grade
+        grade = match.group(2)
+        # extract the quantity
+        quantity = match.group(1)
 
-        elif 'AST' in target_string:
-            quantity = 'aspartate aminotransferase'
-            uln_value = '34 U/L'
+        if "hemoglobin" in target_string:
+            target_prompt = (
+                f"experience grade {grade} anemia, defined by the CTCAE "
+                f"(Common Terminology Criteria for Adverse Events) as a hemoglobin level under {constants[quantity][f'grade{grade}plus']} g/L"
+            )
+        elif "neutrophils" in target_string:
+            target_prompt = (
+                f"experience grade {grade} neutrophil count decrease, defined by the CTCAE "
+                f"(Common Terminology Criteria for Adverse Events) as a neutrophil count under {constants[quantity][f'grade{grade}plus']} x 10e9/L"
+            )
+        elif "platelet" in target_string:
+            target_prompt = (
+                f"experience grade {grade} platelet count decrease, defined by the CTCAE "
+                f"(Common Terminology Criteria for Adverse Events) as a platelet count under {constants[quantity][f'grade{grade}plus']} x 10e9/L"
+            )
+        elif "AKI" in target_string:
+            target_prompt = (
+                f"experience grade {grade} creatinine increase, defined by the CTCAE "
+                f"(Common Terminology Criteria for Adverse Events) as creatinine increasing {constants[quantity][f'grade{grade}plus']} times above "
+                f"baseline or {constants[quantity][f'grade{grade}plus']} times above the upper limit of normal ({constants[quantity]['ULN']} umol/L)"
+            )
+        elif ("ALT" or "AST") in target_string:
+            if 'ALT' in target_string:
+                quantity = 'alanine aminotransferase'
 
-        if 'baseline' in target_string:
-            supplement = 'the baseline'
-        elif 'upperlimit' in target_string:
-            supplement = f'the upper limit of normal ({uln_value})'
+            elif 'AST' in target_string:
+                quantity = 'aspartate aminotransferase'
 
-        target_prompt = (
-            f"experience grade 3 {quantity} increase, defined by the CTCAE "
-            f"(Common Terminology Criteria for Adverse Events) as {quantity} increasing 5.0 times above"
-            f"{supplement}"
-        )
-    elif "bilirubin" in target_string:
-        target_prompt = (
-            "experience grade 3 blood bilirubin increase, defined by the CTCAE "
-            "(Common Terminology Criteria for Adverse Events) as blood bilirubin increasing 3.0 times above"
-            "the upper limit of normal (22 umol/L) or baseline if the baseline was abnormal"
-        )
+            target_prompt = (
+                f"experience grade {grade} {quantity} increase, defined by the CTCAE "
+                f"(Common Terminology Criteria for Adverse Events) as {quantity} increasing {constants[quantity][f'grade{grade}plus']} times above "
+                f"the upper limit of normal ({constants[quantity]['ULN']} U/L) or baseline if the baseline was abnormal"
+            )
+        elif "bilirubin" in target_string:
+            target_prompt = (
+                f"experience grade {grade} blood bilirubin increase, defined by the CTCAE "
+                f"(Common Terminology Criteria for Adverse Events) as blood bilirubin increasing {constants[quantity][f'grade{grade}plus']} times above "
+                f"the upper limit of normal ({constants[quantity]['ULN']} umol/L) or baseline if the baseline was abnormal"
+            )
 
     target_prompt = (
         "Your task is to predict the probability that a patient undergoing systemic therapy for cancer will "
