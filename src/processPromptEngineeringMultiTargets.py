@@ -130,8 +130,11 @@ def processPromptEngineeringMultiTargets(
                         result["Probability"] = None
                     if "Reason" not in result:
                         result["Reason"] = None
+                    
+                    result['Raw'] = temp_string
+
                 except:
-                    result = {"Reason": None, "Probability": None}
+                    result = {"Reason": None, "Probability": None, "Raw": seq["generated_text"]}
 
                 results.append(result)
 

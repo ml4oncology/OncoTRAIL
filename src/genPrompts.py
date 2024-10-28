@@ -110,40 +110,40 @@ def genTarget(target_string):
 
         if "hemoglobin" in target_string:
             target_prompt = (
-                f"experience grade {grade} anemia, defined by the CTCAE "
+                f"experience grade {grade} and above anemia, defined by the CTCAE "
                 f"(Common Terminology Criteria for Adverse Events) as a hemoglobin level under {constants[quantity][f'grade{grade}plus']} g/L"
             )
-        elif "neutrophils" in target_string:
+        elif "neutrophil" in target_string:
             target_prompt = (
-                f"experience grade {grade} neutrophil count decrease, defined by the CTCAE "
+                f"experience grade {grade} and above neutrophil count decrease, defined by the CTCAE "
                 f"(Common Terminology Criteria for Adverse Events) as a neutrophil count under {constants[quantity][f'grade{grade}plus']} x 10e9/L"
             )
         elif "platelet" in target_string:
             target_prompt = (
-                f"experience grade {grade} platelet count decrease, defined by the CTCAE "
+                f"experience grade {grade} and above platelet count decrease, defined by the CTCAE "
                 f"(Common Terminology Criteria for Adverse Events) as a platelet count under {constants[quantity][f'grade{grade}plus']} x 10e9/L"
             )
         elif "AKI" in target_string:
             target_prompt = (
-                f"experience grade {grade} creatinine increase, defined by the CTCAE "
+                f"experience grade {grade} and above creatinine increase, defined by the CTCAE "
                 f"(Common Terminology Criteria for Adverse Events) as creatinine increasing {constants[quantity][f'grade{grade}plus']} times above "
                 f"baseline or {constants[quantity][f'grade{grade}plus']} times above the upper limit of normal ({constants[quantity]['ULN']} umol/L)"
             )
-        elif ("ALT" or "AST") in target_string:
+        elif "ALT" in target_string or "AST" in target_string:
             if 'ALT' in target_string:
-                quantity = 'alanine aminotransferase'
+                quantity_full = 'alanine aminotransferase'
 
             elif 'AST' in target_string:
-                quantity = 'aspartate aminotransferase'
+                quantity_full = 'aspartate aminotransferase'
 
             target_prompt = (
-                f"experience grade {grade} {quantity} increase, defined by the CTCAE "
-                f"(Common Terminology Criteria for Adverse Events) as {quantity} increasing {constants[quantity][f'grade{grade}plus']} times above "
+                f"experience grade {grade} and above {quantity_full} increase, defined by the CTCAE "
+                f"(Common Terminology Criteria for Adverse Events) as {quantity_full} increasing {constants[quantity][f'grade{grade}plus']} times above "
                 f"the upper limit of normal ({constants[quantity]['ULN']} U/L) or baseline if the baseline was abnormal"
             )
         elif "bilirubin" in target_string:
             target_prompt = (
-                f"experience grade {grade} blood bilirubin increase, defined by the CTCAE "
+                f"experience grade {grade} and above blood bilirubin increase, defined by the CTCAE "
                 f"(Common Terminology Criteria for Adverse Events) as blood bilirubin increasing {constants[quantity][f'grade{grade}plus']} times above "
                 f"the upper limit of normal ({constants[quantity]['ULN']} umol/L) or baseline if the baseline was abnormal"
             )
@@ -151,7 +151,7 @@ def genTarget(target_string):
     target_prompt = (
         "Your task is to predict the probability that a patient undergoing systemic therapy for cancer will "
         + target_prompt
-        + " based on the de-identified clinical note below. "
+        + ", based on the de-identified clinical note below. "
     )
     target_prompt = target_prompt + additional_info
 
