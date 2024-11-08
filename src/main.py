@@ -64,7 +64,6 @@ def main(
     # load embedding
     with np.load(embedding_path) as data:
         embedding = data["embeddings"]
-        target = data[target_name]
 
     # get indices of target != -1
     mask = None
@@ -74,6 +73,8 @@ def main(
         # only extract embedding and target where index != -1
         embedding = embedding[mask, :]
         target = target[mask]
+    else:
+        raise NotImplementedError
 
     if tabular >= 1:
         cols = df.columns
@@ -115,7 +116,7 @@ def main(
 
     # save data
     np.savez(
-        f"{results_dir}/predData_{file_save_str}.npz",
+        f"{results_dir}/preddata_{file_save_str}.npz",
         train_pred=train_pred,
         val_pred=val_pred,
         test_pred=test_pred,
@@ -186,3 +187,5 @@ if __name__ == "__main__":
         args.model_dir,
         args.results_dir,
     )
+
+# to fix here: change the tabular settings + file name

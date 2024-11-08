@@ -2,8 +2,8 @@ import logging
 import sys
 import numpy as np
 import pandas as pd
-from common.src.prep import Splitter
-from common.src.prep import PrepData
+from ml_common.prep import Splitter
+from ml_common.prep import PrepData
 from sklearn.preprocessing import StandardScaler
 
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
