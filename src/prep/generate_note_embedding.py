@@ -9,6 +9,9 @@ from transformers import (
 )
 import torch
 from pathlib import Path
+import submitit
+from datetime import datetime
+from ml_common.util import load_table
 
 # Empty cuda cache
 torch.cuda.empty_cache()
@@ -41,24 +44,23 @@ def get_quant_config():
     return quant_config
 
 
-def preprocessing(data_path, LLM_path, LLM_name, save_dir, prepend=0):
-    # extract file name
-    file_name = os.path.basename(data_path)
-    file_name = Path(file_name).stem
+def generate_note_embedding(cfg: dict):
+
+    data_dir = cfg['data_dir']
+    file_name = cfg['file_name']
+    LLM_path = cfg['LLM_path']
+    LLM_name = cfg['LLM_name']
+    save_dir = cfg['save_dir']
+    notes_col_name = cfg['notes_col_name']
+    prepend = cfg['prepend']
 
     # load the clinical notes file
-    clinical_notes = pd.read_csv(data_path, index_col=False)
+    clinical_notes = load_table(f'{data_dir}/{file_name}')
 
-    # find the target columns
-    cols = clinical_notes.columns
-    target_cols = cols[cols.str.contains("target")].tolist()
-    clinical_notes[target_cols] = clinical_notes[target_cols].astype(int)
-    embedding_target_dict = {}
-    for elem in target_cols:
-        embedding_target_dict[elem] = clinical_notes[elem].to_numpy()
+    embedding_dict = {}
 
     # convert note data to list
-    notes_list = clinical_notes["note"].tolist()
+    notes_list = clinical_notes[notes_col_name].tolist()
 
     # define label maps
     id2label = {0: "Negative", 1: "Positive"}
@@ -139,24 +141,85 @@ def preprocessing(data_path, LLM_path, LLM_name, save_dir, prepend=0):
 
     embeddings = np.array(embeddings_list)
     embeddings = embeddings.reshape(embeddings.shape[0], -1)
-    embedding_target_dict["embeddings"] = embeddings
+    embedding_dict["embeddings"] = embeddings
+
+    if '.parquet.gzip' in file_name:
+        file_name = os.path.splitext(file_name)[0]
+        file_name = os.path.splitext(file_name)[0]
+    else:
+        file_name = os.path.splitext(file_name)[0]
 
     np.savez(
-        f"{save_dir}/embedding_{LLM_name}_{file_name}.npz", **embedding_target_dict
+        f"{save_dir}/{file_name}_{LLM_name}_embedding.npz", **embedding_dict
     )
 
+def launch(cfg):
+    """Use submitit to launch jobs in the SLURM cluster
+
+    References: 
+    - https://www.unitary.ai/articles/intro-to-multi-node-machine-learning-2-using-slurm
+    - https://github.com/facebookincubator/submitit/blob/main/docs/examples.md
+    """
+    # Initialize the executor, which is the submission interface
+    executor = submitit.AutoExecutor(folder=f"log_files/{datetime.now().replace(microsecond=0)}")
+
+    # Specify the Slurm parameters
+    # TODO: put this in another config file
+    executor.update_parameters(  
+        # slurm_account="gliugroup_gpu",      
+        slurm_partition="gpu",
+        slurm_array_parallelism=cfg['slurm_array_parallelism'], # Limit job concurrency
+        nodes=1, # Each job in the job array gets one node
+        mem_gb=cfg['memory'], # Each job gets 4GB of memory
+        timeout_min=cfg['n_hours'] * 60, # Limit the job running time to 2 days
+        slurm_gpus_per_node=1, # Each node should use 1 GPU
+        slurm_additional_parameters={
+            "account": "gliugroup_gpu",
+        }
+    )
+
+    # Split the data into n partitions
+    n_partitions = cfg['n_partitions']
+    data_dir = cfg['data_dir']
+    df_name = cfg['file_name']
+    os.makedirs(f'{data_dir}/data_partitions/', exist_ok=True)
+
+    # read dataframe
+    df = load_table(f'{data_dir}/{df_name}')
+    cfg.pop('file_name')
+    cfg.pop('data_dir')
+
+    cfgs = []
+
+    for partition_id, idxs in enumerate(np.array_split(df.index, n_partitions)):
+        partition_path = f'{data_dir}/data_partitions/{partition_id}_{df_name}'
+        if partition_path.endswith('.csv'):
+            df.loc[idxs].reset_index().to_csv(partition_path, index=False)
+        elif partition_path.endswith(('.parquet','.parquet.gzip')):
+            df.loc[idxs].reset_index().to_parquet(partition_path, compression='gzip', index=False)
+
+        cfgs.append(dict(data_dir=f'{data_dir}/data_partitions', file_name=f'{partition_id}_{df_name}', **cfg))
+
+    # Submit your function and inputs as a job array
+    jobs = executor.map_array(generate_note_embedding, cfgs)
+
+    # Monitor jobs to keep track of completed jobs
+    submitit.helpers.monitor_jobs(jobs)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("data_path", help="data file path", type=str)  # data file path
+    parser.add_argument("data_dir", help="data directory", type=str)  # data directory
+    parser.add_argument("file_name", help="data file name", type=str)  # data file name
     parser.add_argument("LLM_path", help="path to LLM", type=str)  # path to LLM
     parser.add_argument("LLM_name", help="name of LLM", type=str)  # name of LLM
     parser.add_argument("save_dir", help="save directory", type=str)  # save directory
+    parser.add_argument("notes_col_name", help="notes column name", type=str)  # notes column name
+    parser.add_argument("n_partitions", help="number of partitions", type = int) # number of partitions
+    parser.add_argument("n_hours", help = "number of hours", type = int) # number of hours
+    parser.add_argument("memory", help = "memory of each node", type = int) # memory of each node
+    parser.add_argument("slurm_array_parallelism", help = "slurm array parallelism", type = int) # number of parallel jobs
     parser.add_argument(
         "-p", "--prepend", help="prepend instructions", type=int, default=0
     )  # prepend note with instructions
-    args = parser.parse_args()
-
-    preprocessing(
-        args.data_path, args.LLM_path, args.LLM_name, args.save_dir, args.prepend
-    )
+    cfg = vars(parser.parse_args())
+    launch(cfg)
