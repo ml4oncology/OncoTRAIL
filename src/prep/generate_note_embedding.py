@@ -168,7 +168,6 @@ def launch(cfg):
     executor.update_parameters(  
         # slurm_account="gliugroup_gpu",      
         slurm_partition="gpu",
-        slurm_array_parallelism=cfg['slurm_array_parallelism'], # Limit job concurrency
         nodes=1, # Each job in the job array gets one node
         mem_gb=cfg['memory'], # Each job gets 4GB of memory
         timeout_min=cfg['n_hours'] * 60, # Limit the job running time to 2 days
@@ -194,9 +193,9 @@ def launch(cfg):
     for partition_id, idxs in enumerate(np.array_split(df.index, n_partitions)):
         partition_path = f'{data_dir}/data_partitions/{partition_id}_{df_name}'
         if partition_path.endswith('.csv'):
-            df.loc[idxs].reset_index().to_csv(partition_path, index=False)
+            df.loc[idxs].reset_index(drop=True).to_csv(partition_path, index=False)
         elif partition_path.endswith(('.parquet','.parquet.gzip')):
-            df.loc[idxs].reset_index().to_parquet(partition_path, compression='gzip', index=False)
+            df.loc[idxs].reset_index(drop=True).to_parquet(partition_path, compression='gzip', index=False)
 
         cfgs.append(dict(data_dir=f'{data_dir}/data_partitions', file_name=f'{partition_id}_{df_name}', **cfg))
 
@@ -217,7 +216,6 @@ if __name__ == "__main__":
     parser.add_argument("n_partitions", help="number of partitions", type = int) # number of partitions
     parser.add_argument("n_hours", help = "number of hours", type = int) # number of hours
     parser.add_argument("memory", help = "memory of each node", type = int) # memory of each node
-    parser.add_argument("slurm_array_parallelism", help = "slurm array parallelism", type = int) # number of parallel jobs
     parser.add_argument(
         "-p", "--prepend", help="prepend instructions", type=int, default=0
     )  # prepend note with instructions
