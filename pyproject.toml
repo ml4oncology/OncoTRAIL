@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "llm_notes_classification"
+description = "Predict undesirable cancer events using clinical notes"
+version = "0.1.0"
+authors = [
+    { name = "Wayne Uy", email = "wayneisaac.uy@uhn.ca" },
+]
+dependencies = [
+    "ml_common @ git+https://github.com/ml4oncology/ml-common.git"
+]
+
+[tool.setuptools]
+package-dir = {"llm_notes_classification" = "src"}
