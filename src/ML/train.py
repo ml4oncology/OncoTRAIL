@@ -150,7 +150,7 @@ class Trainer(Tuner):
             alg,
         )
         self.str_identifier = str_identifier
-        self.embedding_size = LLM_embedding_dim[LLM_name]
+        self.embedding_size = LLM_embedding_dim[LLM_name] if LLM_name is not None else 0
 
     def run(self, bayes_kwargs=None):
         """

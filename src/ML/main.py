@@ -5,8 +5,6 @@ from sklearn.metrics import average_precision_score, roc_auc_score, log_loss
 from pathlib import Path
 import sys
 
-# ROOT_DIR = Path(__file__).parent.parent.as_posix()
-# sys.path.append(ROOT_DIR)
 from llm_notes_classification.config import start_test_date
 from llm_notes_classification.ML.split import gen_data_split
 from llm_notes_classification.ML.train import Trainer
@@ -39,19 +37,21 @@ def main(
     model_name: machine learning/deep learning model
     setup_str: combination of LLM and note configuration
     data_type: notes, notes-tabular, tabular
-    tabular: 0 - notes only, 1 - notes+tabular, 2 - tabular only
     target_name: name of target
     model_dir: directory where to save trained model parameters
     results_dir: directory where to save the results of the model runs
     """
 
     if model_name == "Midfusion":
-        assert tabular == 1, "Midfusion requires both tabular and note data."
+        assert data_type == "notes-tabular", "Midfusion requires both tabular and note data."
     if target_name == "target_sex":
-        assert tabular == 0, "Implementation not yet available when sex is a target."
+        assert data_type == "notes", "Implementation not yet available when sex is a target."
 
     # extract LLM_name from setup_str
-    LLM_name = setup_str.split("_")[0]
+    if data_type != 'tabular':
+        LLM_name = setup_str.split("_")[0]
+    else:
+        LLM_name = None
 
     # save string for file
     target_name_nospace = target_name.replace("_", "-")
@@ -59,29 +59,34 @@ def main(
     logger.info(file_save_str)
 
     # load data frame
-    df = pd.read_csv(notes_path, index_col=0)
+    if 'parquet.gzip' in notes_path:
+        df = pd.read_parquet(notes_path)
+    else:
+        df = pd.read_csv(notes_path, index_col=0)    
     df.reset_index(drop=True, inplace=True)
-
-    # load embedding
-    with np.load(embedding_path) as data:
-        embedding = data["embeddings"]
-        # target = data[target_name]
 
     # get indices of target != -1
     mask = None
     if target_name != "target_sex":
         mask = (df[target_name] != -1).to_numpy()
 
-        # only extract embedding and target where index != -1
-        embedding = embedding[mask, :]
+        # only extract target where index != -1
         target = df.loc[mask, target_name].to_numpy()
-        # target = target[mask]
     else:
         raise NotImplementedError
+    
+    embedding = None
+    if data_type != 'tabular':
+        # load embedding
+        with np.load(embedding_path) as data:
+            embedding = data["embeddings"]
+            # only extract embedding where index != -1
+            embedding = embedding[mask, :]
 
     if data_type in ["notes-tabular","tabular"]:
         cols = df.columns
         targ_cols = cols[cols.str.contains("target")].tolist()
+        # TO-DO: edit stats_noteType name in anchor code
         extra_cols = ["cohort", "split", "note", "stats_noteType"] + cols[
             cols.str.contains("date")
         ].tolist()
@@ -119,7 +124,7 @@ def main(
 
     # save data
     np.savez(
-        f"{results_dir}/preddata_{file_save_str}.npz",
+        f"{results_dir}/predictdata_{file_save_str}.npz",
         train_pred=train_pred,
         val_pred=val_pred,
         test_pred=test_pred,
@@ -165,7 +170,7 @@ if __name__ == "__main__":
     )  # name of set up string
     parser.add_argument(
         "data_type", help="data type", type=str
-    )  # include tabular data
+    )  # data type: notes, notes-tabular, tabular
     parser.add_argument(
         "target_name", help="name of target", type=str
     )  # name of target
@@ -190,5 +195,3 @@ if __name__ == "__main__":
         args.model_dir,
         args.results_dir,
     )
-
-# to fix here: change the tabular settings + file name
