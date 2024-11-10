@@ -5,11 +5,11 @@ from sklearn.metrics import average_precision_score, roc_auc_score, log_loss
 from pathlib import Path
 import sys
 
-ROOT_DIR = Path(__file__).parent.parent.as_posix()
-sys.path.append(ROOT_DIR)
-from src.config import start_test_date
-from src.split import gen_data_split
-from src.train import Trainer
+# ROOT_DIR = Path(__file__).parent.parent.as_posix()
+# sys.path.append(ROOT_DIR)
+from llm_notes_classification.config import start_test_date
+from llm_notes_classification.ML.split import gen_data_split
+from llm_notes_classification.ML.train import Trainer
 import logging
 
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
@@ -23,7 +23,7 @@ def main(
     hyperparam_eval,
     model_name,
     setup_str,
-    tabular,
+    data_type,
     target_name,
     model_dir,
     results_dir,
@@ -38,6 +38,7 @@ def main(
     hyperparam_eval: select best hyperparameters based on AUC or logloss
     model_name: machine learning/deep learning model
     setup_str: combination of LLM and note configuration
+    data_type: notes, notes-tabular, tabular
     tabular: 0 - notes only, 1 - notes+tabular, 2 - tabular only
     target_name: name of target
     model_dir: directory where to save trained model parameters
@@ -54,7 +55,7 @@ def main(
 
     # save string for file
     target_name_nospace = target_name.replace("_", "-")
-    file_save_str = f"{model_name}_{setup_str}_{split_config}_{hyperparam_eval}_tabular{tabular}_{target_name_nospace}"
+    file_save_str = f"{model_name}_{setup_str}_{split_config}_{hyperparam_eval}_{data_type}_{target_name_nospace}"
     logger.info(file_save_str)
 
     # load data frame
@@ -64,6 +65,7 @@ def main(
     # load embedding
     with np.load(embedding_path) as data:
         embedding = data["embeddings"]
+        # target = data[target_name]
 
     # get indices of target != -1
     mask = None
@@ -72,11 +74,12 @@ def main(
 
         # only extract embedding and target where index != -1
         embedding = embedding[mask, :]
-        target = target[mask]
+        target = df.loc[mask, target_name].to_numpy()
+        # target = target[mask]
     else:
         raise NotImplementedError
 
-    if tabular >= 1:
+    if data_type in ["notes-tabular","tabular"]:
         cols = df.columns
         targ_cols = cols[cols.str.contains("target")].tolist()
         extra_cols = ["cohort", "split", "note", "stats_noteType"] + cols[
@@ -94,7 +97,7 @@ def main(
 
     # generate train-validation-test split
     X_train, Y_train, X_eval, Y_eval, X_valid, Y_valid, X_test, Y_test = gen_data_split(
-        df, start_test_date, split_config, embedding, target, tabular, model_name
+        df, start_test_date, split_config, embedding, target, data_type, model_name
     )
 
     # call trainer on predictions
@@ -161,7 +164,7 @@ if __name__ == "__main__":
         "setup_str", help="set up string", type=str
     )  # name of set up string
     parser.add_argument(
-        "tabular", help="include tabular data", type=int
+        "data_type", help="data type", type=str
     )  # include tabular data
     parser.add_argument(
         "target_name", help="name of target", type=str
@@ -182,7 +185,7 @@ if __name__ == "__main__":
         args.hyperparam_eval,
         args.model_name,
         args.setup_str,
-        args.tabular,
+        args.data_type,
         args.target_name,
         args.model_dir,
         args.results_dir,

@@ -11,10 +11,10 @@ logger = logging.getLogger(__name__)
 
 
 def gen_data_split(
-    df, test_start_date, split_config, embedding, target, tabular, model_name
+    df, test_start_date, split_config, embedding, target, data_type, model_name
 ):
     """
-    tabular: 0 - notes only, 1 - notes+tabular, 2 - tabular only
+    data_type: notes, notes-tabular, tabular
     """
     splitter = Splitter()
     if split_config == "Temporal":
@@ -39,7 +39,7 @@ def gen_data_split(
     Y_valid = target[valid_idx]
     Y_test = target[test_idx]
 
-    if tabular < 2:
+    if data_type in ["notes", "notes-tabular"]:
         # extract note data
         X_train = embedding[train_idx, :]
         X_eval = embedding[eval_idx, :]
@@ -72,8 +72,8 @@ def gen_data_split(
             X_eval = None
             Y_eval = None
 
-    if tabular >= 1:
-        if tabular == 1:
+    if data_type in ["notes-tabular","tabular"]:
+        if data_type == "notes-tabular":
             # convert physician name to tabular data and concatenate to embedding data
             physician_names_train = find_unique_phys(train_data)
 

@@ -6,14 +6,14 @@ from torch.utils.data import DataLoader, TensorDataset
 import numpy as np
 import torch
 import logging
-from util import save_pickle
-from config import (
+from llm_notes_classification.ML.util import save_pickle
+from llm_notes_classification.config import (
     bayesopt_param,
     model_static_param,
     model_tuning_param,
     LLM_embedding_dim,
 )
-from models import LR, XGB, LGBM, MLP, MidfusionMLP
+from .models import LR, XGB, LGBM, MLP, MidfusionMLP
 
 torch.manual_seed(0)
 np.random.seed(0)
