@@ -2,13 +2,14 @@
 export PATH=$PATH:$(pwd)
 
 userName="t127556uhn"
-memory=16
+memory=1
 condaEnv="~/miniforge3/envs/LLMfinetune/bin/python3"
 nGPU=0
 runTime='0-01:00:00'
 
 rootDirProj=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/LLM-notes-classification
-saveDir=${rootDirProj}/data/first_visit_super_simplified_prompt
+# saveDir=${rootDirProj}/data/first_visit_super_simplified_prompt
+saveDir=${rootDirProj}/data/test_gen_prompt
 
 target_list=(
     "target_hemoglobin_grade2plus"
@@ -40,12 +41,16 @@ target_list=(
 
 numeric_proba=1
 
-cmd="pySLURMargs.py $userName $memory $condaEnv $nGPU $runTime"
+# cmd="pySLURMargs.py $userName $memory $condaEnv $nGPU $runTime"
 
-# Loop through the array and append each genPrompts.py call to the command
+# # Loop through the array and append each genPrompts.py call to the command
+# for target_name in "${target_list[@]}"; do
+#     cmd+=" \"../src/genPrompts.py $target_name $numeric_proba $saveDir\""
+# done
+
+# # Output the final command
+# eval "$cmd"
+
 for target_name in "${target_list[@]}"; do
-    cmd+=" \"../src/genPrompts.py $target_name $numeric_proba $saveDir\""
+    pySLURMargs.py $userName $memory $condaEnv $nGPU $runTime "../src/genPrompts.py $target_name $numeric_proba $saveDir"
 done
-
-# Output the final command
-eval "$cmd"

@@ -30,7 +30,7 @@ def genDeid():
     return deid_prompt
 
 
-def genTarget(target_string):
+def genTarget(target_string, simplify):
     print(target_string)
 
     additional_info = ""
@@ -53,18 +53,22 @@ def genTarget(target_string):
         esas_target = target_string.split("_")[2]
         esas_change_value = target_string.split("_")[3][0]
 
-        target_prompt = f"experience a {esas_change_value} point change in the ESAS score for {esas_target}"
+        if simplify == 0:
+            target_prompt = f"experience a {esas_change_value} point change in the ESAS score for {esas_target}"
 
-        # extract the point change
+            # extract the point change
 
-        additional_info = (
-            "The ESAS score refers to the Edmonton Symptom Assessment System. "
-            + "It's a clinical tool used to assess the severity of common symptoms "
-            + "experienced by patients with cancer and other advanced illnesses. Patients rate the "
-            + "severity of each symptom on a scale from 0 to 10, with 0 indicating no symptom "
-            + "and 10 indicating the worst possible severity. This assessment helps healthcare "
-            + "providers manage symptoms and improve quality of life for patients. "
-        )
+            additional_info = (
+                "The ESAS score refers to the Edmonton Symptom Assessment System. "
+                + "It's a clinical tool used to assess the severity of common symptoms "
+                + "experienced by patients with cancer and other advanced illnesses. Patients rate the "
+                + "severity of each symptom on a scale from 0 to 10, with 0 indicating no symptom "
+                + "and 10 indicating the worst possible severity. This assessment helps healthcare "
+                + "providers manage symptoms and improve quality of life for patients. "
+            )
+        else:
+            target_prompt = f"experience worsening {esas_target}"
+
     elif re.search(r'grade\d+plus', target_string) is not None:
         
         # CTCAE constants
@@ -109,26 +113,42 @@ def genTarget(target_string):
         quantity = match.group(1)
 
         if "hemoglobin" in target_string:
-            target_prompt = (
-                f"experience grade {grade} and above anemia, defined by the CTCAE "
-                f"(Common Terminology Criteria for Adverse Events) as a hemoglobin level under {constants[quantity][f'grade{grade}plus']} g/L"
-            )
+            if simplify == 0:
+                target_prompt = (
+                    f"experience grade {grade} and above anemia, defined by the CTCAE "
+                    f"(Common Terminology Criteria for Adverse Events) as a hemoglobin level under {constants[quantity][f'grade{grade}plus']} g/L"
+                )
+            else:
+                target_prompt = "experience worsening anemia"
+
         elif "neutrophil" in target_string:
-            target_prompt = (
-                f"experience grade {grade} and above neutrophil count decrease, defined by the CTCAE "
-                f"(Common Terminology Criteria for Adverse Events) as a neutrophil count under {constants[quantity][f'grade{grade}plus']} x 10e9/L"
-            )
+            if simplify == 0:
+                target_prompt = (
+                    f"experience grade {grade} and above neutrophil count decrease, defined by the CTCAE "
+                    f"(Common Terminology Criteria for Adverse Events) as a neutrophil count under {constants[quantity][f'grade{grade}plus']} x 10e9/L"
+                )
+            else:
+                target_prompt = "experience worsening neutrophil count"
+
         elif "platelet" in target_string:
-            target_prompt = (
-                f"experience grade {grade} and above platelet count decrease, defined by the CTCAE "
-                f"(Common Terminology Criteria for Adverse Events) as a platelet count under {constants[quantity][f'grade{grade}plus']} x 10e9/L"
-            )
+            if simplify == 0:
+                target_prompt = (
+                    f"experience grade {grade} and above platelet count decrease, defined by the CTCAE "
+                    f"(Common Terminology Criteria for Adverse Events) as a platelet count under {constants[quantity][f'grade{grade}plus']} x 10e9/L"
+                )
+            else:
+                target_prompt = "experience worsening platelet count"
+
         elif "AKI" in target_string:
-            target_prompt = (
-                f"experience grade {grade} and above creatinine increase, defined by the CTCAE "
-                f"(Common Terminology Criteria for Adverse Events) as creatinine increasing {constants[quantity][f'grade{grade}plus']} times above "
-                f"baseline or {constants[quantity][f'grade{grade}plus']} times above the upper limit of normal ({constants[quantity]['ULN']} umol/L)"
-            )
+            if simplify == 0:
+                target_prompt = (
+                    f"experience grade {grade} and above creatinine increase, defined by the CTCAE "
+                    f"(Common Terminology Criteria for Adverse Events) as creatinine increasing {constants[quantity][f'grade{grade}plus']} times above "
+                    f"baseline or {constants[quantity][f'grade{grade}plus']} times above the upper limit of normal ({constants[quantity]['ULN']} umol/L)"
+                )
+            else:
+                target_prompt = "experience acute kidney injury"
+
         elif "ALT" in target_string or "AST" in target_string:
             if 'ALT' in target_string:
                 quantity_full = 'alanine aminotransferase'
@@ -136,17 +156,24 @@ def genTarget(target_string):
             elif 'AST' in target_string:
                 quantity_full = 'aspartate aminotransferase'
 
-            target_prompt = (
-                f"experience grade {grade} and above {quantity_full} increase, defined by the CTCAE "
-                f"(Common Terminology Criteria for Adverse Events) as {quantity_full} increasing {constants[quantity][f'grade{grade}plus']} times above "
-                f"the upper limit of normal ({constants[quantity]['ULN']} U/L) or baseline if the baseline was abnormal"
-            )
+            if simplify == 0:
+                target_prompt = (
+                    f"experience grade {grade} and above {quantity_full} increase, defined by the CTCAE "
+                    f"(Common Terminology Criteria for Adverse Events) as {quantity_full} increasing {constants[quantity][f'grade{grade}plus']} times above "
+                    f"the upper limit of normal ({constants[quantity]['ULN']} U/L) or baseline if the baseline was abnormal"
+                )
+            else:
+                target_prompt = f"experience increasing {quantity_full} level"
+
         elif "bilirubin" in target_string:
-            target_prompt = (
-                f"experience grade {grade} and above blood bilirubin increase, defined by the CTCAE "
-                f"(Common Terminology Criteria for Adverse Events) as blood bilirubin increasing {constants[quantity][f'grade{grade}plus']} times above "
-                f"the upper limit of normal ({constants[quantity]['ULN']} umol/L) or baseline if the baseline was abnormal"
-            )
+            if simplify == 0:
+                target_prompt = (
+                    f"experience grade {grade} and above blood bilirubin increase, defined by the CTCAE "
+                    f"(Common Terminology Criteria for Adverse Events) as blood bilirubin increasing {constants[quantity][f'grade{grade}plus']} times above "
+                    f"the upper limit of normal ({constants[quantity]['ULN']} umol/L) or baseline if the baseline was abnormal"
+                )
+            else:
+                target_prompt = "experience increasing blood bilirubin level"
 
     target_prompt = (
         "Your task is to predict the probability that a patient undergoing systemic therapy for cancer will "
@@ -223,7 +250,6 @@ def genProba(numeric_proba):
 
 def genPrompts(target_name, numeric_proba, save_dir):
     persona_prompt = genPersona()
-    target_prompt = genTarget(target_name)
     proba_prompt = genProba(numeric_proba)
 
     # format_prompt = "Provide a concise reasoning that explains how you arrived at the predicted probability. Express your response as a JSON object with the keys 'Reason' and 'Probability'.  "
@@ -247,40 +273,42 @@ def genPrompts(target_name, numeric_proba, save_dir):
     prompt_dict = {}
 
     ctr = 0
-    for persona_val in persona_prompt:
-        for health_val in health_prompt:
-            for add_deid in [0, 1]:
-                if add_deid == 1:
-                    deid_prompt = genDeid()
-                else:
-                    deid_prompt = ""
-
-                for cot_param in [0, 1]:
-                    if cot_param == 1:
-                        prompt = (
-                            persona_val
-                            + target_prompt
-                            + health_val
-                            + deid_prompt
-                            + cot_prompt
-                            + format_prompt
-                            + proba_prompt
-                            + format_end_prompt
-                        )
+    for simplify in [0, 1]:
+        target_prompt = genTarget(target_name, simplify)
+        for persona_val in persona_prompt:
+            for health_val in health_prompt:
+                for add_deid in [0, 1]:
+                    if add_deid == 1:
+                        deid_prompt = genDeid()
                     else:
-                        prompt = (
-                            persona_val
-                            + target_prompt
-                            + health_val
-                            + deid_prompt
-                            + format_prompt
-                            + proba_prompt
-                            + format_end_prompt
-                            + reason_prompt
-                        )
+                        deid_prompt = ""
 
-                    prompt_dict[ctr] = prompt
-                    ctr = ctr + 1
+                    for cot_param in [0, 1]:
+                        if cot_param == 1:
+                            prompt = (
+                                persona_val
+                                + target_prompt
+                                + health_val
+                                + deid_prompt
+                                + cot_prompt
+                                + format_prompt
+                                + proba_prompt
+                                + format_end_prompt
+                            )
+                        else:
+                            prompt = (
+                                persona_val
+                                + target_prompt
+                                + health_val
+                                + deid_prompt
+                                + format_prompt
+                                + proba_prompt
+                                + format_end_prompt
+                                + reason_prompt
+                            )
+
+                        prompt_dict[ctr] = prompt
+                        ctr = ctr + 1
 
     # save dict to json
     fname = f"{save_dir}/promptList_{target_name}_numeric-proba{numeric_proba}.json"
