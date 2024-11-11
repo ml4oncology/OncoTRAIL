@@ -25,10 +25,14 @@ sys.path.insert(1, "/cluster/projects/gliugroup/2BLAST/data/processed/clinical_n
 from constants import aliasDictionary
 
 
-def anchor_note_to_treatment(data_path, treatment_data_path, ed_visit_data_path,
-                            symptom_data_path, last_seen_data_path,
+def anchor_note_to_treatment(data_path, 
+                            treatment_data_path, 
+                            ed_visit_data_path,
+                            symptom_data_path, 
+                            last_seen_data_path,
                             save_dir, config_name,
-                            test_end_date, lookback_window):
+                            test_end_date, 
+                            lookback_window):
     """
         Anchor the note to treatment date depending on specified configuration.
 
@@ -100,6 +104,8 @@ def anchor_note_to_treatment(data_path, treatment_data_path, ed_visit_data_path,
     df_treat[['target_death_in_365d', 'target_death_in_30d']] =\
           df_treat[['target_death_in_365d', 'target_death_in_30d']].astype(int)
     df_treat.loc[mask, ['target_death_in_365d', 'target_death_in_30d']] = -1
+
+    # add CTCAE targets
 
     # load notes file
     merged_notes = pd.read_parquet(f'{data_path}', engine='pyarrow', use_nullable_dtypes = True)
@@ -219,6 +225,8 @@ def anchor_note_to_treatment(data_path, treatment_data_path, ed_visit_data_path,
     # save dataframe with anchored note
     cols = df_treat.columns
     cols_no_target = [col for col in cols if 'target' not in col]
+
+    df_treat = df_treat.reset_index(drop=True)
 
     df_treat[cols_no_target + target_cols].to_csv( f"{save_dir}/note_anchored_{config_name}.csv" )
 
