@@ -44,13 +44,65 @@ def anchor_note_to_treatment(data_path, treatment_data_path, ed_visit_data_path,
     """
 
     # TO-DO: edit note types
-    # edit column names, EPRDate -> epr_date
+    # edit column names, EPRDate -> epr_date, stats physician, etc. also change column names in main
 
-    # load notes file
-    merged_notes = pd.read_parquet(f'{data_path}', engine='pyarrow', use_nullable_dtypes = True)
+    # TO-DO: number the notes to get the embedding. remove this numbering column in main
+
+    # TO-DO: reset the index
 
     # load treatment-centered data frame
     df_treat = pd.read_parquet(f'{treatment_data_path}', engine='pyarrow', use_nullable_dtypes = True)
+
+    df_treat['assessment_date'] = df_treat['treatment_date']
+    df_treat['treatment_date'] = pd.to_datetime(df_treat['treatment_date'])
+    # keep only the first treatment session of a given week
+    df_treat = keep_only_one_per_week(df_treat)
+
+    # get the change in measurement since previous assessment
+    df_treat = get_change_since_prev_session(df_treat)
+    
+    # consider all events
+    # process ED_visit
+    # load ed target data frame
+    df_target_ed = pd.read_parquet(f'{ed_visit_data_path}', engine='pyarrow', use_nullable_dtypes = True)
+    df_treat = get_event_labels(df_treat, df_target_ed, event_name='ED_visit', 
+                                extra_cols=['CTAS_score', 'CEDIS_complaint'])
+
+    # exclude immediate events
+    df_treat = indicate_immediate_events(df_treat, targ_cols=['target_ED_visit'], 
+                                         date_cols=['target_ED_visit_date'])
+
+    # process symptom targets
+    target_pt_increases = [1, 3]
+    # load symp target data frame
+    df_target_symp = pd.read_parquet(f'{symptom_data_path}')
+    df_treat = get_symptom_labels(df_treat, df_target_symp)
+    for pt_increase in target_pt_increases:
+        scoring_map = {symp: pt_increase for symp in SYMP_COLS}
+        df_treat = convert_to_binary_symptom_labels(df_treat, scoring_map=scoring_map)
+
+    # exclude immediate events
+    date_cols = [f'target_{symp}_survey_date' for symp in SYMP_COLS]
+    for pt in target_pt_increases:
+        targ_cols = [f'target_{symp}_{pt}pt_change' for symp in SYMP_COLS]
+        df_treat = indicate_immediate_events(df_treat, targ_cols, date_cols)
+
+    # process death
+    df_treat['target_death_in_365d'] =\
+          df_treat['date_of_death'] < df_treat['treatment_date'] + pd.Timedelta(days=365)
+    df_treat['target_death_in_30d'] =\
+          df_treat['date_of_death'] < df_treat['treatment_date'] + pd.Timedelta(days=30)
+
+    last_seen_date = pd.read_parquet(f'{last_seen_data_path}')
+    df_treat['last_seen_date'] = df_treat['mrn'].map(last_seen_date['last_seen_date'])
+    mask = df_treat['last_seen_date'] > df_treat['date_of_death']
+
+    df_treat[['target_death_in_365d', 'target_death_in_30d']] =\
+          df_treat[['target_death_in_365d', 'target_death_in_30d']].astype(int)
+    df_treat.loc[mask, ['target_death_in_365d', 'target_death_in_30d']] = -1
+
+    # load notes file
+    merged_notes = pd.read_parquet(f'{data_path}', engine='pyarrow', use_nullable_dtypes = True)
 
     if config_name in ['mostRecentVisit-medOnc-ConsultLetterClinic', 
                        'mostRecentVisit-appendFirst-medOnc-ConsultLetterClinic', 
@@ -113,11 +165,7 @@ def anchor_note_to_treatment(data_path, treatment_data_path, ed_visit_data_path,
     # note: there is no need to cap the data at the start date since the notes data set
     # only contains data starting from the start date. if no notes are anchored to treatment 
     # data, they will be dropped
-    df_treat = df_treat.loc[df_treat['treatment_date'] <= test_end_date]
-
-    df_treat['assessment_date'] = df_treat['treatment_date']
-    # keep only the first treatment session of a given week
-    df_treat = keep_only_one_per_week(df_treat)
+    df_treat = df_treat.loc[df_treat['treatment_date'] <= test_end_date].copy()
 
     # attach notes to treatment dataframe
     df_treat = combine_feat_to_main_data(
@@ -125,52 +173,8 @@ def anchor_note_to_treatment(data_path, treatment_data_path, ed_visit_data_path,
         time_window=(-lookback_window,0)
         )
     
-    df_treat['treatment_date'] = pd.to_datetime(df_treat['treatment_date'])
     df_treat['max_epr_date'] = pd.to_datetime(df_treat['max_epr_date'])
 
-    # get the change in measurement since previous assessment
-    df_treat = get_change_since_prev_session(df_treat)
-    
-    # consider all events
-    # process ED_visit
-    # load ed target data frame
-    df_target_ed = pd.read_parquet(f'{ed_visit_data_path}', engine='pyarrow', use_nullable_dtypes = True)
-    df_treat = get_event_labels(df_treat, df_target_ed, event_name='ED_visit', 
-                                extra_cols=['CTAS_score', 'CEDIS_complaint'])
-
-    # exclude immediate events
-    df_treat = indicate_immediate_events(df_treat, targ_cols=['target_ED_visit'], 
-                                         date_cols=['target_ED_visit_date'])
-
-    # process symptom targets
-    target_pt_increases = [1, 3]
-    # load symp target data frame
-    df_target_symp = pd.read_parquet(f'{symptom_data_path}')
-    df_treat = get_symptom_labels(df_treat, df_target_symp)
-    for pt_increase in target_pt_increases:
-        scoring_map = {symp: pt_increase for symp in SYMP_COLS}
-        df_treat = convert_to_binary_symptom_labels(df_treat, scoring_map=scoring_map)
-
-    # exclude immediate events
-    date_cols = [f'target_{symp}_survey_date' for symp in SYMP_COLS]
-    for pt in target_pt_increases:
-        targ_cols = [f'target_{symp}_{pt}pt_change' for symp in SYMP_COLS]
-        df_treat = indicate_immediate_events(df_treat, targ_cols, date_cols)
- 
-    # process death
-    df_treat['target_death_in_365d'] =\
-          df_treat['date_of_death'] < df_treat['treatment_date'] + pd.Timedelta(days=365)
-    df_treat['target_death_in_30d'] =\
-          df_treat['date_of_death'] < df_treat['treatment_date'] + pd.Timedelta(days=30)
-
-    last_seen_date = pd.read_parquet(f'{last_seen_data_path}')
-    df_treat['last_seen_date'] = df_treat['mrn'].map(last_seen_date['last_seen_date'])
-    mask = df_treat['last_seen_date'] > df_treat['date_of_death']
-
-    df_treat[['target_death_in_365d', 'target_death_in_30d']] =\
-          df_treat[['target_death_in_365d', 'target_death_in_30d']].astype(int)
-    df_treat.loc[mask, ['target_death_in_365d', 'target_death_in_30d']] = -1
-        
     # drop rows that don't have any note data
     df_treat = df_treat.loc[~df_treat.note.isna()]
 
@@ -190,7 +194,7 @@ def anchor_note_to_treatment(data_path, treatment_data_path, ed_visit_data_path,
                             ['target_CTAS_score', 'target_CEDIS_complaint']
     target_cols = [col for col in keep_cols if col not in exclude_cols]
     df_treat.loc[:, target_cols].fillna(value=-1, inplace=True)
-    df_treat[ target_cols ] = df_treat[ target_cols ].astype(int)
+    df_treat[target_cols] = df_treat[target_cols].astype(int)
     df_treat = drop_samples_with_no_targets(df_treat, target_cols, missing_val=-1) 
 
     # drop drug features that were never used
