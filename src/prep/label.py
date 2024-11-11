@@ -82,7 +82,7 @@ def get_lookahead_lab_values(df_treat,
 def get_ctcae_labels(df_treat,
                      df_lab,
                      date_col_trt,
-                     date_col_lab,
+                     date_col_lab
                     ):
     
     CTCAE_keys = list(CTCAE_constants.keys())

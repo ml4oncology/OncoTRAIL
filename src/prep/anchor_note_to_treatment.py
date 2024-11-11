@@ -20,27 +20,31 @@ from preduce.symp.label import (get_symptom_labels, convert_to_binary_symptom_la
 from preduce.prepare.filter import indicate_immediate_events
 from preduce.prepare.prep import fill_missing_data
 
+from llm_notes_classification.prep.label import get_ctcae_labels
+
 sys.path.insert(1, "/cluster/projects/gliugroup/2BLAST/data/processed/clinical_notes/HealthReportRecords/constants")
 # load constants from file
 from constants import aliasDictionary
 
 
-def anchor_note_to_treatment(data_path, 
+def anchor_note_to_treatment(notes_data_path, 
                             treatment_data_path, 
                             ed_visit_data_path,
                             symptom_data_path, 
                             last_seen_data_path,
+                            lab_values_data_path,
                             save_dir, config_name,
                             test_end_date, 
                             lookback_window):
     """
         Anchor the note to treatment date depending on specified configuration.
 
-        data_path: file path of the notes data
+        notes_data_path: file path of the notes data
         treatment_data_path: file path of the treatment data frame
-        ed_visit_data_path: directory of the ED visit data frame
-        symptom_data_path: directory of the symptom data frame
-        last_seen_data_path: directory of the last seen data frame
+        ed_visit_data_path: data path of the ED visit data frame
+        symptom_data_path: data path of the symptom data frame
+        last_seen_data_path: data path of the last seen data frame
+        lab_values_data_path: data path of the lab values data frame
         save_dir: directory path where processed data frame will be saved
         config_name: configuration name for how to anchor note to treatment date
         test_end_date: ending date for the test time period (and end date of the study period)
@@ -106,9 +110,15 @@ def anchor_note_to_treatment(data_path,
     df_treat.loc[mask, ['target_death_in_365d', 'target_death_in_30d']] = -1
 
     # add CTCAE targets
+    df_lab = pd.read_parquet(f'{lab_values_data_path}')
+    df_treat = get_ctcae_labels(df_treat,
+                                df_lab,
+                                'treatment_date',
+                                'obs_date'
+                                )
 
     # load notes file
-    merged_notes = pd.read_parquet(f'{data_path}', engine='pyarrow', use_nullable_dtypes = True)
+    merged_notes = pd.read_parquet(f'{notes_data_path}')
 
     if config_name in ['mostRecentVisit-medOnc-ConsultLetterClinic', 
                        'mostRecentVisit-appendFirst-medOnc-ConsultLetterClinic', 
@@ -232,18 +242,25 @@ def anchor_note_to_treatment(data_path,
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("data_path", help = "data file path", type = str) # data file path
+    parser.add_argument("notes_data_path", help = "data file path", type = str) # notes data file path
     parser.add_argument("treatment_data_path", help = "file path of treatment data", type = str) # treatment data file path
     parser.add_argument("ed_visit_data_path", help = "file path of ED visit data", type = str) # ed visit data file path
     parser.add_argument("symptom_data_path", help = "file path of symptom data", type = str) # file path of symptom data
-    parser.add_argument("last_seen_data_path", help = "directory of last seen data", type = str) # directory of last seen data
+    parser.add_argument("last_seen_data_path", help = "file path of last seen data", type = str) # last seen data file path
+    parser.add_argument("lab_values_data_path", help = "file path of lab values", type = str) # lab values data file path
     parser.add_argument("save_dir", help = "save directory", type = str) # save directory
     parser.add_argument("config_name", help = "configuration name", type = str) # configuration name
     parser.add_argument("test_end_date", help = "end date for test period", type = str) # test end date
     parser.add_argument("lookback_window", help = "lookback window for notes to be anchored", type = int) # lookback window
     args = parser.parse_args()
 
-    anchor_note_to_treatment(args.data_path, args.treatment_data_path, args.ed_visit_data_path,
-                             args.symptom_data_path, args.last_seen_data_path,
-                             args.save_dir, args.config_name, args.test_end_date,
+    anchor_note_to_treatment(args.notes_data_path, 
+                             args.treatment_data_path, 
+                             args.ed_visit_data_path,
+                             args.symptom_data_path, 
+                             args.last_seen_data_path,
+                             args.lab_values_data_path,
+                             args.save_dir, 
+                             args.config_name, 
+                             args.test_end_date,
                              args.lookback_window)
