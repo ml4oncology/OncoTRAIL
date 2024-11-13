@@ -6,7 +6,7 @@ import os
 import sys
 ROOT_DIR = Path(__file__).parent.parent.as_posix()
 sys.path.append(ROOT_DIR)
-from common.src.constants import CANCER_CODE_MAP, UNIT_MAP
+from ml_common.src.constants import CANCER_CODE_MAP, UNIT_MAP
 
 
 def cleanColName(str_name):
@@ -40,8 +40,6 @@ def addTabularDataToNote(data_path, save_dir):
             # Add the value as a key in the new dictionary
             # Use a list to hold multiple keys if needed
             if value not in reversed_dict:
-                if value == 'lymphocytes':
-                    value = 'lymphocyte'
                 reversed_dict[value] = key
 
     acute_care_use_cols = ['num_prior_ED_visits_within_5_years', 'days_since_prev_ED_visit']
