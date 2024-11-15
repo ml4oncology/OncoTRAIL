@@ -22,10 +22,15 @@ from preduce.prepare.prep import fill_missing_data
 
 from llm_notes_classification.prep.label import get_ctcae_labels
 
-sys.path.insert(1, "/cluster/projects/gliugroup/2BLAST/data/processed/clinical_notes/HealthReportRecords/constants")
-# load constants from file
-from constants import aliasDictionary
+# sys.path.insert(1, "/cluster/projects/gliugroup/2BLAST/data/processed/clinical_notes/HealthReportRecords/constants")
+# # load constants from file
+# from constants import aliasDictionary
 
+import importlib.util
+spec = importlib.util.spec_from_file_location("constants", "/cluster/projects/gliugroup/2BLAST/data/processed/clinical_notes/HealthReportRecords/constants/constants.py")
+constants = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(constants)
+aliasDictionary = constants.aliasDictionary
 
 def anchor_note_to_treatment(notes_data_path, 
                             treatment_data_path, 
@@ -55,8 +60,6 @@ def anchor_note_to_treatment(notes_data_path,
     # edit column names, EPRDate -> epr_date, stats physician, etc. also change column names in main
 
     # TO-DO: number the notes to get the embedding. remove this numbering column in main
-
-    # TO-DO: reset the index
 
     # load treatment-centered data frame
     df_treat = pd.read_parquet(f'{treatment_data_path}', engine='pyarrow', use_nullable_dtypes = True)
@@ -234,9 +237,12 @@ def anchor_note_to_treatment(notes_data_path,
 
     # save dataframe with anchored note
     cols = df_treat.columns
-    cols_no_target = [col for col in cols if 'target' not in col]
+    cols_no_target = [col for col in cols if 'target' not in col] + ['note_index']
 
     df_treat = df_treat.reset_index(drop=True)
+
+    # create a new column that serves as an index for each unique note
+    df_treat['note_index'] = pd.factorize(df_treat['note'])[0]
 
     df_treat[cols_no_target + target_cols].to_csv( f"{save_dir}/note_anchored_{config_name}.csv" )
 

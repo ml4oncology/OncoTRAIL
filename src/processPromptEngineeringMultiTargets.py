@@ -47,7 +47,8 @@ def processPromptEngineeringMultiTargets(
     json_path,
     prompt_num,
     num_samples,
-    numeric_proba
+    numeric_proba,
+    minp=0
 ):
     
     # load model
@@ -112,9 +113,14 @@ def processPromptEngineeringMultiTargets(
             for count in range(num_samples):
                 print(count)
 
-                sequences = pipe(
-                    messages, max_new_tokens=250, do_sample=True, return_full_text=False
-                )
+                if minp == 0:
+                    sequences = pipe(
+                        messages, max_new_tokens=250, do_sample=True, return_full_text=False
+                    )
+                else:
+                    sequences = pipe(
+                        messages, max_new_tokens=250, do_sample=True, return_full_text=False, min_p = 0.1, temperature = 1.5
+                    )
 
                 seq = sequences[0]
 
@@ -159,6 +165,7 @@ if __name__ == "__main__":
     parser.add_argument("prompt_num", help="prompt number", type=int)  # prompt number
     parser.add_argument("num_samples", help="number of samples", type=int)  # number of samples
     parser.add_argument("numeric_proba", help="numerical probability", type=int)  # numeric probability?
+    parser.add_argument("-minp", "--minp", help="use min p and good temperature?", type=int, default=0) # use minp and good temperature value?
     args = parser.parse_args()
 
     processPromptEngineeringMultiTargets(
@@ -170,5 +177,6 @@ if __name__ == "__main__":
         args.json_path,
         args.prompt_num,
         args.num_samples,
-        args.numeric_proba
+        args.numeric_proba,
+        args.minp
     )

@@ -59,8 +59,8 @@ def generate_note_embedding(cfg: dict):
 
     embedding_dict = {}
 
-    # convert note data to list
-    notes_list = clinical_notes[notes_col_name].tolist()
+    # obtain the unique notes and convert it to list
+    notes_list = clinical_notes[notes_col_name].unique().tolist()
 
     # define label maps
     id2label = {0: "Negative", 1: "Positive"}
@@ -185,6 +185,13 @@ def launch(cfg):
 
     # read dataframe
     df = load_table(f'{data_dir}/{df_name}')
+
+    # keep only the notes column and the note_index column
+    df = df[['note', 'note_index']].copy()
+
+    # remove duplicates
+    df = df.drop_duplicates(subset=['note'])
+
     cfg.pop('file_name')
     cfg.pop('data_dir')
 

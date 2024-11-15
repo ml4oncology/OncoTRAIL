@@ -79,7 +79,13 @@ def main(
     if data_type != 'tabular':
         # load embedding
         with np.load(embedding_path) as data:
-            embedding = data["embeddings"]
+            embedding_unique = data["embeddings"]
+
+            # create the full embedding matrix according
+            # to note_index
+            note_index = df['note_index'].to_numpy()
+            embedding = embedding_unique[note_index, :]
+
             # only extract embedding where index != -1
             embedding = embedding[mask, :]
 
@@ -87,7 +93,7 @@ def main(
         cols = df.columns
         targ_cols = cols[cols.str.contains("target")].tolist()
         # TO-DO: edit stats_noteType name in anchor code
-        extra_cols = ["cohort", "split", "note", "stats_noteType"] + cols[
+        extra_cols = ["cohort", "split", "note", "note_index", "stats_noteType"] + cols[
             cols.str.contains("date")
         ].tolist()
         extra_cols.remove("treatment_date")
