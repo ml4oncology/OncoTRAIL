@@ -1,8 +1,8 @@
 #!/bin/bash
 export PATH=$PATH:$(pwd)
 
-LLM_names_array=("Llama3-8B") # "ClinicalLongformer" "Mistral" "BioMistral")
-LLM_path_array=("Meta-Llama-3-8B") # "Clinical-Longformer" "Mistral-7B-v0.1" "BioMistral-7B")
+LLM_names_array=("ClinicalLongformer") # "Llama3-8B" "Mistral" "BioMistral")
+LLM_path_array=("Clinical-Longformer") # "Meta-Llama-3-8B" "Mistral-7B-v0.1" "BioMistral-7B")
 data_dir="/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/LLM-notes-classification/data/note_anchored_deid"
 save_dir="/cluster/projects/gliugroup/2BLAST/data/processed/clinical_notes/embedding_2024-06-04"
 notes_col_name="note"
@@ -10,8 +10,8 @@ n_hours=5
 memory=16
 root_dir_llm='/cluster/projects/gliugroup/2BLAST/LLMs'
 
-file_name=""
-n_partitions=?
+file_name="note_anchored_firstVisitOnly-medOnc-ConsultLetterClinic_deid.csv"
+n_partitions=10
 
 n_LLMs=${#LLM_names_array[@]}
 

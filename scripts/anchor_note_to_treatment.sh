@@ -17,6 +17,6 @@ save_dir="/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/LLM-notes-c
 test_end_date="2019-12-31"
 lookback_window=30
 
-for config_name in "firstTreatmentOnly-medOnc-ConsultLetterClinic" "firstVisitOnly-medOnc-ConsultLetterClinic_deid" "mostRecentVisit-medOnc-ConsultLetterClinic_deid"; do
+for config_name in "firstTreatmentOnly-medOnc-ConsultLetterClinic_deid" "firstVisitOnly-medOnc-ConsultLetterClinic_deid" "mostRecentVisit-medOnc-ConsultLetterClinic_deid"; do
     pySLURMargs.py $userName $memory $condaEnv $nGPU $runTime "../src/prep/anchor_note_to_treatment.py $data_path $treatment_data_path $ed_visit_data_path $symptom_data_path $last_seen_data_path $lab_values_data_path $save_dir $config_name $test_end_date $lookback_window" 
 done

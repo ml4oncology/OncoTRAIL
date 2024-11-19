@@ -7,11 +7,11 @@ condaEnv="~/miniforge3/envs/LLMfinetune/bin/python"
 nGPU=0
 runTime='0-01:00:00'
 
-LLM_names_array=("Llama3-8B") # "ClinicalLongformer" "Mistral" "BioMistral")
+LLM_names_array=("ClinicalLongformer") # "Llama3-8B" "Mistral" "BioMistral")
 
-data_dir=?
-root_file_name=?
-num_files=?
+data_dir="/cluster/projects/gliugroup/2BLAST/data/processed/clinical_notes/embedding_2024-06-04"
+root_file_name="note_anchored_firstVisitOnly-medOnc-ConsultLetterClinic_deid"
+num_files=10
 
 n_LLMs=${#LLM_names_array[@]}
 

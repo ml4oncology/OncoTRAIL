@@ -91,7 +91,8 @@ def main(
     if data_type in ["notes-tabular","tabular"]:
         cols = df.columns
         targ_cols = cols[cols.str.contains("target")].tolist()
-        extra_cols = ["cohort", "split", "note", "note_index", "stats_note_type"] + cols[
+        extra_cols = ["cohort", "split", "note", "note_index", 
+                      "stats_note_type", "stats_dictated_by"] + cols[
             cols.str.contains("date")
         ].tolist()
         extra_cols.remove("treatment_date")

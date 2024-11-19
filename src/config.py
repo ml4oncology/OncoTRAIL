@@ -1,6 +1,6 @@
 # hyperparameter tuning
 
-start_test_date = "2015-01-01"
+start_test_date = "2016-01-01"
 # bayesopt_param = {
 #     'LR': {'init_points': 2, 'n_iter': 5},
 #     'XGB': {'init_points': 2, 'n_iter': 5},
