@@ -1,6 +1,6 @@
+import os
 import pandas as pd
 import argparse
-import sys
 from ml_common.anchor import combine_feat_to_main_data
 from ml_common.engineer import (
     get_change_since_prev_session,
@@ -22,6 +22,7 @@ from preduce.prepare.prep import fill_missing_data
 
 from llm_notes_classification.prep.label import get_ctcae_labels
 
+# import sys
 # sys.path.insert(1, "/cluster/projects/gliugroup/2BLAST/data/processed/clinical_notes/HealthReportRecords/constants")
 # # load constants from file
 # from constants import aliasDictionary
@@ -55,11 +56,7 @@ def anchor_note_to_treatment(notes_data_path,
         test_end_date: ending date for the test time period (and end date of the study period)
         lookback_window: lookback window for the notes to be anchored to treatment date
     """
-
-    # TO-DO: edit note types
-    # edit column names, EPRDate -> epr_date, stats physician, etc. also change column names in main
-
-    # TO-DO: number the notes to get the embedding. remove this numbering column in main
+    os.makedirs(save_dir, exist_ok=True)
 
     # load treatment-centered data frame
     df_treat = pd.read_parquet(f'{treatment_data_path}', engine='pyarrow', use_nullable_dtypes = True)
@@ -111,7 +108,7 @@ def anchor_note_to_treatment(notes_data_path,
     df_treat[['target_death_in_365d', 'target_death_in_30d']] =\
           df_treat[['target_death_in_365d', 'target_death_in_30d']].astype(int)
     df_treat.loc[mask, ['target_death_in_365d', 'target_death_in_30d']] = -1
-
+    
     # add CTCAE targets
     df_lab = pd.read_parquet(f'{lab_values_data_path}')
     df_treat = get_ctcae_labels(df_treat,
@@ -122,41 +119,46 @@ def anchor_note_to_treatment(notes_data_path,
 
     # load notes file
     merged_notes = pd.read_parquet(f'{notes_data_path}')
+    merged_notes['mrn'] = pd.to_numeric(merged_notes['mrn'], errors='coerce')
+    merged_notes['mrn'] = merged_notes['mrn'].astype(int)
 
-    if config_name in ['mostRecentVisit-medOnc-ConsultLetterClinic', 
+    config_list = ['mostRecentVisit-medOnc-ConsultLetterClinic', 
                        'mostRecentVisit-appendFirst-medOnc-ConsultLetterClinic', 
-                       'firstVisitOnly-medOnc-ConsultLetterClinic']:
+                       'firstVisitOnly-medOnc-ConsultLetterClinic',
+                       'firstTreatmentOnly-medOnc-ConsultLetterClinic']
+
+    if any(x in config_name for x in config_list):
         # only consider notes written by a medical oncologist 
         # only consider consultation, letter, clinic notes
         medOncs = list(set(aliasDictionary.values()))
         procName = ['Clinic Note', 'Letter', 'History & Physical Note', 'Consultation Note']
-        merged_notes = merged_notes.loc[ (merged_notes['processed_physician_name'].isin(medOncs)) &\
-                                       (merged_notes['Observations.ProcName'].isin(procName)) ].copy()
+        merged_notes = merged_notes.loc[(merged_notes['processed_physician_name'].isin(medOncs)) &\
+                                       (merged_notes['Observations.ProcName'].isin(procName))].copy()
         
         # merge records of patient on the same day
         # take the maximum of the EPR dates
 
         merged_notes['note'] = merged_notes['Observations.ProcName'] + ':\n' + merged_notes['clinical_notes']
-        # merged_notes = merged_notes.groupby(['MRN','processed_date']).agg(
+        # merged_notes = merged_notes.groupby(['mrn','processed_date']).agg(
         #                 processed_note=('note', lambda x: '\n'.join(x)),
         #                 max_epr_date=('EPRDate', 'max')).reset_index()
         # add physician name and note type for statistics tracking
-        merged_notes = merged_notes.groupby(['MRN','processed_date']).agg(
+        merged_notes = merged_notes.groupby(['mrn','processed_date']).agg(
                         processed_note=('note', lambda x: '\n'.join(x)),
-                        max_epr_date=('EPRDate', 'max'),
+                        max_epr_date=('epr_date', 'max'),
                         stats_physician=('processed_physician_name','unique'),
-                        stats_dictatedBy=('dictated_by','unique'),
-                        stats_noteType=('Observations.ProcName','unique')).reset_index()
-        merged_notes.rename(columns={"MRN": "mrn", "processed_note": "note"}, inplace=True)
+                        stats_dictated_by=('dictated_by','unique'),
+                        stats_note_type=('Observations.ProcName','unique')).reset_index()
+        merged_notes.rename(columns={"processed_note": "note"}, inplace=True)
         merged_notes['processed_date'] = merged_notes['processed_date'].dt.date
         merged_notes['processed_date'] = merged_notes['processed_date'].astype('<M8[ns]')
 
-        if config_name == 'mostRecentVisit-appendFirst-medOnc-ConsultLetterClinic':
+        if 'mostRecentVisit-appendFirst-medOnc-ConsultLetterClinic' in config_name:
             # get the first note
             merged_notes.sort_values(by='processed_date', inplace=True)
-            firstNote = merged_notes.groupby(['mrn'])['note'].first().reset_index(name='first_note')
+            first_note = merged_notes.groupby(['mrn'])['note'].first().reset_index(name='first_note')
             # append the first note
-            merged_notes = merged_notes.merge(firstNote, on="mrn")
+            merged_notes = merged_notes.merge(first_note, on="mrn")
             merged_notes['appended_note'] = merged_notes.apply(
                 lambda x: x['note'] if x['note'] == x['first_note'] else '\n'.join([x['first_note'], x['note']]),
                 axis=1,
@@ -164,23 +166,24 @@ def anchor_note_to_treatment(notes_data_path,
             # retain only columns of interest
             merged_notes = merged_notes[[
                 'mrn', 'processed_date', 'max_epr_date', 'appended_note',
-                'stats_physician', 'stats_dictatedBy', 'stats_noteType'
+                'stats_physician', 'stats_dictated_by', 'stats_note_type'
             ]]
             merged_notes.rename(columns={'appended_note': 'note'}, inplace=True)
         
-        elif config_name == 'firstVisitOnly-medOnc-ConsultLetterClinic':
+        elif any(x in config_name for x in ['firstVisitOnly-medOnc-ConsultLetterClinic',
+                                             'firstTreatmentOnly-medOnc-ConsultLetterClinic']):
             # keep only the first note
             merged_notes.sort_values(by='processed_date', inplace=True)
             merged_notes = merged_notes.groupby('mrn')[['max_epr_date','processed_date',
-                                                      'note','stats_physician','stats_dictatedBy',
-                                                      'stats_noteType']].first().reset_index()
+                                                      'note','stats_physician','stats_dictated_by',
+                                                      'stats_note_type']].first().reset_index()
 
     else:
         raise Exception("Not implemented yet.")
-    
+
     # filter the treatment-centered data frame
     df_treat = df_treat.loc[df_treat['mrn'].isin(merged_notes['mrn'].unique())].copy()
-    # filter out records if treatment date is past 2017, the end date of the study period
+    # filter out records if treatment date is past the end date of the study period
     # note: there is no need to cap the data at the start date since the notes data set
     # only contains data starting from the start date. if no notes are anchored to treatment 
     # data, they will be dropped
@@ -235,6 +238,13 @@ def anchor_note_to_treatment(notes_data_path,
     # drop assessment_date column
     df_treat.drop('assessment_date', axis=1, inplace=True)
 
+    # if first treatment only, select the first row for every mrn and treatment_date
+    if 'firstTreatmentOnly-medOnc-ConsultLetterClinic' in config_name:
+        # sort by treatment date
+        df_treat.sort_values(by='treatment_date', inplace=True)
+        # select the first row for every mrn and treatment_date
+        df_treat = df_treat.groupby(['mrn', 'treatment_date']).first().reset_index()
+
     # save dataframe with anchored note
     cols = df_treat.columns
     cols_no_target = [col for col in cols if 'target' not in col] + ['note_index']
@@ -244,7 +254,7 @@ def anchor_note_to_treatment(notes_data_path,
     # create a new column that serves as an index for each unique note
     df_treat['note_index'] = pd.factorize(df_treat['note'])[0]
 
-    df_treat[cols_no_target + target_cols].to_csv( f"{save_dir}/note_anchored_{config_name}.csv" )
+    df_treat[cols_no_target + target_cols].to_csv(f"{save_dir}/note_anchored_{config_name}.csv")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader, TensorDataset
 import numpy as np
 import torch
 import logging
-from llm_notes_classification.ML.util import save_pickle
+from ml_common.util import save_pickle
 from llm_notes_classification.config import (
     bayesopt_param,
     model_static_param,

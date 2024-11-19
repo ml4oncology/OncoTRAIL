@@ -77,7 +77,7 @@ def get_lookahead_lab_values(df_treat,
         df_target = pd.DataFrame(target, columns=['index', 'target_' + quantity + '_temp']).set_index('index')
         df_treat = df_treat.join(df_target)
 
-        return df_treat
+    return df_treat
 
 def get_ctcae_labels(df_treat,
                      df_lab,
