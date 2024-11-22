@@ -1,17 +1,19 @@
 import json
 import re
 import argparse
+from llm_notes_classification.prep.CTCAE_constants import (
+    CTCAE_constants)
 
 
 def generate_persona():
     persona_prompt = [
-        "Act as a highly experienced and extremely competent medical oncologist from the world-renowned Princess Margaret Cancer Centre in Toronto, Ontario. ",
+        ("Act as a highly experienced and extremely competent medical oncologist " + 
+         "from the world-renowned Princess Margaret Cancer Centre in Toronto, Ontario. "),
         "Act as an expert medical oncologist. ",
         "Act as an incredibly skilled, well-trained machine learning model. ",
     ]
 
     return persona_prompt
-
 
 def generate_deid():
     deid_prompt = (
@@ -28,7 +30,6 @@ def generate_deid():
     )
 
     return deid_prompt
-
 
 def generate_target(target_string, simplify):
     print(target_string)
@@ -54,7 +55,8 @@ def generate_target(target_string, simplify):
         esas_change_value = target_string.split("_")[3][0]
 
         if simplify == 0:
-            target_prompt = f"experience a {esas_change_value} point change in the ESAS score for {esas_target}"
+            target_prompt = (f"experience a {esas_change_value} point change in the ESAS score for {esas_target}" +
+                                " within the next 30 days")
 
             # extract the point change
 
@@ -70,34 +72,6 @@ def generate_target(target_string, simplify):
             target_prompt = f"experience worsening {esas_target}"
 
     elif re.search(r'grade\d+plus', target_string) is not None:
-        
-        # CTCAE constants
-        constants = dict()
-        constants['hemoglobin']=dict()
-        constants['hemoglobin']['grade2plus'] = 100
-        constants['hemoglobin']['grade3plus'] = 80
-        constants['neutrophil']=dict()
-        constants['neutrophil']['grade2plus'] = 1.5
-        constants['neutrophil']['grade3plus'] = 1
-        constants['platelet']=dict()
-        constants['platelet']['grade2plus'] = 75
-        constants['platelet']['grade3plus'] = 50
-        constants['AKI']=dict()
-        constants['AKI']['grade2plus'] = 1.5
-        constants['AKI']['grade3plus'] = 3
-        constants['AKI']['ULN'] = 353.68
-        constants['ALT']=dict()
-        constants['ALT']['grade2plus'] = 3
-        constants['ALT']['grade3plus'] = 5
-        constants['ALT']['ULN'] = 40
-        constants['AST']=dict()
-        constants['AST']['grade2plus'] = 3
-        constants['AST']['grade3plus'] = 5
-        constants['AST']['ULN'] = 34
-        constants['bilirubin']=dict()
-        constants['bilirubin']['grade2plus'] = 1.5
-        constants['bilirubin']['grade3plus'] = 3
-        constants['bilirubin']['ULN'] = 22
 
         match = re.search(r'target_(.*?)_grade([1-5])plus', target_string)
         # extract the grade
@@ -109,7 +83,7 @@ def generate_target(target_string, simplify):
             if simplify == 0:
                 target_prompt = (
                     f"experience grade {grade} and above anemia, defined by the CTCAE "
-                    f"(Common Terminology Criteria for Adverse Events) as a hemoglobin level under {constants[quantity][f'grade{grade}plus']} g/L"
+                    f"(Common Terminology Criteria for Adverse Events) as a hemoglobin level under {CTCAE_constants[quantity][f'grade{grade}plus']} g/L"
                 )
             else:
                 target_prompt = "experience worsening anemia"
@@ -118,7 +92,7 @@ def generate_target(target_string, simplify):
             if simplify == 0:
                 target_prompt = (
                     f"experience grade {grade} and above neutrophil count decrease, defined by the CTCAE "
-                    f"(Common Terminology Criteria for Adverse Events) as a neutrophil count under {constants[quantity][f'grade{grade}plus']} x 10e9/L"
+                    f"(Common Terminology Criteria for Adverse Events) as a neutrophil count under {CTCAE_constants[quantity][f'grade{grade}plus']} x 10e9/L"
                 )
             else:
                 target_prompt = "experience worsening neutrophil count"
@@ -127,7 +101,7 @@ def generate_target(target_string, simplify):
             if simplify == 0:
                 target_prompt = (
                     f"experience grade {grade} and above platelet count decrease, defined by the CTCAE "
-                    f"(Common Terminology Criteria for Adverse Events) as a platelet count under {constants[quantity][f'grade{grade}plus']} x 10e9/L"
+                    f"(Common Terminology Criteria for Adverse Events) as a platelet count under {CTCAE_constants[quantity][f'grade{grade}plus']} x 10e9/L"
                 )
             else:
                 target_prompt = "experience worsening platelet count"
@@ -136,8 +110,8 @@ def generate_target(target_string, simplify):
             if simplify == 0:
                 target_prompt = (
                     f"experience grade {grade} and above creatinine increase, defined by the CTCAE "
-                    f"(Common Terminology Criteria for Adverse Events) as creatinine increasing {constants[quantity][f'grade{grade}plus']} times above "
-                    f"baseline or {constants[quantity][f'grade{grade}plus']} times above the upper limit of normal ({constants[quantity]['ULN']} umol/L)"
+                    f"(Common Terminology Criteria for Adverse Events) as creatinine increasing {CTCAE_constants[quantity][f'grade{grade}plus']} times above "
+                    f"baseline or {CTCAE_constants[quantity][f'grade{grade}plus']} times above the upper limit of normal ({CTCAE_constants[quantity]['ULN']} umol/L)"
                 )
             else:
                 target_prompt = "experience acute kidney injury"
@@ -152,8 +126,8 @@ def generate_target(target_string, simplify):
             if simplify == 0:
                 target_prompt = (
                     f"experience grade {grade} and above {quantity_full} increase, defined by the CTCAE "
-                    f"(Common Terminology Criteria for Adverse Events) as {quantity_full} increasing {constants[quantity][f'grade{grade}plus']} times above "
-                    f"the upper limit of normal ({constants[quantity]['ULN']} U/L) or baseline if the baseline was abnormal"
+                    f"(Common Terminology Criteria for Adverse Events) as {quantity_full} increasing {CTCAE_constants[quantity][f'grade{grade}plus']} times above "
+                    f"the upper limit of normal ({CTCAE_constants[quantity]['ULN']} U/L) or baseline if the baseline was abnormal"
                 )
             else:
                 target_prompt = f"experience increasing {quantity_full} level"
@@ -162,21 +136,19 @@ def generate_target(target_string, simplify):
             if simplify == 0:
                 target_prompt = (
                     f"experience grade {grade} and above blood bilirubin increase, defined by the CTCAE "
-                    f"(Common Terminology Criteria for Adverse Events) as blood bilirubin increasing {constants[quantity][f'grade{grade}plus']} times above "
-                    f"the upper limit of normal ({constants[quantity]['ULN']} umol/L) or baseline if the baseline was abnormal"
+                    f"(Common Terminology Criteria for Adverse Events) as blood bilirubin increasing {CTCAE_constants[quantity][f'grade{grade}plus']} times above "
+                    f"the upper limit of normal ({CTCAE_constants[quantity]['ULN']} umol/L) or baseline if the baseline was abnormal"
                 )
             else:
                 target_prompt = "experience increasing blood bilirubin level"
 
     target_prompt = (
-        "Your task is to predict the probability that a patient undergoing systemic therapy for cancer will "
-        + target_prompt
-        + ", based on the de-identified clinical note below. "
+        "Your task is to predict the probability that the patient will "
+        + target_prompt + "."
     )
     target_prompt = target_prompt + additional_info
 
     return target_prompt
-
 
 def generate_health_factors(target_string):
     health_string = ""
@@ -192,9 +164,6 @@ def generate_health_factors(target_string):
     #     raise Exception("Not implemented yet.")
 
     return health_string
-    # target_esas_pain_3pt_change, target_esas_tiredness_3pt_change, target_esas_nausea_3pt_change, target_esas_depression_3pt_change,
-    # target_esas_anxiety_3pt_change, target_esas_drowsiness_3pt_change, target_esas_appetite_3pt_change, target_esas_well_being_3pt_change,
-    # target_esas_shortness_of_breath_3pt_change, target_death_in_30d, target_ED_visit
 
 def generate_cot():
     cot_prompt = (
@@ -263,7 +232,9 @@ def generate_prompts(target_names, numeric_proba, save_dir):
     format_prompt = ("You will only respond with a JSON object with the keys Reason and Probability. Reason must be a very concise explanation of"+
                 " how you arrived at the predicted probability. Probability should be a value between 0 to 1. Example output: "+
                 """{"Reason": "<Your Reason>", "Probability": 0.5}.""")
-
+    
+    note_details_prompt = "You are reviewing a de-identified clinical note from the past 30 days for a patient receiving systemic cancer therapy on <TREATMENT DATE>."
+    
     for target_name in list_of_targets:
         health_factors = generate_health_factors(target_name)
         health_prompt = ["", health_factors]
@@ -288,6 +259,7 @@ def generate_prompts(target_names, numeric_proba, save_dir):
                             if cot_param == 1:
                                 prompt = (
                                     persona_val
+                                    + note_details_prompt
                                     + target_prompt
                                     + health_val
                                     + deid_prompt
@@ -299,6 +271,7 @@ def generate_prompts(target_names, numeric_proba, save_dir):
                             else:
                                 prompt = (
                                     persona_val
+                                    + note_details_prompt
                                     + target_prompt
                                     + health_val
                                     + deid_prompt
