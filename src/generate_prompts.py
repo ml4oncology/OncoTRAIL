@@ -1,8 +1,10 @@
 import json
 import re
 import argparse
-from llm_notes_classification.prep.CTCAE_constants import (
+from llm_notes_classification.prep.constants import (
     CTCAE_constants)
+import logging
+logger = logging.getLogger(__name__)
 
 
 def generate_persona():
@@ -32,11 +34,13 @@ def generate_deid():
     return deid_prompt
 
 def generate_target(target_string, simplify):
-    print(target_string)
 
+    logger.info(f"target_string: {target_string}")
+
+    time_period = "within the next 30 days"
     additional_info = ""
     if target_string == "target_ED_visit":
-        target_prompt = "visit the emergency department within the next 30 days"
+        target_prompt = f"visit the emergency department {time_period}"
     elif target_string == "target_death_in_365d":
         target_prompt = "die within the next year"
     elif target_string == "target_death_in_30d":
@@ -56,7 +60,7 @@ def generate_target(target_string, simplify):
 
         if simplify == 0:
             target_prompt = (f"experience a {esas_change_value} point change in the ESAS score for {esas_target}" +
-                                " within the next 30 days")
+                             ' ' + time_period)
 
             # extract the point change
 
@@ -69,7 +73,7 @@ def generate_target(target_string, simplify):
                 + "providers manage symptoms and improve quality of life for patients. "
             )
         else:
-            target_prompt = f"experience worsening {esas_target}"
+            target_prompt = f"experience worsening {esas_target} {time_period}"
 
     elif re.search(r'grade\d+plus', target_string) is not None:
 
@@ -79,42 +83,45 @@ def generate_target(target_string, simplify):
         # extract the quantity
         quantity = match.group(1)
 
+        CTCAE_meaning = "defined by the CTCAE (Common Terminology Criteria for Adverse Events)"
+
         if "hemoglobin" in target_string:
             if simplify == 0:
                 target_prompt = (
-                    f"experience grade {grade} and above anemia, defined by the CTCAE "
-                    f"(Common Terminology Criteria for Adverse Events) as a hemoglobin level under {CTCAE_constants[quantity][f'grade{grade}plus']} g/L"
+                    f"experience grade {grade} and above anemia {time_period}, {CTCAE_meaning} "
+                    f" as a hemoglobin level under {CTCAE_constants[quantity][f'grade{grade}plus']} g/L"
                 )
             else:
-                target_prompt = "experience worsening anemia"
+                target_prompt = f"experience worsening anemia {time_period}"
 
         elif "neutrophil" in target_string:
             if simplify == 0:
                 target_prompt = (
-                    f"experience grade {grade} and above neutrophil count decrease, defined by the CTCAE "
-                    f"(Common Terminology Criteria for Adverse Events) as a neutrophil count under {CTCAE_constants[quantity][f'grade{grade}plus']} x 10e9/L"
+                    f"experience grade {grade} and above neutrophil count decrease {time_period}, {CTCAE_meaning} "
+                    f"as a neutrophil count under {CTCAE_constants[quantity][f'grade{grade}plus']} x 10e9/L"
                 )
             else:
-                target_prompt = "experience worsening neutrophil count"
+                target_prompt = f"experience worsening neutrophil count {time_period}"
 
         elif "platelet" in target_string:
             if simplify == 0:
                 target_prompt = (
-                    f"experience grade {grade} and above platelet count decrease, defined by the CTCAE "
-                    f"(Common Terminology Criteria for Adverse Events) as a platelet count under {CTCAE_constants[quantity][f'grade{grade}plus']} x 10e9/L"
+                    f"experience grade {grade} and above platelet count decrease {time_period}, {CTCAE_meaning} "
+                    f"as a platelet count under {CTCAE_constants[quantity][f'grade{grade}plus']} x 10e9/L"
                 )
             else:
-                target_prompt = "experience worsening platelet count"
+                target_prompt = f"experience worsening platelet count {time_period}"
 
         elif "AKI" in target_string:
             if simplify == 0:
                 target_prompt = (
-                    f"experience grade {grade} and above creatinine increase, defined by the CTCAE "
-                    f"(Common Terminology Criteria for Adverse Events) as creatinine increasing {CTCAE_constants[quantity][f'grade{grade}plus']} times above "
-                    f"baseline or {CTCAE_constants[quantity][f'grade{grade}plus']} times above the upper limit of normal ({CTCAE_constants[quantity]['ULN']} umol/L)"
+                    f"experience grade {grade} and above creatinine increase {time_period}, {CTCAE_meaning} "
+                    f"as creatinine increasing {CTCAE_constants[quantity][f'grade{grade}plus']} times above "
+                    f"baseline or {CTCAE_constants[quantity][f'grade{grade}plus']} times above " 
+                    f" the upper limit of normal ({CTCAE_constants[quantity]['ULN']} umol/L)"
                 )
             else:
-                target_prompt = "experience acute kidney injury"
+                target_prompt = f"experience acute kidney injury {time_period}"
 
         elif "ALT" in target_string or "AST" in target_string:
             if 'ALT' in target_string:
@@ -125,22 +132,22 @@ def generate_target(target_string, simplify):
 
             if simplify == 0:
                 target_prompt = (
-                    f"experience grade {grade} and above {quantity_full} increase, defined by the CTCAE "
-                    f"(Common Terminology Criteria for Adverse Events) as {quantity_full} increasing {CTCAE_constants[quantity][f'grade{grade}plus']} times above "
+                    f"experience grade {grade} and above {quantity_full} increase {time_period}, {CTCAE_meaning} "
+                    f"as {quantity_full} increasing {CTCAE_constants[quantity][f'grade{grade}plus']} times above "
                     f"the upper limit of normal ({CTCAE_constants[quantity]['ULN']} U/L) or baseline if the baseline was abnormal"
                 )
             else:
-                target_prompt = f"experience increasing {quantity_full} level"
+                target_prompt = f"experience increasing {quantity_full} level {time_period}"
 
         elif "bilirubin" in target_string:
             if simplify == 0:
                 target_prompt = (
-                    f"experience grade {grade} and above blood bilirubin increase, defined by the CTCAE "
-                    f"(Common Terminology Criteria for Adverse Events) as blood bilirubin increasing {CTCAE_constants[quantity][f'grade{grade}plus']} times above "
+                    f"experience grade {grade} and above blood bilirubin increase {time_period}, {CTCAE_meaning} "
+                    f"as blood bilirubin increasing {CTCAE_constants[quantity][f'grade{grade}plus']} times above "
                     f"the upper limit of normal ({CTCAE_constants[quantity]['ULN']} umol/L) or baseline if the baseline was abnormal"
                 )
             else:
-                target_prompt = "experience increasing blood bilirubin level"
+                target_prompt = f"experience increasing blood bilirubin level {time_period}"
 
     target_prompt = (
         "Your task is to predict the probability that the patient will "
@@ -201,11 +208,11 @@ def generate_proba(numeric_proba):
     if numeric_proba:
         # proba_prompt = 'Probability should be a value between 0 and 1 with 2 decimal digits. '
         proba_prompt = (
-            "<PROBABILITY> should be a value between 0 and 1 with 2 decimal digits. "
+            "Probability should be a value between 0 and 1. "
         )
     else:
         # proba_prompt = "The response to 'Probability' must either be 'low', 'medium' or 'high'.  "
-        proba_prompt = "<PROBABILITY> must either be 'low', 'medium' or 'high'.  "
+        proba_prompt = "Probability must either be 'low', 'medium' or 'high'. "
 
     return proba_prompt
 
@@ -217,23 +224,13 @@ def generate_prompts(target_names, numeric_proba, save_dir):
     persona_prompt = generate_persona()
     proba_prompt = generate_proba(numeric_proba)
 
-    # format_prompt = "Provide a concise reasoning that explains how you arrived at the predicted probability. Express your response as a JSON object with the keys 'Reason' and 'Probability'.  "
-    # format_prompt = "You will only respond with a JSON object with the keys 'Reason' and 'Probability'. The response to 'Reason' must be a concise explanation of how you arrived at the predicted probability.  "
-    # format_prompt = ("""I am going to give you a template for your output. CAPITALIZED WORDS are my placeholders. Fill in my placeholders with your output. """ +
-    #                 """Please preserve the overall formatting of my template. My template is:\n {'Reason': REASON, 'Probability': PROBABILITY}\n""" +
-    #                 """REASON must be a very concise explanation of how you arrived at the predicted probability enclosed in double quotes. """)
-    # format_prompt = (
-    #     """I am going to give you a template for your output. Words in angle brackets are my placeholders. Fill in my placeholders with your output. """
-    #     + """Please preserve the overall formatting of my template. My template is:\n {'Reason': <REASON>, 'Probability': <PROBABILITY>}\n"""
-    #     + """<REASON> must be a very concise explanation of how you arrived at the predicted probability enclosed in double quotes. """
-    # )
-    # format_end_prompt = "Ensure your output follows the above template strictly. "
-
-    format_prompt = ("You will only respond with a JSON object with the keys Reason and Probability. Reason must be a very concise explanation of"+
-                " how you arrived at the predicted probability. Probability should be a value between 0 to 1. Example output: "+
-                """{"Reason": "<Your Reason>", "Probability": 0.5}.""")
+    format_prompt = ("You will only respond with a JSON object with the keys Reason and Probability. " +
+                    "Reason must be a very concise explanation of how you arrived at the predicted probability. " +
+                    proba_prompt+
+                    """Example output: {"Reason": "<Your Reason>", "Probability": 0.5}.""")
     
-    note_details_prompt = "You are reviewing a de-identified clinical note from the past 30 days for a patient receiving systemic cancer therapy on <TREATMENT DATE>."
+    note_details_prompt = ("You are reviewing a de-identified clinical note from the past 30 days " + 
+                           "for a patient receiving systemic cancer therapy on <TREATMENT DATE>. ")
     
     for target_name in list_of_targets:
         health_factors = generate_health_factors(target_name)
@@ -288,8 +285,6 @@ def generate_prompts(target_names, numeric_proba, save_dir):
         fname = f"{save_dir}/prompt_list_{target_name}_numeric-proba{numeric_proba}.json"
         with open(fname, "w") as file:
             json.dump(prompt_dict, file, indent=4)
-
-    # ask llm for comments on the prompt
 
 
 if __name__ == "__main__":
