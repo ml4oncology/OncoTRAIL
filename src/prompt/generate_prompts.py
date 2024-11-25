@@ -158,8 +158,7 @@ def generate_target(target_string, simplify):
     return target_prompt
 
 def generate_health_factors(target_string):
-    health_string = ""
-    # if target_string == "target_death_in_365d":
+
     health_string = (
         "Consider all relevant factors, including the patient's current treatment regimen, "
         + "underlying cancer type and stage, symptoms, response to treatment, frequency of visits, "
@@ -167,8 +166,6 @@ def generate_health_factors(target_string):
         + "Additionally, incorporate current medical guidelines, the latest research on survival rates, "
         + "risk factors associated with systemic cancer therapies, and the latest medical research in general. "
     )
-    # else:
-    #     raise Exception("Not implemented yet.")
 
     return health_string
 
@@ -180,7 +177,6 @@ def generate_cot():
     )
 
     return cot_prompt
-
 
 def generate_reason_example(numeric_proba, target_string):
     if target_string == "target_death_in_365d":
@@ -203,19 +199,15 @@ def generate_reason_example(numeric_proba, target_string):
 
     return reason_prompt
 
-
 def generate_proba(numeric_proba):
     if numeric_proba:
-        # proba_prompt = 'Probability should be a value between 0 and 1 with 2 decimal digits. '
         proba_prompt = (
             "Probability should be a value between 0 and 1. "
         )
     else:
-        # proba_prompt = "The response to 'Probability' must either be 'low', 'medium' or 'high'.  "
         proba_prompt = "Probability must either be 'low', 'medium' or 'high'. "
 
     return proba_prompt
-
 
 def generate_prompts(target_names, numeric_proba, save_dir):
 
@@ -226,10 +218,10 @@ def generate_prompts(target_names, numeric_proba, save_dir):
 
     format_prompt = ("You will only respond with a JSON object with the keys Reason and Probability. " +
                     "Reason must be a very concise explanation of how you arrived at the predicted probability. " +
-                    proba_prompt+
+                    proba_prompt +
                     """Example output: {"Reason": "<Your Reason>", "Probability": 0.5}.""")
     
-    note_details_prompt = ("You are reviewing a de-identified clinical note from the past 30 days " + 
+    note_details_prompt = ("You are reviewing a de-identified clinical note below from the past 30 days " + 
                            "for a patient receiving systemic cancer therapy on <TREATMENT DATE>. ")
     
     for target_name in list_of_targets:
@@ -262,8 +254,6 @@ def generate_prompts(target_names, numeric_proba, save_dir):
                                     + deid_prompt
                                     + cot_prompt
                                     + format_prompt
-                                    # + proba_prompt
-                                    # + format_end_prompt
                                 )
                             else:
                                 prompt = (
@@ -273,8 +263,6 @@ def generate_prompts(target_names, numeric_proba, save_dir):
                                     + health_val
                                     + deid_prompt
                                     + format_prompt
-                                    # + proba_prompt
-                                    # + format_end_prompt
                                     + reason_prompt
                                 )
 
