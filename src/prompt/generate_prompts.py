@@ -19,15 +19,15 @@ def generate_persona():
 
 def generate_deid():
     deid_prompt = (
-        "The following tags are used to replace the protected health information in the de-identified note.\n "
-        + "PATIENT refers to the patient's name.\n "
-        + "STAFF is an umbrella term for all hospital staff.\n "
-        + "PHONE refers to phone number.\n "
-        + "ID refers to any personal identification numbers.\n "
-        + "EMAIL is any email address.\n "
-        + "PATORG is any organization entity.\n "
-        + "LOC refers to location.\n "
-        + "HOSP refers to hospital related information.\n "
+        "The following tags are used to replace the protected health information in the de-identified note.\n"
+        + "PATIENT refers to the patient's name.\n"
+        + "STAFF is an umbrella term for all hospital staff.\n"
+        + "PHONE refers to phone number.\n"
+        + "ID refers to any personal identification numbers.\n"
+        + "EMAIL is any email address.\n"
+        + "PATORG is any organization entity.\n"
+        + "LOC refers to location.\n"
+        + "HOSP refers to hospital related information.\n"
         + "OTHERPHI is a catch-all for other types of protected health information.\n"
     )
 
@@ -151,7 +151,7 @@ def generate_target(target_string, simplify):
 
     target_prompt = (
         "Your task is to predict the probability that the patient will "
-        + target_prompt + "."
+        + target_prompt + ". "
     )
     target_prompt = target_prompt + additional_info
 
