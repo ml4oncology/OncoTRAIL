@@ -39,13 +39,28 @@ def launch(cfg):
     data_dir = cfg['data_dir']
     df_name = cfg['file_name']
     save_dir = cfg['save_dir']
-    os.makedirs(f'{data_dir}/data_partitions/', exist_ok=True)
-
-    # list of targets
-    list_of_targets = cfg['target_names'].split(",")
 
     # read dataframe
     df = load_table(f'{data_dir}/{df_name}')
+
+    if '.parquet.gzip' in df_name:
+        file_name_no_ext = os.path.splitext(df_name)[0]
+        file_name_no_ext = os.path.splitext(file_name_no_ext)[0]
+    else:
+        file_name_no_ext = os.path.splitext(df_name)[0]
+
+    # create save_dir
+    param_string = f"{file_name_no_ext}_{cfg['LLM_name']}_{cfg['quant_level']}_{cfg['start_date']}_{cfg['end_date']}"
+    param_string = f"{param_string}_{cfg['random_sampling']}_{cfg['n_few_shot']}_{cfg['numeric_proba']}"
+    param_string = f"{param_string}_{cfg['prompt_num']}_{cfg['top_k']}_{cfg['min_p']}_{cfg['top_p']}"
+    param_string = f"{param_string}_{cfg['temperature']}"
+    save_dir = f"{save_dir}/{param_string}"
+    data_dir = f"{data_dir}/{param_string}/data_partitions/"
+
+    os.makedirs(f"{data_dir}", exist_ok=True)
+
+    # list of targets
+    list_of_targets = cfg['target_names'].split(",")
 
     # restrict the data frame to time period
     df = df[df['treatment_date'].between(cfg['start_date'], cfg['end_date'])].copy()
@@ -61,7 +76,10 @@ def launch(cfg):
                                                random_state=42).index
             
             df_negative = df[df[target] == 0].copy()
-            negative_idxs = df_negative.sample(n=n_class_samples, 
+            n_neg_samples = n_class_samples
+            if df_positive.shape[0] < n_class_samples:
+                n_neg_samples = 2*n_class_samples - df_positive.shape[0]
+            negative_idxs = df_negative.sample(n=n_neg_samples, 
                                                replace=False, 
                                                random_state=42).index
             
@@ -76,29 +94,16 @@ def launch(cfg):
     cfg.pop('data_dir')
     cfg.pop('save_dir')
 
-    if '.parquet.gzip' in df_name:
-        file_name_no_ext = os.path.splitext(df_name)[0]
-        file_name_no_ext = os.path.splitext(file_name_no_ext)[0]
-    else:
-        file_name_no_ext = os.path.splitext(df_name)[0]
-
-    # create save_dir
-    param_string = f"{file_name_no_ext}_{cfg['LLM_name']}_{cfg['quant_level']}_{cfg['start_date']}_{cfg['end_date']}"
-    param_string = f"{param_string}_{cfg['random_sampling']}_{cfg['n_few_shot']}_{cfg['numeric_proba']}"
-    param_string = f"{param_string}_{cfg['prompt_num']}_{cfg['top_k']}_{cfg['min_p']}_{cfg['top_p']}"
-    param_string = f"{param_string}_{cfg['temperature']}"
-    save_dir = f"{save_dir}/{param_string}"
-
     cfgs = []
 
     for partition_id, idxs in enumerate(np.array_split(df.index, n_partitions)):
-        partition_path = f'{data_dir}/data_partitions/{partition_id}_{df_name}'
+        partition_path = f'{data_dir}/{partition_id}_{df_name}'
         if partition_path.endswith('.csv'):
             df.loc[idxs].reset_index(drop=True).to_csv(partition_path, index=False)
         elif partition_path.endswith(('.parquet','.parquet.gzip')):
             df.loc[idxs].reset_index(drop=True).to_parquet(partition_path, compression='gzip', index=False)
 
-        cfgs.append(dict(data_dir=f'{data_dir}/data_partitions', 
+        cfgs.append(dict(data_dir=f'{data_dir}', 
                          file_name=f'{partition_id}_{df_name}',
                          save_dir=save_dir, **cfg))
 
