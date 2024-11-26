@@ -107,7 +107,7 @@ def prompt_huggingface(cfg: dict):
                 continue
 
             # open prompt file and extract prompt
-            with open(f'{prompt_file_dir}/{json_file}', "r") as file:
+            with open(json_file, "r") as file:
                 prompt_dict = json.load(file)
             system_instructions = prompt_dict[f"{prompt_num}"]
             # convert treatment date in yyyy-mm-dd to MMM dd, yyyy format

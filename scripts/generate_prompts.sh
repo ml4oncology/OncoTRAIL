@@ -42,5 +42,5 @@ target_array=$(IFS=','; echo "${target_list[*]}")
 
 numeric_proba=1
 
-pySLURMargs.py $userName $memory $condaEnv $nGPU $runTime "../src/generate_prompts.py $target_array $numeric_proba $saveDir"
+pySLURMargs.py $userName $memory $condaEnv $nGPU $runTime "../src/prompt/generate_prompts.py $target_array $numeric_proba $saveDir"
 
