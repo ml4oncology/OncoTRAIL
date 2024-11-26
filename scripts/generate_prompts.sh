@@ -8,7 +8,7 @@ nGPU=0
 runTime='0-01:00:00'
 
 rootDirProj=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/LLM-notes-classification
-saveDir=${rootDirProj}/data/new_prompt
+saveDir=${rootDirProj}/data/prompts
 
 target_list=(
     "target_hemoglobin_grade2plus"

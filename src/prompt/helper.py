@@ -118,7 +118,7 @@ def prompt_huggingface(cfg: dict):
                 "<TREATMENT DATE>", treatment_date_str
             )
 
-            if "LLama" in LLM_name:
+            if "Llama" in LLM_name:
                 messages = [
                     {"role": "system", "content": system_instructions},
                     {"role": "user", "content": note},
