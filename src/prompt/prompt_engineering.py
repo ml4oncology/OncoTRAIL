@@ -1,0 +1,137 @@
+import argparse
+import submitit
+from datetime import datetime
+import os
+import numpy as np
+from ml_common.util import load_table
+from llm_notes_classification.prompt.helper import prompt_huggingface
+
+def launch(cfg):
+    """Use submitit to launch jobs in the SLURM cluster
+
+    References: 
+    - https://www.unitary.ai/articles/intro-to-multi-node-machine-learning-2-using-slurm
+    - https://github.com/facebookincubator/submitit/blob/main/docs/examples.md
+    """
+
+    # few shot examples not implemented yet
+    if cfg['few_shot_file_path'] != 'None':
+        raise NotImplementedError("few shot examples not implemented yet")
+
+    # Initialize the executor, which is the submission interface
+    executor = submitit.AutoExecutor(folder=f"log_files/{datetime.now().replace(microsecond=0)}")
+
+    # Specify the Slurm parameters
+    # TODO: put this in another config file
+    executor.update_parameters(  
+        # slurm_account="gliugroup_gpu",      
+        slurm_partition="gpu",
+        nodes=1, # Each job in the job array gets one node
+        mem_gb=cfg['memory'], # Each job gets 4GB of memory
+        timeout_min=cfg['n_hours'] * 60, # Limit the job running time to 2 days
+        slurm_gpus_per_node=1, # Each node should use 1 GPU
+        slurm_additional_parameters={
+            "account": "gliugroup_gpu",
+        }
+    )
+    # load parameters for splitting dataframe
+    n_partitions = cfg['n_partitions']
+    data_dir = cfg['data_dir']
+    df_name = cfg['file_name']
+    save_dir = cfg['save_dir']
+    os.makedirs(f'{data_dir}/data_partitions/', exist_ok=True)
+
+    # list of targets
+    list_of_targets = cfg['target_names'].split(",")
+
+    # read dataframe
+    df = load_table(f'{data_dir}/{df_name}')
+
+    # restrict the data frame to time period
+    df = df[df['treatment_date'].between(cfg['start_date'], cfg['end_date'])].copy()
+
+    # if random sampling, change targets of discarded rows to -1
+    if cfg['random_sampling']:
+        n_class_samples = 300
+        for target in list_of_targets:
+            # randomly select n_class_samples indices
+            df_positive = df[df[target] == 1].copy()
+            positive_idxs = df_positive.sample(n=np.min([n_class_samples, df_positive.shape[0]]), 
+                                               replace=False, 
+                                               random_state=42).index
+            
+            df_negative = df[df[target] == 0].copy()
+            negative_idxs = df_negative.sample(n=n_class_samples, 
+                                               replace=False, 
+                                               random_state=42).index
+            
+            # take the union of positive and negative indices
+            idxs = np.union1d(positive_idxs, negative_idxs)
+
+            # for the rest of the indices, set the target to -1
+            non_idxs = np.setdiff1d(df.index, idxs)
+            df.loc[non_idxs, target] = -1
+
+    cfg.pop('file_name')
+    cfg.pop('data_dir')
+    cfg.pop('save_dir')
+
+    if '.parquet.gzip' in df_name:
+        file_name_no_ext = os.path.splitext(df_name)[0]
+        file_name_no_ext = os.path.splitext(file_name_no_ext)[0]
+    else:
+        file_name_no_ext = os.path.splitext(df_name)[0]
+
+    # create save_dir
+    param_string = f"{file_name_no_ext}_{cfg['LLM_name']}_{cfg['quant_level']}_{cfg['start_date']}_{cfg['end_date']}"
+    param_string = f"{param_string}_{cfg['random_sampling']}_{cfg['n_few_shot']}_{cfg['numeric_proba']}"
+    param_string = f"{param_string}_{cfg['prompt_num']}_{cfg['top_k']}_{cfg['min_p']}_{cfg['top_p']}"
+    param_string = f"{param_string}_{cfg['temperature']}"
+    save_dir = f"{save_dir}/{param_string}"
+
+    cfgs = []
+
+    for partition_id, idxs in enumerate(np.array_split(df.index, n_partitions)):
+        partition_path = f'{data_dir}/data_partitions/{partition_id}_{df_name}'
+        if partition_path.endswith('.csv'):
+            df.loc[idxs].reset_index(drop=True).to_csv(partition_path, index=False)
+        elif partition_path.endswith(('.parquet','.parquet.gzip')):
+            df.loc[idxs].reset_index(drop=True).to_parquet(partition_path, compression='gzip', index=False)
+
+        cfgs.append(dict(data_dir=f'{data_dir}/data_partitions', 
+                         file_name=f'{partition_id}_{df_name}',
+                         save_dir=save_dir, **cfg))
+
+    # Submit your function and inputs as a job array
+    jobs = executor.map_array(prompt_huggingface, cfgs)
+
+    # Monitor jobs to keep track of completed jobs
+    submitit.helpers.monitor_jobs(jobs)
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("data_dir", help="data directory", type=str)  # data directory
+    parser.add_argument("file_name", help="notes file name", type=str)  # notes file name
+    parser.add_argument("save_dir", help="save directory", type=str)  # save directory
+    parser.add_argument("start_date", help="start date", type=str)  # start date
+    parser.add_argument("end_date", help="end date", type=str)  # end date
+    parser.add_argument("random_sampling", help="random sampling", type=int)  # random sampling
+    parser.add_argument("few_shot_file_path", help="file path for few shot", type=str)  # file path for few shot
+    parser.add_argument("n_few_shot", help="number of few shot examples", type=int)  # number of few shot
+    parser.add_argument("LLM_path", help="path to LLM", type=str)  # path to LLM
+    parser.add_argument("LLM_name", help="name of LLM", type=str)  # name of LLM
+    parser.add_argument("quant_level", help="quantization level", type=int)  # quantization level
+    parser.add_argument("num_samples", help="number of samples", type=int)  # number of samples
+    parser.add_argument("numeric_proba", help="numerical probability", type=int)  # numeric probability?
+    parser.add_argument("prompt_file_dir", help="directory where json files are stored", type=str)  # directory of prompt json files
+    parser.add_argument("prompt_num", help="prompt number", type=int)  # prompt number
+    parser.add_argument("top_k", help="top k", type=int)  # top k
+    parser.add_argument("min_p", help="min p", type=float)  # min p
+    parser.add_argument("top_p", help="top p", type=float)  # top p
+    parser.add_argument("temperature", help="temperature", type=float)  # temperature
+    parser.add_argument('target_names', type=str, help='Comma-separated list of targets') # targets
+    parser.add_argument("n_partitions", help="number of partitions", type=int)  # number of partitions
+    parser.add_argument("n_hours", help="number of hours", type=int)  # number of hours
+    parser.add_argument("memory", help="memory of each node", type=int)  # memory of each node
+    cfg = vars(parser.parse_args())
+    launch(cfg)
