@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from ml_common.src.constants import (CANCER_CODE_MAP, 
+from ml_common.constants import (CANCER_CODE_MAP, 
                                      UNIT_MAP)
 
 

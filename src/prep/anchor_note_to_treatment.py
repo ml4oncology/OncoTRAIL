@@ -21,6 +21,9 @@ from preduce.prepare.filter import indicate_immediate_events
 from preduce.prepare.prep import fill_missing_data
 
 from llm_notes_classification.prep.label import get_ctcae_labels
+from llm_notes_classification.prep.add_tabular_to_note import (
+    add_tabular_data_to_note
+)
 
 # import sys
 # sys.path.insert(1, "/cluster/projects/gliugroup/2BLAST/data/processed/clinical_notes/HealthReportRecords/constants")
@@ -41,7 +44,8 @@ def anchor_note_to_treatment(notes_data_path,
                             lab_values_data_path,
                             save_dir, config_name,
                             test_end_date, 
-                            lookback_window):
+                            lookback_window,
+                            add_tabular_to_note):
     """
         Anchor the note to treatment date depending on specified configuration.
 
@@ -55,6 +59,7 @@ def anchor_note_to_treatment(notes_data_path,
         config_name: configuration name for how to anchor note to treatment date
         test_end_date: ending date for the test time period (and end date of the study period)
         lookback_window: lookback window for the notes to be anchored to treatment date
+        add_tabular_to_note: whether to add tabular data to the note
     """
     os.makedirs(save_dir, exist_ok=True)
 
@@ -225,6 +230,9 @@ def anchor_note_to_treatment(notes_data_path,
     # fill missing data that can be filled heuristically
     df_treat = fill_missing_data(df_treat)
 
+    if add_tabular_to_note:
+        df_treat = add_tabular_data_to_note(df_treat)
+
     # drop features with high missingness
     keep_cols = df_treat.columns[df_treat.columns.str.contains('target_')]
     df_treat = drop_highly_missing_features(df_treat, missing_thresh=80, keep_cols=keep_cols)
@@ -254,7 +262,10 @@ def anchor_note_to_treatment(notes_data_path,
     # create a new column that serves as an index for each unique note
     df_treat['note_index'] = pd.factorize(df_treat['note'])[0]
 
-    df_treat[cols_no_target + target_cols].to_csv(f"{save_dir}/note_anchored_{config_name}.csv")
+    if add_tabular_to_note:
+        df_treat[cols_no_target + target_cols].to_csv(f"{save_dir}/note_tabular_anchored_{config_name}.csv")
+    else:
+        df_treat[cols_no_target + target_cols].to_csv(f"{save_dir}/note_anchored_{config_name}.csv")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -268,6 +279,7 @@ if __name__ == "__main__":
     parser.add_argument("config_name", help = "configuration name", type = str) # configuration name
     parser.add_argument("test_end_date", help = "end date for test period", type = str) # test end date
     parser.add_argument("lookback_window", help = "lookback window for notes to be anchored", type = int) # lookback window
+    parser.add_argument("add_tabular_to_note", help = "add tabular to note?", type = int) # add tabular to note?
     args = parser.parse_args()
 
     anchor_note_to_treatment(args.notes_data_path, 
@@ -279,4 +291,5 @@ if __name__ == "__main__":
                              args.save_dir, 
                              args.config_name, 
                              args.test_end_date,
-                             args.lookback_window)
+                             args.lookback_window,
+                             args.add_tabular_to_note)

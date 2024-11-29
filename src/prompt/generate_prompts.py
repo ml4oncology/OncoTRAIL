@@ -211,6 +211,22 @@ def generate_proba(numeric_proba):
 
 def generate_prompts(target_names, numeric_proba, save_dir):
 
+    # 0->23: non-simplified
+    # 0->7: persona 1
+    # 0->3: no health factors 
+    # 0->1: no deid tags
+    # 0: no cot
+    # 1: with cot
+    # 2->3: with deid tags
+    # 4->7: with health factors
+    # 8->15: persona 2
+    # 16->23: persona 3
+
+    # 24->47: simplified
+    # 24->31: persona 1 
+    # 32->39: persona 2
+    # 40->47: persona 3
+
     list_of_targets = target_names.split(",")
 
     persona_prompt = generate_persona()

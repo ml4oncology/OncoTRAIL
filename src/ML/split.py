@@ -1,5 +1,6 @@
 import logging
 import sys
+import re
 import numpy as np
 import pandas as pd
 from ml_common.prep import Splitter
@@ -144,6 +145,10 @@ def gen_data_split(
 
 
 def convert_str_list(y):
+    
+    match = re.search(r'\[.*?\]', y)
+    y = match.group(0)
+
     # Remove the brackets and split the string by single quotes
     words = y.strip("[]").split("'")
 

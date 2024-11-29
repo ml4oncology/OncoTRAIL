@@ -26,7 +26,7 @@ def combine_prompt_results(results_dir, target_names):
             concat_results_list.append(df)
 
         # concatenate all dataframes in list
-        concat_df = pd.concat(concat_results_list)
+        concat_df = pd.concat(concat_results_list).reset_index(drop=True)
 
         match = re.search(r'target[^/]*(?=\.csv)', file)
         str_identifier = match.group(0)

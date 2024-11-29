@@ -94,34 +94,3 @@ model_tuning_param = {
         "batchnorm": (0, 1),
     },
 }
-
-# target_list = ["target_esas_pain_3pt_change", "target_esas_tiredness_3pt_change", "target_esas_nausea_3pt_change",
-#             "target_esas_depression_3pt_change", "target_esas_anxiety_3pt_change", "target_esas_drowsiness_3pt_change",
-#             "target_esas_appetite_3pt_change", "target_esas_well_being_3pt_change", "target_esas_shortness_of_breath_3pt_change",
-#             "target_death_in_30d", "target_death_in_365d", "target_ED_visit"]
-
-# target_list = ["target_hemoglobin_grade3plus", "target_neutrophils_grade3plus",
-#                 "target_platelet_grade3plus", "target_AKI_3xbaseline", "target_ALT_5xbaseline",
-#                   "target_AST_5xbaseline", "target_ALT_5xupperlimit", "target_AST_5xupperlimit",
-#                     "target_bilirubin_3xbaselineupperlimit"]
-
-target_list = ["target_hemoglobin_grade2plus", "target_hemoglobin_grade3plus",
-                "target_neutrophil_grade2plus", "target_neutrophil_grade3plus",
-                    "target_platelet_grade2plus", "target_platelet_grade3plus",
-                        "target_AKI_grade2plus",
-                            "target_ALT_grade2plus", "target_ALT_grade3plus",
-                                "target_AST_grade2plus", "target_AST_grade3plus",
-                                    "target_bilirubin_grade2plus", "target_bilirubin_grade3plus"]
-
-# target_list = target_list + ["target_esas_pain_3pt_change", "target_esas_tiredness_3pt_change", "target_esas_nausea_3pt_change",
-#             "target_esas_depression_3pt_change", "target_esas_anxiety_3pt_change", "target_esas_drowsiness_3pt_change",
-#             "target_esas_appetite_3pt_change", "target_esas_well_being_3pt_change", "target_esas_shortness_of_breath_3pt_change",
-#             "target_death_in_30d", "target_death_in_365d", "target_ED_visit"]
-
-target_list = target_list + ["target_esas_pain_3pt_change", "target_esas_tiredness_3pt_change", "target_esas_nausea_3pt_change",
-            "target_esas_depression_3pt_change", "target_esas_anxiety_3pt_change", "target_esas_drowsiness_3pt_change",
-            "target_esas_appetite_3pt_change", "target_esas_well_being_3pt_change", "target_esas_shortness_of_breath_3pt_change"]
-
-
-
-# "target_AKI_grade3plus"
