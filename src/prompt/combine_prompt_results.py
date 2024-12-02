@@ -6,6 +6,13 @@ import os
 import re
 logger = logging.getLogger(__name__)
 
+
+def extract_proba(raw_string):
+    # extract probability value from the raw string
+    match = re.search(r"'Probability'\s*:\s*['\"]?(\d+\.\d+)['\"]?", raw_string)
+    probability_value = float(match.group(1))
+    return probability_value
+
 def combine_prompt_results(results_dir, target_names):
 
     target_list = target_names.split(",")
@@ -23,10 +30,19 @@ def combine_prompt_results(results_dir, target_names):
 
         for file in matching_files:
             df = pd.read_csv(file, index_col=0)
+
             concat_results_list.append(df)
 
         # concatenate all dataframes in list
         concat_df = pd.concat(concat_results_list).reset_index(drop=True)
+
+        # if the probability is nan, try to extract it from the raw column
+        for i, proba in enumerate(concat_df['Probability']):
+            if pd.isna(proba):
+                try:
+                    concat_df.loc[i,'Probability'] = extract_proba(concat_df.loc[i,'Raw'])
+                except:
+                    concat_df.loc[i,'Probability'] = pd.NA
 
         match = re.search(r'target[^/]*(?=\.csv)', file)
         str_identifier = match.group(0)
