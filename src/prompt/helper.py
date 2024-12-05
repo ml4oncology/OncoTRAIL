@@ -162,6 +162,8 @@ def prompt_huggingface(cfg: dict):
                 except:
                     result = {"Reason": None, "Probability": None, "Raw": seq["generated_text"]}
 
+                # result[target_name] = row[target_name]
+
                 results.append(result)
 
                 # if count % 5 == 0:

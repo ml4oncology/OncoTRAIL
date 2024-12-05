@@ -88,6 +88,29 @@ def launch(cfg):
 
             # for the rest of the indices, set the target to -1
             non_idxs = np.setdiff1d(df.index, idxs)
+
+            # if cfg['few_shot_file_path'] != 'None':
+                # find indices from non_idxs where target is not -1
+                # df_few_shot = df.loc[non_idxs].loc[df[target] != -1].copy()
+                # sample a few examples from df_few_shot
+                # df_few_shot_sample_pos = (
+                #     df_few_shot.loc[df_few_shot[target] == 1]
+                #    .sample(n=round(cfg['n_few_shot']/2), replace=False, random_state=42)
+                #    )
+                # df_few_shot_sample_neg = (
+                #     df_few_shot.loc[df_few_shot[target] == 0]
+                #    .sample(n=cfg['n_few_shot']-df_few_shot_sample_pos.shape[0], replace=False, random_state=42)
+                #    )
+                #
+                # df_few_shot_sample = (pd.concat([df_few_shot_sample_pos, df_few_shot_sample_neg])
+                #                       .reset_index(drop=True)
+                #                       )
+                # df_few_shot_sample[['note',target]].to_csv(f'{data_dir}/few_shot_{target}.csv', 
+                #                                           index=False)
+
+                # possibly delete few_shot_file_path from the variable inputs
+                # what if there are not enough positive examples?
+
             df.loc[non_idxs, target] = -1
 
     cfg.pop('file_name')
