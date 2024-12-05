@@ -19,20 +19,32 @@ def compute_stats(prompt_results, target_names, original_data):
     
     auc_results = []
     target_results = []
+    n_samples = []
+    mean_proba = []
 
     # loop through all files and compute stats
     for file in matching_files:
+
+        if 'grade3plus' in file:
+            continue
+
         df_summary = pd.read_csv(file, index_col=0)
 
         # make sure that there is only 1 unique row per mrn, treatment_data
         assert df_summary.groupby(["mrn", "treatment_date"]).size().max() == 1,\
               "There should be only 1 unique row per mrn, treatment_date"
-        
+
         # find which target in target_list this file is for
         target_name = next(target for target in target_list_dash if target in file)
 
         # compute AUC
         df_summary = df_summary[df_summary['Probability'].notna()]
+
+        # compute number of samples
+        n_samples.append(df_summary.shape[0])
+
+        # compute the mean of the column 'Probability'
+        mean_proba.append(df_summary['Probability'].mean())
 
         # check if there is a column in df_summary that contains the substring "target"
         target_col_name = [col for col in df_summary.columns if 'target' in col]
@@ -49,7 +61,7 @@ def compute_stats(prompt_results, target_names, original_data):
         target_results.append(target_name)
 
     # save AUC and target to csv
-    df_auc = pd.DataFrame({"Target": target_results, "AUC": auc_results})
+    df_auc = pd.DataFrame({"Target": target_results, "AUC": auc_results, "n_samples": n_samples, "mean_proba": mean_proba})
     df_auc.to_csv(os.path.join(prompt_results, "statistics.csv"))
 
 if __name__ == "__main__":

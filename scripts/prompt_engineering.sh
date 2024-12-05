@@ -15,7 +15,6 @@ save_dir=${root_dir_proj}/data/prompt_engineering
 start_date='2008-01-01'
 end_date='2015-12-31'
 random_sampling=1
-few_shot_file_path="None"
 n_few_shot=0
 quant_level=4
 num_samples=1
@@ -49,10 +48,10 @@ target_list=(
 
 target_names=$(IFS=','; echo "${target_list[*]}")
 
-for prompt_num in 1
+for prompt_num in 1 # change this to a different persona
 do
 
-for LLM_name in Llama3-8B Mistral-7B Gemma2-9B
+for LLM_name in Gemma2-9B # Llama3-8B Mistral-7B 
 do
 
     if [ "$LLM_name" == "Llama3-8B" ]; then
@@ -63,24 +62,24 @@ do
         LLM_path=/cluster/projects/gliugroup/2BLAST/LLMs/gemma-2-9b-it
     fi
 
-for top_k in 10 40 100
+for top_k in -1 # 10 # 40 100
 do
 
-for min_p in 0.01 0.05 0.1
+for min_p in -1 # 0.01 # 0.05 0.1
 do
 
-for top_p in 1.0 0.9 0.8
+for top_p in -1 # 1.0 # 0.9 0.8
 do
 
-for temperature in 0.5 0.7 1.0 1.5
+for temperature in -1 # 0.5 # 0.7 1.0 1.5
 do
 
-pySLURMargs.py $userName $memory $condaEnv $nGPU $runTime "../src/prompt/prompt_engineering.py $data_dir $file_name $save_dir $start_date $end_date $random_sampling $few_shot_file_path $n_few_shot $LLM_path $LLM_name $quant_level $num_samples $numeric_proba $prompt_file_dir $prompt_num $top_k $min_p $top_p $temperature $target_names $n_partitions $n_hours $memory"
+pySLURMargs.py $userName $memory $condaEnv $nGPU $runTime "../src/prompt/prompt_engineering.py $data_dir $file_name $save_dir $start_date $end_date $random_sampling $n_few_shot $LLM_path $LLM_name $quant_level $num_samples $numeric_proba $prompt_file_dir $prompt_num $top_k $min_p $top_p $temperature $target_names $n_partitions $n_hours $memory"
 
 # python3 ../src/prompt/prompt_engineering.py \
 #   $data_dir $file_name $save_dir \
 #   $start_date $end_date $random_sampling \
-#   $few_shot_file_path $n_few_shot \
+#   $n_few_shot \
 #   $LLM_path $LLM_name $quant_level \
 #   $num_samples $numeric_proba \
 #   $prompt_file_dir $prompt_num \

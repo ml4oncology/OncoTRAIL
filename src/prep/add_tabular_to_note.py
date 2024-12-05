@@ -18,7 +18,7 @@ def clean_col_name(str_name):
     
     return clean_name
 
-def add_tabular_data_to_note(clinical_notes_df):
+def add_tabular_data_to_note(clinical_notes_df, first_treatment):
 
     # reverse the unit dictionary
     reversed_dict = {}
@@ -71,13 +71,20 @@ def add_tabular_data_to_note(clinical_notes_df):
         'potassium',
         'potassium_change'
     ]
+
     symptoms_cols = ([col for col in clinical_notes_df.columns 
                       if 'esas' in col and 'target' not in col and 'missing' not in col] + 
-                      ['patient_ecog'] + 
-                      [col for col in clinical_notes_df.columns 
-                       if 'esas' in col and 'target' not in col and 'change' in col and 'missing' not in col] + 
-                       ['patient_ecog_change']
+                      ['patient_ecog', 'patient_ecog_change']
     )
+    # arrange in alphabetical order
+    symptoms_cols = sorted(symptoms_cols)
+    # remove symptoms_cols that have 'constipation', 'vomiting', or 'diarrhea'
+    symptoms_cols = [col for col in symptoms_cols if col not in 
+                     ('esas_constipation', 'esas_diarrhea', 'esas_vomiting')]
+
+    if first_treatment == 1:
+        # remove cols with 'change' in symptoms_cols
+        symptoms_cols = [col for col in symptoms_cols if 'change' not in col]
 
     treatment_cols = (['regimen', 'cycle_number', 'intent', 'line_of_therapy'] +
                        [col for col in clinical_notes_df.columns 

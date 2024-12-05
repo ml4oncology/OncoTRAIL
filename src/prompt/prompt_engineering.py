@@ -15,7 +15,7 @@ def launch(cfg):
     """
 
     # few shot examples not implemented yet
-    if cfg['few_shot_file_path'] != 'None':
+    if cfg['n_few_shot'] != 0:
         raise NotImplementedError("few shot examples not implemented yet")
 
     # Initialize the executor, which is the submission interface
@@ -55,7 +55,8 @@ def launch(cfg):
     param_string = f"{param_string}_{cfg['prompt_num']}_{cfg['top_k']}_{cfg['min_p']}_{cfg['top_p']}"
     param_string = f"{param_string}_{cfg['temperature']}"
     save_dir = f"{save_dir}/{param_string}"
-    data_dir = f"{data_dir}/{param_string}/data_partitions/"
+    # data_dir = f"{data_dir}/{param_string}/data_partitions/"
+    data_dir = f"{data_dir}/data_partitions/{file_name_no_ext}"
 
     os.makedirs(f"{data_dir}", exist_ok=True)
 
@@ -89,7 +90,7 @@ def launch(cfg):
             # for the rest of the indices, set the target to -1
             non_idxs = np.setdiff1d(df.index, idxs)
 
-            # if cfg['few_shot_file_path'] != 'None':
+            # if cfg['n_few_shot'] != 0:
                 # find indices from non_idxs where target is not -1
                 # df_few_shot = df.loc[non_idxs].loc[df[target] != -1].copy()
                 # sample a few examples from df_few_shot
@@ -105,7 +106,8 @@ def launch(cfg):
                 # df_few_shot_sample = (pd.concat([df_few_shot_sample_pos, df_few_shot_sample_neg])
                 #                       .reset_index(drop=True)
                 #                       )
-                # df_few_shot_sample[['note',target]].to_csv(f'{data_dir}/few_shot_{target}.csv', 
+                # if not os.path.isfile(f'{data_dir}/few_shot_{target}.csv'):
+                #       df_few_shot_sample[['note',target]].to_csv(f'{data_dir}/few_shot_{target}.csv', 
                 #                                           index=False)
 
                 # possibly delete few_shot_file_path from the variable inputs
@@ -121,10 +123,11 @@ def launch(cfg):
 
     for partition_id, idxs in enumerate(np.array_split(df.index, n_partitions)):
         partition_path = f'{data_dir}/{partition_id}_{df_name}'
-        if partition_path.endswith('.csv'):
-            df.loc[idxs].reset_index(drop=True).to_csv(partition_path, index=False)
-        elif partition_path.endswith(('.parquet','.parquet.gzip')):
-            df.loc[idxs].reset_index(drop=True).to_parquet(partition_path, compression='gzip', index=False)
+        if not os.path.isfile(partition_path):
+            if partition_path.endswith('.csv'):
+                df.loc[idxs].reset_index(drop=True).to_csv(partition_path, index=False)
+            elif partition_path.endswith(('.parquet','.parquet.gzip')):
+                df.loc[idxs].reset_index(drop=True).to_parquet(partition_path, compression='gzip', index=False)
 
         cfgs.append(dict(data_dir=f'{data_dir}', 
                          file_name=f'{partition_id}_{df_name}',
@@ -144,7 +147,6 @@ if __name__ == "__main__":
     parser.add_argument("start_date", help="start date", type=str)  # start date
     parser.add_argument("end_date", help="end date", type=str)  # end date
     parser.add_argument("random_sampling", help="random sampling", type=int)  # random sampling
-    parser.add_argument("few_shot_file_path", help="file path for few shot", type=str)  # file path for few shot
     parser.add_argument("n_few_shot", help="number of few shot examples", type=int)  # number of few shot
     parser.add_argument("LLM_path", help="path to LLM", type=str)  # path to LLM
     parser.add_argument("LLM_name", help="name of LLM", type=str)  # name of LLM

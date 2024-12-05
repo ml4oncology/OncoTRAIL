@@ -92,7 +92,8 @@ def main(
         cols = df.columns
         targ_cols = cols[cols.str.contains("target")].tolist()
         extra_cols = ["cohort", "split", "note", "note_index", 
-                      "stats_note_type", "stats_dictated_by"] + cols[
+                      "stats_note_type", "stats_dictated_by",
+                      "note_summary"] + cols[
             cols.str.contains("date")
         ].tolist()
         extra_cols.remove("treatment_date")

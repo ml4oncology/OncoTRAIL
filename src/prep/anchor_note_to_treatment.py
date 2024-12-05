@@ -121,6 +121,13 @@ def anchor_note_to_treatment(notes_data_path,
                                 'treatment_date',
                                 'obs_date'
                                 )
+    
+    # if first treatment only, select the first row for every mrn and treatment_date
+    if 'firstTreatmentOnly-medOnc-ConsultLetterClinic' in config_name:
+        # sort by treatment date
+        df_treat.sort_values(by='treatment_date', inplace=True)
+        # select the first row for every mrn and treatment_date
+        df_treat = df_treat.groupby(['mrn', 'treatment_date']).first().reset_index()
 
     # load notes file
     merged_notes = pd.read_parquet(f'{notes_data_path}')
@@ -231,7 +238,10 @@ def anchor_note_to_treatment(notes_data_path,
     df_treat = fill_missing_data(df_treat)
 
     if add_tabular_to_note:
-        df_treat = add_tabular_data_to_note(df_treat)
+        if 'firstTreatmentOnly' in config_name:
+            df_treat = add_tabular_data_to_note(df_treat, 1)
+        else:
+            df_treat = add_tabular_data_to_note(df_treat, 0)
 
     # drop features with high missingness
     keep_cols = df_treat.columns[df_treat.columns.str.contains('target_')]
@@ -245,13 +255,6 @@ def anchor_note_to_treatment(notes_data_path,
 
     # drop assessment_date column
     df_treat.drop('assessment_date', axis=1, inplace=True)
-
-    # if first treatment only, select the first row for every mrn and treatment_date
-    if 'firstTreatmentOnly-medOnc-ConsultLetterClinic' in config_name:
-        # sort by treatment date
-        df_treat.sort_values(by='treatment_date', inplace=True)
-        # select the first row for every mrn and treatment_date
-        df_treat = df_treat.groupby(['mrn', 'treatment_date']).first().reset_index()
 
     # save dataframe with anchored note
     cols = df_treat.columns

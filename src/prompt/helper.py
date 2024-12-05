@@ -31,7 +31,7 @@ def get_quant_config():
     )
     return quant_config
 
-
+# TO-DO: merge this with llama_cpp
 def prompt_huggingface(cfg: dict):
 
     data_dir = cfg["data_dir"]
@@ -44,10 +44,48 @@ def prompt_huggingface(cfg: dict):
     numeric_proba = cfg["numeric_proba"]
     prompt_file_dir = cfg["prompt_file_dir"]
     prompt_num = cfg["prompt_num"]
-    temperature = cfg["temperature"]
-    min_p = cfg["min_p"]
-    top_k = cfg["top_k"]
-    top_p = cfg["top_p"]
+
+    # llm parameters
+    llm_params = {}
+    if cfg['temperature'] != -1:
+        llm_params['temperature'] = cfg["temperature"]
+    if cfg['min_p'] != -1:
+        llm_params['min_p'] = cfg["min_p"]
+    if cfg['top_k'] != -1:
+        llm_params['top_k'] = cfg["top_k"]
+    if cfg['top_p'] != -1:
+        llm_params['top_p'] = cfg["top_p"]
+
+    n_few_shot = cfg["n_few_shot"]
+
+    # dictionary map
+    # event_map = {
+        # "target_hemoglobin_grade2plus": "worsening anemia within 30 days",
+        # "target_hemoglobin_grade3plus": "worsening anemia within 30 days",
+        # "target_neutrophil_grade2plus": "worsening neutrophil count within 30 days",
+        # "target_neutrophil_grade3plus": "worsening neutrophil count within 30 days",
+        # "target_platelet_grade2plus": "worsening platelet count within 30 days",
+        # "target_platelet_grade3plus": "worsening platelet count within 30 days",
+        # "target_AKI_grade2plus": "acute kidney injury within 30 days",
+        # "target_ALT_grade2plus": "increasing alanine aminotransferase within 30 days",
+        # "target_ALT_grade3plus": "increasing alanine aminotransferase within 30 days",
+        # "target_AST_grade2plus": "increasing aspartate aminotransferase within 30 days",
+        # "target_AST_grade3plus": "increasing aspartate aminotransferase within 30 days",
+        # "target_bilirubin_grade2plus": "increasing blood bilirubin within 30 days",
+        # "target_bilirubin_grade3plus": "increasing blood bilirubin within 30 days",
+        # "target_esas_pain_3pt_change": "worsening pain within 30 days",
+        # "target_esas_tiredness_3pt_change": "worsening tiredness within 30 days",
+        # "target_esas_nausea_3pt_change": "worsening nausea within 30 days",
+        # "target_esas_depression_3pt_change": "worsening depression within 30 days",
+        # "target_esas_anxiety_3pt_change": "worsening anxiety within 30 days",
+        # "target_esas_drowsiness_3pt_change": "worsening drowsiness within 30 days",
+        # "target_esas_appetite_3pt_change": "worsening appetite within 30 days",
+        # "target_esas_well_being_3pt_change": "worsening well-being within 30 days",
+        # "target_esas_shortness_of_breath_3pt_change": "worsening shortness of breath within 30 days",
+        # "target_death_in_30d": "death within 30 days",
+        # "target_death_in_365d": "death within 1 year",
+        # "target_ED_visit": "visit the emergency department within the next 30 days"
+        # }
     
     if cfg['quant_level'] != 4:
         raise ValueError("Quantization level must be 4 for now")
@@ -77,6 +115,11 @@ def prompt_huggingface(cfg: dict):
     clinical_notes_df = load_table(f"{data_dir}/{file_name}")
     prompt_file_list = [f'{prompt_file_dir}/prompt_list_{x}_numeric-proba{numeric_proba}.json' for x in target_list]
 
+    # if n_few_shot > 0:
+        # if condition on ED visit/ other targets
+        # df_to_concat['preface'] =  ['Note {}:\n'.format(i + 1) for i in range(len(df_to_concat))]
+        # df_to_concat['target_string'] = df_to_concat['preface'] + '{' + df_to_concat['note'] + '}' + '\n' + 'Event occurrence: ' + df_to_concat[target].astype(str)
+    
     logger.info(f"{file_name}")
 
     for _, row in clinical_notes_df.iterrows():
@@ -136,10 +179,7 @@ def prompt_huggingface(cfg: dict):
                     messages, max_new_tokens=250, 
                     do_sample=True, 
                     return_full_text=False, 
-                    min_p = min_p, 
-                    temperature = temperature,
-                    top_k = top_k,
-                    top_p = top_p
+                    **llm_params
                 )
 
                 seq = sequences[0]
@@ -162,12 +202,9 @@ def prompt_huggingface(cfg: dict):
                 except:
                     result = {"Reason": None, "Probability": None, "Raw": seq["generated_text"]}
 
-                # result[target_name] = row[target_name]
+                result[target_name] = row[target_name]
 
                 results.append(result)
-
-                # if count % 5 == 0:
-                #     torch.cuda.empty_cache()
 
             results_df = pd.DataFrame(results)
             results_df['mrn'] = mrn

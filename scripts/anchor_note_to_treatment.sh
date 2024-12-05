@@ -18,12 +18,12 @@ lookback_window=30
 
 add_tabular_to_note=0
 save_dir="/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/LLM-notes-classification/data/note_anchored_deid"
-for config_name in "firstTreatmentOnly-medOnc-ConsultLetterClinic_deid" "firstVisitOnly-medOnc-ConsultLetterClinic_deid" "mostRecentVisit-medOnc-ConsultLetterClinic_deid"; do
+for config_name in "firstTreatmentOnly-medOnc-ConsultLetterClinic_deid" "firstVisitOnly-medOnc-ConsultLetterClinic_deid"; do # "mostRecentVisit-medOnc-ConsultLetterClinic_deid"; do
     pySLURMargs.py $userName $memory $condaEnv $nGPU $runTime "../src/prep/anchor_note_to_treatment.py $data_path $treatment_data_path $ed_visit_data_path $symptom_data_path $last_seen_data_path $lab_values_data_path $save_dir $config_name $test_end_date $lookback_window $add_tabular_to_note" 
 done
 
 add_tabular_to_note=1
 save_dir="/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/LLM-notes-classification/data/note_tabular_anchored_deid"
-for config_name in "firstTreatmentOnly-medOnc-ConsultLetterClinic_deid" "firstVisitOnly-medOnc-ConsultLetterClinic_deid" "mostRecentVisit-medOnc-ConsultLetterClinic_deid"; do
+for config_name in "firstTreatmentOnly-medOnc-ConsultLetterClinic_deid" "firstVisitOnly-medOnc-ConsultLetterClinic_deid"; do # "mostRecentVisit-medOnc-ConsultLetterClinic_deid"; do
     pySLURMargs.py $userName $memory $condaEnv $nGPU $runTime "../src/prep/anchor_note_to_treatment.py $data_path $treatment_data_path $ed_visit_data_path $symptom_data_path $last_seen_data_path $lab_values_data_path $save_dir $config_name $test_end_date $lookback_window $add_tabular_to_note" 
 done

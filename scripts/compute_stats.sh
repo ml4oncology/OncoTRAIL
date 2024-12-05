@@ -69,9 +69,14 @@ prompt_results="${results_dir_parent}/"\
 "${n_few_shot}_${numeric_proba}_${prompt_num}_"\
 "${top_k}_${min_p}_${top_p}_${temperature}"
 
-pySLURMargs.py $userName $memory $condaEnv $nGPU $runTime "../src/prompt/combine_prompt_results.py $prompt_results $target_names $original_data"
+pySLURMargs.py $userName $memory $condaEnv $nGPU $runTime "../src/prompt/compute_stats.py $prompt_results $target_names $original_data"
 
-
+done
+done
+done
+done
+done
+done
 
 
 
