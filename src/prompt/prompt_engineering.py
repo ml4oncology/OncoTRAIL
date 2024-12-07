@@ -4,7 +4,7 @@ from datetime import datetime
 import os
 import numpy as np
 from ml_common.util import load_table
-from llm_notes_classification.prompt.helper import prompt_huggingface
+from llm_notes_classification.prompt.helper import prompt_llm
 
 def launch(cfg):
     """Use submitit to launch jobs in the SLURM cluster
@@ -134,7 +134,7 @@ def launch(cfg):
                          save_dir=save_dir, **cfg))
 
     # Submit your function and inputs as a job array
-    jobs = executor.map_array(prompt_huggingface, cfgs)
+    jobs = executor.map_array(prompt_llm, cfgs)
 
     # Monitor jobs to keep track of completed jobs
     submitit.helpers.monitor_jobs(jobs)
@@ -155,6 +155,7 @@ if __name__ == "__main__":
     parser.add_argument("numeric_proba", help="numerical probability", type=int)  # numeric probability?
     parser.add_argument("prompt_file_dir", help="directory where json files are stored", type=str)  # directory of prompt json files
     parser.add_argument("prompt_num", help="prompt number", type=int)  # prompt number
+    parser.add_argument("llama_cpp", help="llama_cpp", type=int)  # llama_cpp
     parser.add_argument("top_k", help="top k", type=int)  # top k
     parser.add_argument("min_p", help="min p", type=float)  # min p
     parser.add_argument("top_p", help="top p", type=float)  # top p

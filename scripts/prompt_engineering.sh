@@ -45,21 +45,31 @@ target_list=(
     "target_death_in_365d"
     "target_ED_visit"
 )
-
+# TO DO: change quantization
 target_names=$(IFS=','; echo "${target_list[*]}")
+
+llama_cpp=1
 
 for prompt_num in 1 # change this to a different persona
 do
 
-for LLM_name in Gemma2-9B # Llama3-8B Mistral-7B 
+for LLM_name in Mistral-7B # Llama3-8B # Gemma2-9B
 do
 
-    if [ "$LLM_name" == "Llama3-8B" ]; then
-        LLM_path=/cluster/projects/gliugroup/2BLAST/LLMs/Meta-Llama-3-8B-Instruct
-    elif [ "$LLM_name" == "Mistral-7B" ]; then
-        LLM_path=/cluster/projects/gliugroup/2BLAST/LLMs/Mistral-7B-Instruct-v0.3
-    elif [ "$LLM_name" == "Gemma2-9B" ]; then
-        LLM_path=/cluster/projects/gliugroup/2BLAST/LLMs/gemma-2-9b-it
+    if [ "$llama_cpp" == "0" ]; then
+        if [ "$LLM_name" == "Llama3-8B" ]; then
+            LLM_path=/cluster/projects/gliugroup/2BLAST/LLMs/Meta-Llama-3-8B-Instruct
+        elif [ "$LLM_name" == "Mistral-7B" ]; then
+            LLM_path=/cluster/projects/gliugroup/2BLAST/LLMs/Mistral-7B-Instruct-v0.3
+        elif [ "$LLM_name" == "Gemma2-9B" ]; then
+            LLM_path=/cluster/projects/gliugroup/2BLAST/LLMs/gemma-2-9b-it
+        fi
+    else
+        if [ "$LLM_name" == "Llama3-8B" ]; then
+            LLM_path=/cluster/projects/gliugroup/2BLAST/LLMs/Meta-Llama-3-8B-Instruct-Q6_K.gguf
+        elif [ "$LLM_name" == "Mistral-7B" ]; then
+            LLM_path=/cluster/projects/gliugroup/2BLAST/LLMs/mistral-7b-instruct-v0.2.Q5_K_M.gguf
+        fi
     fi
 
 for top_k in -1 # 10 # 40 100
@@ -74,7 +84,7 @@ do
 for temperature in -1 # 0.5 # 0.7 1.0 1.5
 do
 
-pySLURMargs.py $userName $memory $condaEnv $nGPU $runTime "../src/prompt/prompt_engineering.py $data_dir $file_name $save_dir $start_date $end_date $random_sampling $n_few_shot $LLM_path $LLM_name $quant_level $num_samples $numeric_proba $prompt_file_dir $prompt_num $top_k $min_p $top_p $temperature $target_names $n_partitions $n_hours $memory"
+pySLURMargs.py $userName $memory $condaEnv $nGPU $runTime "../src/prompt/prompt_engineering.py $data_dir $file_name $save_dir $start_date $end_date $random_sampling $n_few_shot $LLM_path $LLM_name $quant_level $num_samples $numeric_proba $prompt_file_dir $prompt_num $llama_cpp $top_k $min_p $top_p $temperature $target_names $n_partitions $n_hours $memory"
 
 # python3 ../src/prompt/prompt_engineering.py \
 #   $data_dir $file_name $save_dir \

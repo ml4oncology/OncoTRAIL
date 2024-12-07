@@ -13,6 +13,7 @@ import logging
 from datetime import datetime
 logger = logging.getLogger(__name__)
 from ml_common.util import load_table
+from llama_cpp import Llama
 
 # Empty cuda cache
 torch.cuda.empty_cache()
@@ -32,7 +33,7 @@ def get_quant_config():
     return quant_config
 
 # TO-DO: merge this with llama_cpp
-def prompt_huggingface(cfg: dict):
+def prompt_llm(cfg: dict):
 
     data_dir = cfg["data_dir"]
     file_name = cfg["file_name"]
@@ -44,6 +45,7 @@ def prompt_huggingface(cfg: dict):
     numeric_proba = cfg["numeric_proba"]
     prompt_file_dir = cfg["prompt_file_dir"]
     prompt_num = cfg["prompt_num"]
+    llama_cpp = cfg["llama_cpp"]
 
     # llm parameters
     llm_params = {}
@@ -94,21 +96,40 @@ def prompt_huggingface(cfg: dict):
     os.makedirs(f'{save_dir}', exist_ok=True)
 
     # load model
-    model = AutoModelForCausalLM.from_pretrained(
-        LLM_path, device_map="auto", quantization_config=get_quant_config()
-    )
-    # load_in_8bit=True,
-    # quantization_config=get_quant_config()
+    if llama_cpp == 0:
+        model = AutoModelForCausalLM.from_pretrained(
+            LLM_path, device_map="auto", quantization_config=get_quant_config()
+        )
+        # load_in_8bit=True,
+        # quantization_config=get_quant_config()
 
-    tokenizer = AutoTokenizer.from_pretrained(LLM_path)
+        tokenizer = AutoTokenizer.from_pretrained(LLM_path)
 
-    pipe = pipeline(
-        "text-generation",
-        model=model,
-        tokenizer=tokenizer,
-        torch_dtype=torch.bfloat16,
-        device_map="auto",
-    )
+        pipe = pipeline(
+            "text-generation",
+            model=model,
+            tokenizer=tokenizer,
+            torch_dtype=torch.bfloat16,
+            device_map="auto",
+        )
+    else:
+        if 'Gemma' in LLM_name:
+            chat_format = "gemma"
+        else:
+            chat_format = "llama-2"
+        
+        response_format = {
+            "type": "json_object",
+            "schema": {
+                "type": "object",
+                "properties": {"Reason": {"type": "string"}, 
+                               "Probability": {"type": "float"}},
+                "required": ["Reason", "Probability"],
+            },
+        }
+
+        llm = Llama(model_path=LLM_path, n_gpu_layers=-1, main_gpu=0,
+                    chat_format=chat_format, seed=42, n_ctx=8192, flash_attn=True)
 
     # get note data
     # load the clinical notes file
@@ -140,7 +161,13 @@ def prompt_huggingface(cfg: dict):
 
             logger.info(f"Target: {target_name}\n")
             
-            torch.manual_seed(0)
+            if llama_cpp == 0:
+                torch.manual_seed(0)
+            else:
+                # llm = Llama(model_path=LLM_path, n_gpu_layers=-1, main_gpu=0,
+                #     chat_format=chat_format, seed=42, n_ctx=8192, flash_attn=True)
+                pass
+
             target_name_nospace = target_name.replace("_", "-")
 
             # check if file already exists, otherwise, skip!
@@ -161,7 +188,9 @@ def prompt_huggingface(cfg: dict):
                 "<TREATMENT DATE>", treatment_date_str
             )
 
-            if "Llama" in LLM_name:
+            # prepare prompt
+            # if huggingface
+            if "Llama" in LLM_name or llama_cpp == 1:
                 messages = [
                     {"role": "system", "content": system_instructions},
                     {"role": "user", "content": note},
@@ -175,32 +204,44 @@ def prompt_huggingface(cfg: dict):
             for count in range(num_samples):
                 logger.info(count)
 
-                sequences = pipe(
-                    messages, max_new_tokens=250, 
-                    do_sample=True, 
-                    return_full_text=False, 
-                    **llm_params
-                )
+                # generate llm response
+                if llama_cpp == 0:
+                    sequences = pipe(
+                        messages, max_new_tokens=250, 
+                        do_sample=True, 
+                        return_full_text=False, 
+                        **llm_params
+                    )
 
-                seq = sequences[0]
+                    seq = sequences[0]
+                    raw_string = seq["generated_text"]
+
+                else:
+                    sequences = llm.create_chat_completion(messages=messages, 
+                                               response_format=response_format, 
+                                               max_tokens=250, 
+                                               **llm_params)
+                    raw_string = sequences['choices'][0]['message']['content']
 
                 try:
-                    temp_string = seq["generated_text"]
 
-                    start_idx = temp_string.find("{")
-                    end_idx = temp_string.find("}", start_idx)
+                    start_idx = raw_string.find("{")
+                    end_idx = raw_string.find("}", start_idx)
 
-                    result = ast.literal_eval(temp_string[start_idx : end_idx + 1])
+                    result = ast.literal_eval(raw_string[start_idx : end_idx + 1])
 
                     if "Probability" not in result:
                         result["Probability"] = None
                     if "Reason" not in result:
                         result["Reason"] = None
+
+                    if result["Probability"] is not None and result["Probability"] > 1:
+                        result["Probability"] = result["Probability"] / 100 
                     
-                    result['Raw'] = temp_string
+                    result['Raw'] = raw_string
 
                 except:
-                    result = {"Reason": None, "Probability": None, "Raw": seq["generated_text"]}
+                    result = {"Reason": None, "Probability": None, "Raw": raw_string}
 
                 result[target_name] = row[target_name]
 
@@ -212,3 +253,10 @@ def prompt_huggingface(cfg: dict):
             results_df.to_csv(
                 f"{save_dir}/mrn{mrn}_trtdate{treatment_date}_{target_name_nospace}_{LLM_name}_prompt{prompt_num}.csv"
             )
+
+    if llama_cpp == 1:
+        try:
+            llm._sampler.close()
+            llm.close()
+        except:
+            pass
