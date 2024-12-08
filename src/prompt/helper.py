@@ -128,8 +128,8 @@ def prompt_llm(cfg: dict):
             },
         }
 
-        llm = Llama(model_path=LLM_path, n_gpu_layers=-1, main_gpu=0,
-                    chat_format=chat_format, seed=42, n_ctx=8192, flash_attn=True)
+        # llm = Llama(model_path=LLM_path, n_gpu_layers=-1, main_gpu=0,
+        #             chat_format=chat_format, seed=42, n_ctx=8192, flash_attn=True)
 
     # get note data
     # load the clinical notes file
@@ -164,9 +164,9 @@ def prompt_llm(cfg: dict):
             if llama_cpp == 0:
                 torch.manual_seed(0)
             else:
-                # llm = Llama(model_path=LLM_path, n_gpu_layers=-1, main_gpu=0,
-                #     chat_format=chat_format, seed=42, n_ctx=8192, flash_attn=True)
-                pass
+                llm = Llama(model_path=LLM_path, n_gpu_layers=-1, main_gpu=0,
+                    chat_format=chat_format, seed=42, n_ctx=8192, flash_attn=True)
+                # pass
 
             target_name_nospace = target_name.replace("_", "-")
 
@@ -254,9 +254,9 @@ def prompt_llm(cfg: dict):
                 f"{save_dir}/mrn{mrn}_trtdate{treatment_date}_{target_name_nospace}_{LLM_name}_prompt{prompt_num}.csv"
             )
 
-    if llama_cpp == 1:
-        try:
-            llm._sampler.close()
-            llm.close()
-        except:
-            pass
+        if llama_cpp == 1:
+            try:
+                llm._sampler.close()
+                llm.close()
+            except:
+                pass
