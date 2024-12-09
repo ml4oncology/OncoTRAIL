@@ -20,6 +20,8 @@ def clean_col_name(str_name):
 
 def add_tabular_data_to_note(clinical_notes_df, first_treatment):
 
+    # process the drug names here
+
     # reverse the unit dictionary
     reversed_dict = {}
 

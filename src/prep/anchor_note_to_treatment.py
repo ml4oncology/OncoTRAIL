@@ -122,12 +122,20 @@ def anchor_note_to_treatment(notes_data_path,
                                 'obs_date'
                                 )
     
+    # # DEBUG
+    # # before dropping non first treatment
+    # df_treat.to_csv(f"{save_dir}/debug_before_first_note_anchored_{config_name}.csv")
+
     # if first treatment only, select the first row for every mrn and treatment_date
     if 'firstTreatmentOnly-medOnc-ConsultLetterClinic' in config_name:
         # sort by treatment date
         df_treat.sort_values(by='treatment_date', inplace=True)
         # select the first row for every mrn and treatment_date
-        df_treat = df_treat.groupby(['mrn', 'treatment_date']).first().reset_index()
+        df_treat = df_treat.groupby(['mrn']).first(skipna=False).reset_index()
+
+    # # DEBUG
+    # # save for debugging
+    # df_treat.to_csv(f"{save_dir}/debug_note_anchored_{config_name}.csv")
 
     # load notes file
     merged_notes = pd.read_parquet(f'{notes_data_path}')
@@ -168,7 +176,7 @@ def anchor_note_to_treatment(notes_data_path,
         if 'mostRecentVisit-appendFirst-medOnc-ConsultLetterClinic' in config_name:
             # get the first note
             merged_notes.sort_values(by='processed_date', inplace=True)
-            first_note = merged_notes.groupby(['mrn'])['note'].first().reset_index(name='first_note')
+            first_note = merged_notes.groupby(['mrn'])['note'].first(skipna=False).reset_index(name='first_note')
             # append the first note
             merged_notes = merged_notes.merge(first_note, on="mrn")
             merged_notes['appended_note'] = merged_notes.apply(
@@ -188,10 +196,14 @@ def anchor_note_to_treatment(notes_data_path,
             merged_notes.sort_values(by='processed_date', inplace=True)
             merged_notes = merged_notes.groupby('mrn')[['max_epr_date','processed_date',
                                                       'note','stats_physician','stats_dictated_by',
-                                                      'stats_note_type']].first().reset_index()
+                                                      'stats_note_type']].first(skipna=False).reset_index()
 
     else:
         raise Exception("Not implemented yet.")
+
+    # # DEBUG
+    # # save for debugging
+    # merged_notes.to_csv(f"{save_dir}/debug_merged_notes_{config_name}.csv")
 
     # filter the treatment-centered data frame
     df_treat = df_treat.loc[df_treat['mrn'].isin(merged_notes['mrn'].unique())].copy()
