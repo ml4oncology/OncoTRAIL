@@ -42,6 +42,7 @@ def anchor_note_to_treatment(notes_data_path,
                             symptom_data_path, 
                             last_seen_data_path,
                             lab_values_data_path,
+                            opis_data_path,
                             save_dir, config_name,
                             test_end_date, 
                             lookback_window,
@@ -55,6 +56,7 @@ def anchor_note_to_treatment(notes_data_path,
         symptom_data_path: data path of the symptom data frame
         last_seen_data_path: data path of the last seen data frame
         lab_values_data_path: data path of the lab values data frame
+        opis_data_path: data path of the opis data frame
         save_dir: directory path where processed data frame will be saved
         config_name: configuration name for how to anchor note to treatment date
         test_end_date: ending date for the test time period (and end date of the study period)
@@ -250,10 +252,11 @@ def anchor_note_to_treatment(notes_data_path,
     df_treat = fill_missing_data(df_treat)
 
     if add_tabular_to_note:
+        opis_df = pd.read_parquet(f'{opis_data_path}')
         if 'firstTreatmentOnly' in config_name:
-            df_treat = add_tabular_data_to_note(df_treat, 1)
+            df_treat = add_tabular_data_to_note(df_treat, opis_df, 1)
         else:
-            df_treat = add_tabular_data_to_note(df_treat, 0)
+            df_treat = add_tabular_data_to_note(df_treat, opis_df, 0)
 
     # drop features with high missingness
     keep_cols = df_treat.columns[df_treat.columns.str.contains('target_')]
@@ -290,6 +293,7 @@ if __name__ == "__main__":
     parser.add_argument("symptom_data_path", help = "file path of symptom data", type = str) # file path of symptom data
     parser.add_argument("last_seen_data_path", help = "file path of last seen data", type = str) # last seen data file path
     parser.add_argument("lab_values_data_path", help = "file path of lab values", type = str) # lab values data file path
+    parser.add_argument("opis_data_path", help = "opis file path", type = str) # opis file path
     parser.add_argument("save_dir", help = "save directory", type = str) # save directory
     parser.add_argument("config_name", help = "configuration name", type = str) # configuration name
     parser.add_argument("test_end_date", help = "end date for test period", type = str) # test end date
@@ -303,6 +307,7 @@ if __name__ == "__main__":
                              args.symptom_data_path, 
                              args.last_seen_data_path,
                              args.lab_values_data_path,
+                             args.opis_data_path,
                              args.save_dir, 
                              args.config_name, 
                              args.test_end_date,

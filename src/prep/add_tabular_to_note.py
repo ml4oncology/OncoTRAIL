@@ -18,9 +18,31 @@ def clean_col_name(str_name):
     
     return clean_name
 
-def add_tabular_data_to_note(clinical_notes_df, first_treatment):
+def add_tabular_data_to_note(clinical_notes_df, opis_df, first_treatment):
 
     # process the drug names here
+    opis_df = opis_df.rename(columns={'Hosp_Chart':'mrn', 'Trt_Date':'treatment_date'})
+    clinical_notes_df['treatment_date'] = pd.to_datetime(clinical_notes_df['treatment_date'], utc=True)
+    opis_df['treatment_date'] = pd.to_datetime(opis_df['treatment_date'], utc=True)
+
+    # restrict rows in opis_df so that mrn and treatment_date are in clinical_notes_df
+    # Create a set of (mrn, treatment_date) pairs from clinical_notes_df
+    note_anchored_set = set(zip(clinical_notes_df['mrn'], clinical_notes_df['treatment_date']))
+
+    # Filter opis_df based on whether the (mrn, treatment_date) pair is in the note_anchored_set
+    opis_df_filtered = (opis_df[opis_df.apply(lambda row: (row['mrn'], row['treatment_date'])
+                                               in note_anchored_set, axis=1)]
+                        )
+    opis_df_filtered['drug_and_dose'] = (opis_df_filtered['Drug_name'] + 
+                                         ' (' + opis_df_filtered['Dose_Given'].astype(str) + ')'
+                                        )
+    opis_filtered_drug_and_dose = (opis_df_filtered.groupby(['mrn', 'treatment_date'])
+                                   .agg({'drug_and_dose': ', '.join}).reset_index()
+                                  )
+    # merge opis_raw_filtered_drug_and_dose with clinical_notes
+    clinical_notes_df = (pd.merge(clinical_notes_df, opis_filtered_drug_and_dose, 
+                                  on=['mrn', 'treatment_date'], how='left')
+                        )
 
     # reverse the unit dictionary
     reversed_dict = {}
@@ -88,11 +110,18 @@ def add_tabular_data_to_note(clinical_notes_df, first_treatment):
         # remove cols with 'change' in symptoms_cols
         symptoms_cols = [col for col in symptoms_cols if 'change' not in col]
 
-    treatment_cols = (['regimen', 'cycle_number', 'intent', 'line_of_therapy'] +
+    treatment_cols = (['drug_and_dose', 'cycle_number', 'intent', 'line_of_therapy'] +
                        [col for col in clinical_notes_df.columns 
                         if '%_ideal_dose_given' in col and 'missing' not in col]
     )
-    
+    # 'regimen'
+
+    # retain 4 decimal places for values in laboratory_cols and '%_ideal_dose_given'
+    pct_ideal_dose_given_cols = [col for col in clinical_notes_df.columns
+                                  if '%_ideal_dose_given' in col]
+    numeric_cols = laboratory_cols + pct_ideal_dose_given_cols
+    clinical_notes_df[numeric_cols] = clinical_notes_df[numeric_cols].round(4)
+
     cols_tabular = (demographic_cols + 
                        acute_care_use_cols + 
                        cancer_cols + 
@@ -222,7 +251,9 @@ def add_tabular_data_to_note(clinical_notes_df, first_treatment):
 
     clinical_notes_df['sentencized_tabular_data'] = sentencized_tabular_data
     clinical_notes_df['note'] = clinical_notes_df['note'] + '\n\n' + clinical_notes_df['sentencized_tabular_data']
-    clinical_notes_df.drop('sentencized_tabular_data', axis=1, inplace=True)
+    clinical_notes_df.drop(['sentencized_tabular_data','drug_and_dose'], axis=1, inplace=True)
+
+    # drop drug and dose
 
     return clinical_notes_df
 
