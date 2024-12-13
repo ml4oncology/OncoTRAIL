@@ -10,6 +10,9 @@ from transformers import (
 )
 import torch
 import logging
+logging.basicConfig(
+    level=logging.INFO         # Log level (you can adjust it to INFO, DEBUG, etc.)
+)
 from datetime import datetime
 logger = logging.getLogger(__name__)
 from ml_common.util import load_table
@@ -89,7 +92,10 @@ def prompt_llm(cfg: dict):
         # "target_ED_visit": "visit the emergency department within the next 30 days"
         # }
     
-    if cfg['quant_level'] != 4:
+    if llama_cpp == 1 and cfg['quant_level'] != 'NA':
+        raise ValueError("Quantization level must be NA for llama cpp")
+
+    elif llama_cpp == 0 and cfg['quant_level'] != 4:
         raise ValueError("Quantization level must be 4 for now")
 
     # create save folder
@@ -115,6 +121,8 @@ def prompt_llm(cfg: dict):
     else:
         if 'Gemma' in LLM_name:
             chat_format = "gemma"
+        elif 'Qwen' in LLM_name:
+            chat_format = "chatml"
         else:
             chat_format = "llama-2"
         
@@ -165,8 +173,7 @@ def prompt_llm(cfg: dict):
                 torch.manual_seed(0)
             else:
                 llm = Llama(model_path=LLM_path, n_gpu_layers=-1, main_gpu=0,
-                    chat_format=chat_format, seed=42, n_ctx=8192, flash_attn=True)
-                # pass
+                    chat_format=chat_format, seed=42, n_ctx=8192, flash_attn=False)
 
             target_name_nospace = target_name.replace("_", "-")
 
@@ -254,9 +261,9 @@ def prompt_llm(cfg: dict):
                 f"{save_dir}/mrn{mrn}_trtdate{treatment_date}_{target_name_nospace}_{LLM_name}_prompt{prompt_num}.csv"
             )
 
-        if llama_cpp == 1:
-            try:
-                llm._sampler.close()
-                llm.close()
-            except:
-                pass
+            if llama_cpp == 1:
+                try:
+                    llm._sampler.close()
+                    llm.close()
+                except:
+                    pass

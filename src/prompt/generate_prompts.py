@@ -11,8 +11,8 @@ def generate_persona():
     persona_prompt = [
         ("Act as a highly experienced and extremely competent medical oncologist " + 
          "from the world-renowned Princess Margaret Cancer Centre in Toronto, Ontario. "),
-        "Act as an expert medical oncologist. ",
-        "Act as an incredibly skilled, well-trained machine learning model. ",
+        "Assume you are a medical oncologist. ",
+        "Assume you are an advanced medical AI model. ",
     ]
 
     return persona_prompt

@@ -31,10 +31,6 @@ target_list=(
 
 target_names=$(IFS=','; echo "${target_list[*]}")
 
-root_dir_proj=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/LLM-notes-classification
-data_dir=${root_dir_proj}/data/note_anchored_deid
-original_data=${data_dir}/note_anchored_firstTreatmentOnly-medOnc-ConsultLetterClinic_deid.csv
-
 file_name=note_anchored_firstTreatmentOnly-medOnc-ConsultLetterClinic_deid
 start_date='2008-01-01'
 end_date='2015-12-31'
@@ -61,15 +57,16 @@ do
 for temperature in 0.5 0.7 1.0 1.5
 do
 
+root_dir_proj=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/LLM-notes-classification
 results_dir_parent=${root_dir_proj}/data/prompt_engineering
 
-prompt_results="${results_dir_parent}/"\
+results_dir="${results_dir_parent}/"\
 "${file_name}_${LLM_name}_${quant_level}"\
 "${start_date}_${end_date}_${random_sampling}_"\
 "${n_few_shot}_${numeric_proba}_${prompt_num}_"\
 "${top_k}_${min_p}_${top_p}_${temperature}"
 
-pySLURMargs.py $userName $memory $condaEnv $nGPU $runTime "../src/prompt/compute_stats.py $prompt_results $target_names $original_data"
+pySLURMargs.py $userName $memory $condaEnv $nGPU $runTime "../src/prompt/combine_prompt_results.py $results_dir $target_names"
 
 done
 done

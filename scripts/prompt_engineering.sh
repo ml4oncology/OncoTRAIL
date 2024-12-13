@@ -9,19 +9,16 @@ runTime='0-01:00:00'
 
 root_dir_proj=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/LLM-notes-classification
 
-data_dir=${root_dir_proj}/data/note_anchored_deid
-file_name=note_anchored_firstTreatmentOnly-medOnc-ConsultLetterClinic_deid.csv
-save_dir=${root_dir_proj}/data/prompt_engineering
 start_date='2008-01-01'
 end_date='2015-12-31'
 random_sampling=1
 n_few_shot=0
-quant_level=4
+quant_level=NA
 num_samples=1
 numeric_proba=1
 prompt_file_dir=${root_dir_proj}/data/prompts
 n_partitions=10
-n_hours=8
+n_hours=12
 memory=16
 
 target_list=(
@@ -45,15 +42,27 @@ target_list=(
     "target_death_in_365d"
     "target_ED_visit"
 )
-# TO DO: change quantization
+
 target_names=$(IFS=','; echo "${target_list[*]}")
 
 llama_cpp=1
 
-for prompt_num in 1 # change this to a different persona
+for fname in note_anchored_firstTreatmentOnly-medOnc-ConsultLetterClinic_deid note_tabular_anchored_firstTreatmentOnly-medOnc-ConsultLetterClinic_deid
 do
 
-for LLM_name in Mistral-7B # Llama3-8B # Gemma2-9B
+    file_name=${fname}.csv
+    save_dir=${root_dir_proj}/data/prompt_engineering/${fname}
+
+    if [ "$fname" == "note_anchored_firstTreatmentOnly-medOnc-ConsultLetterClinic_deid" ]; then
+        data_dir=${root_dir_proj}/data/note_anchored_deid
+    elif [ "$fname" == "note_tabular_anchored_firstTreatmentOnly-medOnc-ConsultLetterClinic_deid" ]; then
+        data_dir=${root_dir_proj}/data/note_tabular_anchored_deid
+    fi
+
+for prompt_num in 8 9 16 17 32 33 40 41
+do
+
+for LLM_name in Llama3.1-8B-Q6-K Mistral-Nemo-2407-IQ4-XS Qwen2.5-14B-IQ4-XS # Mistral-7B Llama3-8B Gemma2-9B
 do
 
     if [ "$llama_cpp" == "0" ]; then
@@ -65,10 +74,12 @@ do
             LLM_path=/cluster/projects/gliugroup/2BLAST/LLMs/gemma-2-9b-it
         fi
     else
-        if [ "$LLM_name" == "Llama3-8B" ]; then
-            LLM_path=/cluster/projects/gliugroup/2BLAST/LLMs/Meta-Llama-3-8B-Instruct-Q6_K.gguf
-        elif [ "$LLM_name" == "Mistral-7B" ]; then
-            LLM_path=/cluster/projects/gliugroup/2BLAST/LLMs/mistral-7b-instruct-v0.2.Q5_K_M.gguf
+        if [ "$LLM_name" == "Llama3.1-8B-Q6-K" ]; then
+            LLM_path=/cluster/projects/gliugroup/2BLAST/LLMs/Meta-Llama-3.1-8B-Instruct-Q6_K.gguf
+        elif [ "$LLM_name" == "Mistral-Nemo-2407-IQ4-XS" ]; then
+            LLM_path=/cluster/projects/gliugroup/2BLAST/LLMs/Mistral-Nemo-Instruct-2407-IQ4_XS.gguf
+        elif [ "$LLM_name" == "Qwen2.5-14B-IQ4-XS" ]; then
+            LLM_path=/cluster/projects/gliugroup/2BLAST/LLMs/Qwen2.5-14B-Instruct-IQ4_XS.gguf
         fi
     fi
 
@@ -103,5 +114,4 @@ done
 done
 done
 done
-
-# wait
+done

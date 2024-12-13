@@ -66,6 +66,8 @@ def launch(cfg):
     # restrict the data frame to time period
     df = df[df['treatment_date'].between(cfg['start_date'], cfg['end_date'])].copy()
 
+    partition_list = np.array_split(df.index, n_partitions)
+
     # if random sampling, change targets of discarded rows to -1
     if cfg['random_sampling']:
         n_class_samples = 300
@@ -115,13 +117,40 @@ def launch(cfg):
 
             df.loc[non_idxs, target] = -1
 
+        # re-arrange data frame so that the number of queries across parts is roughly the same
+        non_negatives = (df[list_of_targets] != -1).astype(int)
+        df['non_negative_count'] = non_negatives.sum(axis=1)
+        df.sort_values('non_negative_count', ascending=False, inplace=True)
+        group_sums = [0] * n_partitions  # Keep track of the sum of non_negative_count in each group
+        group_assignments = []  # To store group assignment for each row
+
+        # greedily assign rows to groups
+        for idx, row in df.iterrows():
+            # Find the group with the minimum sum of non_negative_count
+            min_group_index = np.argmin(group_sums)
+            
+            # Assign the row to that group
+            group_assignments.append(min_group_index)
+            
+            # Update the sum of the assigned group
+            group_sums[min_group_index] += row['non_negative_count']
+
+        df['group'] = group_assignments
+        partition_list = [[] for _ in range(n_partitions)]
+
+        for idx, group in zip(df.index, df['group']):
+            partition_list[group].append(idx)
+        
+        # drop 'group' and 'non_negative_count' columns from df
+        df.drop(columns=['group', 'non_negative_count'], inplace=True)
+        
     cfg.pop('file_name')
     cfg.pop('data_dir')
     cfg.pop('save_dir')
 
     cfgs = []
 
-    for partition_id, idxs in enumerate(np.array_split(df.index, n_partitions)):
+    for partition_id, idxs in enumerate(partition_list):
         partition_path = f'{data_dir}/{partition_id}_{df_name}'
         if not os.path.isfile(partition_path):
             if partition_path.endswith('.csv'):
@@ -150,7 +179,7 @@ if __name__ == "__main__":
     parser.add_argument("n_few_shot", help="number of few shot examples", type=int)  # number of few shot
     parser.add_argument("LLM_path", help="path to LLM", type=str)  # path to LLM
     parser.add_argument("LLM_name", help="name of LLM", type=str)  # name of LLM
-    parser.add_argument("quant_level", help="quantization level", type=int)  # quantization level
+    parser.add_argument("quant_level", help="quantization level", type=str)  # quantization level
     parser.add_argument("num_samples", help="number of samples", type=int)  # number of samples
     parser.add_argument("numeric_proba", help="numerical probability", type=int)  # numeric probability?
     parser.add_argument("prompt_file_dir", help="directory where json files are stored", type=str)  # directory of prompt json files

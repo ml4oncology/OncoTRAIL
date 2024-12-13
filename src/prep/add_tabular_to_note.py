@@ -34,7 +34,7 @@ def add_tabular_data_to_note(clinical_notes_df, opis_df, first_treatment):
                                                in note_anchored_set, axis=1)]
                         )
     opis_df_filtered['drug_and_dose'] = (opis_df_filtered['Drug_name'] + 
-                                         ' (' + opis_df_filtered['Dose_Given'].astype(str) + ')'
+                                         ' (' + opis_df_filtered['Dose_Given'].astype(str) + 'mg)'
                                         )
     opis_filtered_drug_and_dose = (opis_df_filtered.groupby(['mrn', 'treatment_date'])
                                    .agg({'drug_and_dose': ', '.join}).reset_index()
@@ -109,6 +109,7 @@ def add_tabular_data_to_note(clinical_notes_df, opis_df, first_treatment):
     if first_treatment == 1:
         # remove cols with 'change' in symptoms_cols
         symptoms_cols = [col for col in symptoms_cols if 'change' not in col]
+        laboratory_cols = [col for col in laboratory_cols if 'change' not in col]
 
     treatment_cols = (['drug_and_dose', 'cycle_number', 'intent', 'line_of_therapy'] +
                        [col for col in clinical_notes_df.columns 
@@ -119,8 +120,13 @@ def add_tabular_data_to_note(clinical_notes_df, opis_df, first_treatment):
     # retain 4 decimal places for values in laboratory_cols and '%_ideal_dose_given'
     pct_ideal_dose_given_cols = [col for col in clinical_notes_df.columns
                                   if '%_ideal_dose_given' in col]
-    numeric_cols = laboratory_cols + pct_ideal_dose_given_cols
-    clinical_notes_df[numeric_cols] = clinical_notes_df[numeric_cols].round(4)
+    numeric_cols = laboratory_cols + pct_ideal_dose_given_cols + ['body_surface_area']
+    valid_numeric_cols = [col for col in numeric_cols
+                           if col in clinical_notes_df.columns]
+    #clinical_notes_df[valid_numeric_cols] = clinical_notes_df[valid_numeric_cols].round(4)
+    clinical_notes_df[valid_numeric_cols] = (clinical_notes_df[valid_numeric_cols]
+                                             .applymap(lambda x: np.round(x, 4) if pd.notna(x) else x)
+                                            )
 
     cols_tabular = (demographic_cols + 
                        acute_care_use_cols + 
@@ -245,6 +251,10 @@ def add_tabular_data_to_note(clinical_notes_df, opis_df, first_treatment):
             merged_data = row_df_temp['combined_string'].str.capitalize().str.cat(sep='\n') + '\n\n'
             # add to tabular text
             tabular_data_note = tabular_data_note + merged_data
+
+            # replace ' ed ' with 'emergency department'
+            tabular_data_note = tabular_data_note.replace(' ed ', 'emergency department')
+            
         sentencized_tabular_data.append(tabular_data_note)
 
     # To-do: fix regimen names

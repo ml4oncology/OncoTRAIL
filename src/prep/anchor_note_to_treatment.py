@@ -175,7 +175,8 @@ def anchor_note_to_treatment(notes_data_path,
         merged_notes['processed_date'] = merged_notes['processed_date'].dt.date
         merged_notes['processed_date'] = merged_notes['processed_date'].astype('<M8[ns]')
 
-        if 'mostRecentVisit-appendFirst-medOnc-ConsultLetterClinic' in config_name:
+        if any(x in config_name for x in ['mostRecentVisit-appendFirst-medOnc-ConsultLetterClinic',
+                                             'firstTreatmentOnly-medOnc-ConsultLetterClinic']):
             # get the first note
             merged_notes.sort_values(by='processed_date', inplace=True)
             first_note = merged_notes.groupby(['mrn'])['note'].first(skipna=False).reset_index(name='first_note')
@@ -192,8 +193,7 @@ def anchor_note_to_treatment(notes_data_path,
             ]]
             merged_notes.rename(columns={'appended_note': 'note'}, inplace=True)
         
-        elif any(x in config_name for x in ['firstVisitOnly-medOnc-ConsultLetterClinic',
-                                             'firstTreatmentOnly-medOnc-ConsultLetterClinic']):
+        if any(x in config_name for x in ['firstVisitOnly-medOnc-ConsultLetterClinic']):
             # keep only the first note
             merged_notes.sort_values(by='processed_date', inplace=True)
             merged_notes = merged_notes.groupby('mrn')[['max_epr_date','processed_date',
