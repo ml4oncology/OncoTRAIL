@@ -18,8 +18,12 @@ def launch(cfg):
     if cfg['n_few_shot'] != 0:
         raise NotImplementedError("few shot examples not implemented yet")
 
+    save_dir = cfg['save_dir']
+
     # Initialize the executor, which is the submission interface
-    executor = submitit.AutoExecutor(folder=f"log_files/{datetime.now().replace(microsecond=0)}")
+    log_file_save = f"{save_dir}/log_files/{datetime.now().replace(microsecond=0)}"
+    os.makedirs(log_file_save, exist_ok=True)
+    executor = submitit.AutoExecutor(folder=log_file_save)
 
     # Specify the Slurm parameters
     # TODO: put this in another config file
@@ -38,8 +42,7 @@ def launch(cfg):
     n_partitions = cfg['n_partitions']
     data_dir = cfg['data_dir']
     df_name = cfg['file_name']
-    save_dir = cfg['save_dir']
-
+    
     # read dataframe
     df = load_table(f'{data_dir}/{df_name}')
 
@@ -143,7 +146,7 @@ def launch(cfg):
         
         # drop 'group' and 'non_negative_count' columns from df
         df.drop(columns=['group', 'non_negative_count'], inplace=True)
-        
+
     cfg.pop('file_name')
     cfg.pop('data_dir')
     cfg.pop('save_dir')
@@ -186,8 +189,8 @@ if __name__ == "__main__":
     parser.add_argument("prompt_num", help="prompt number", type=int)  # prompt number
     parser.add_argument("llama_cpp", help="llama_cpp", type=int)  # llama_cpp
     parser.add_argument("top_k", help="top k", type=int)  # top k
-    parser.add_argument("min_p", help="min p", type=float)  # min p
-    parser.add_argument("top_p", help="top p", type=float)  # top p
+    parser.add_argument("min_p", help="min p", type=int)  # min p
+    parser.add_argument("top_p", help="top p", type=int)  # top p
     parser.add_argument("temperature", help="temperature", type=float)  # temperature
     parser.add_argument('target_names', type=str, help='Comma-separated list of targets') # targets
     parser.add_argument("n_partitions", help="number of partitions", type=int)  # number of partitions

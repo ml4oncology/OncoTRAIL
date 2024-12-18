@@ -31,7 +31,6 @@ target_list=(
 
 target_names=$(IFS=','; echo "${target_list[*]}")
 
-file_name=note_anchored_firstTreatmentOnly-medOnc-ConsultLetterClinic_deid
 start_date='2008-01-01'
 end_date='2015-12-31'
 random_sampling=1
@@ -39,29 +38,33 @@ n_few_shot=0
 numeric_proba=1
 quant_level=NA
 
-for prompt_num in 1
-do
-
-for LLM_name in Llama3-8B # Mistral-7B Gemma2-9B
-do
-
-for top_k in 10 40 100
-do
-
-for min_p in 0.01 0.05 0.1
-do
-
-for top_p in 1.0 0.9 0.8
-do
-
-for temperature in 0.5 0.7 1.0 1.5
-do
-
 root_dir_proj=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/LLM-notes-classification
-results_dir_parent=${root_dir_proj}/data/prompt_engineering
+
+for fname in note_anchored_firstTreatmentOnly-medOnc-ConsultLetterClinic_deid note_tabular_anchored_firstTreatmentOnly-medOnc-ConsultLetterClinic_deid
+do
+
+for prompt_num in 8 9 16 17 32 33 40 41
+do
+
+for LLM_name in Llama3.1-8B-Q6-K Mistral-Nemo-2407-IQ4-XS Qwen2.5-14B-IQ4-XS
+do
+
+for top_k in -1
+do
+
+for min_p in -1
+do
+
+for top_p in -1
+do
+
+for temperature in -1.0
+do
+
+results_dir_parent=${root_dir_proj}/data/prompt_engineering/${fname}
 
 results_dir="${results_dir_parent}/"\
-"${file_name}_${LLM_name}_${quant_level}"\
+"${fname}_${LLM_name}_${quant_level}_"\
 "${start_date}_${end_date}_${random_sampling}_"\
 "${n_few_shot}_${numeric_proba}_${prompt_num}_"\
 "${top_k}_${min_p}_${top_p}_${temperature}"
@@ -74,6 +77,4 @@ done
 done
 done
 done
-
-
-
+done

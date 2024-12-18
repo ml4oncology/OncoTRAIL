@@ -5,7 +5,7 @@ userName="t127556uhn"
 memory=16
 condaEnv="~/miniforge3/envs/LLMfinetune/bin/python"
 nGPU=1
-runTime='0-01:00:00'
+runTime='0-00:30:00'
 
 root_dir_proj=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/LLM-notes-classification
 

@@ -50,6 +50,8 @@ def prompt_llm(cfg: dict):
     prompt_num = cfg["prompt_num"]
     llama_cpp = cfg["llama_cpp"]
 
+    logger.info(f"{save_dir}")
+
     # llm parameters
     llm_params = {}
     if cfg['temperature'] != -1:
@@ -169,26 +171,26 @@ def prompt_llm(cfg: dict):
 
             logger.info(f"Target: {target_name}\n")
             
+            target_name_nospace = target_name.replace("_", "-")
+
+            # check if file already exists, otherwise, skip!
+            if os.path.isfile(
+                f"{save_dir}/mrn{mrn}_trtdate{treatment_date[:10]}_{target_name_nospace}_{LLM_name}_prompt{prompt_num}.csv"
+            ):
+                continue
+
             if llama_cpp == 0:
                 torch.manual_seed(0)
             else:
                 llm = Llama(model_path=LLM_path, n_gpu_layers=-1, main_gpu=0,
                     chat_format=chat_format, seed=42, n_ctx=8192, flash_attn=False)
 
-            target_name_nospace = target_name.replace("_", "-")
-
-            # check if file already exists, otherwise, skip!
-            if os.path.isfile(
-                f"{save_dir}/mrn{mrn}_trtdate{treatment_date}_{target_name_nospace}_{LLM_name}_prompt{prompt_num}.csv"
-            ):
-                continue
-
             # open prompt file and extract prompt
             with open(json_file, "r") as file:
                 prompt_dict = json.load(file)
             system_instructions = prompt_dict[f"{prompt_num}"]
             # convert treatment date in yyyy-mm-dd to MMM dd, yyyy format
-            date_object = datetime.strptime(treatment_date, "%Y-%m-%d")
+            date_object = datetime.strptime(treatment_date[:10], "%Y-%m-%d")
             treatment_date_str = date_object.strftime("%b %d, %Y")
             # replace the treatment date in system_instructions
             system_instructions = system_instructions.replace(
@@ -258,7 +260,7 @@ def prompt_llm(cfg: dict):
             results_df['mrn'] = mrn
             results_df['treatment_date'] = treatment_date
             results_df.to_csv(
-                f"{save_dir}/mrn{mrn}_trtdate{treatment_date}_{target_name_nospace}_{LLM_name}_prompt{prompt_num}.csv"
+                f"{save_dir}/mrn{mrn}_trtdate{treatment_date[:10]}_{target_name_nospace}_{LLM_name}_prompt{prompt_num}.csv"
             )
 
             if llama_cpp == 1:

@@ -5,7 +5,9 @@ import glob
 import os
 import re
 logger = logging.getLogger(__name__)
-
+logging.basicConfig(
+    level=logging.INFO         # Log level (you can adjust it to INFO, DEBUG, etc.)
+)
 
 def extract_proba(raw_string):
     # extract probability value from the raw string
@@ -14,6 +16,8 @@ def extract_proba(raw_string):
     return probability_value
 
 def combine_prompt_results(results_dir, target_names):
+
+    logger.info(f"results_dir: {results_dir}")
 
     target_list = target_names.split(",")
     for target in target_list:
