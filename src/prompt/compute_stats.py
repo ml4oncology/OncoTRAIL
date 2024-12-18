@@ -5,6 +5,9 @@ import glob
 import os
 from sklearn.metrics import roc_auc_score
 logger = logging.getLogger(__name__)
+logging.basicConfig(
+    level=logging.INFO         # Log level (you can adjust it to INFO, DEBUG, etc.)
+)
 
 def compute_stats(prompt_results, target_names, original_data):
 
@@ -28,6 +31,8 @@ def compute_stats(prompt_results, target_names, original_data):
         if 'grade3plus' in file:
             continue
 
+        logger.info(f"file: {file}")
+    
         df_summary = pd.read_csv(file, index_col=0)
 
         # make sure that there is only 1 unique row per mrn, treatment_data

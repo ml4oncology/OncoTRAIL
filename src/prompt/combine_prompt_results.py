@@ -26,13 +26,16 @@ def combine_prompt_results(results_dir, target_names):
 
         # replace _ in target with -
         target_dash = target.replace("_", "-")
-        
+
         concat_results_list = []
 
         # find all csv files in results_dir with target in name
         matching_files = glob.glob(os.path.join(results_dir, f"*{target_dash}*.csv"))
 
         for file in matching_files:
+
+            if 'summary' in file: continue
+            
             df = pd.read_csv(file, index_col=0)
 
             concat_results_list.append(df)
