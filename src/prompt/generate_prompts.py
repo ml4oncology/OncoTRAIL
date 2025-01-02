@@ -279,7 +279,7 @@ def generate_prompts(target_names, numeric_proba, save_dir):
                                     + health_val
                                     + deid_prompt
                                     + format_prompt
-                                    + reason_prompt
+                                    # + reason_prompt
                                 )
 
                             prompt_dict[ctr] = prompt
