@@ -54,13 +54,13 @@ def prompt_llm(cfg: dict):
 
     # llm parameters
     llm_params = {}
-    if cfg['temperature'] != -1:
+    if cfg['temperature'] != -1.0:
         llm_params['temperature'] = cfg["temperature"]
-    if cfg['min_p'] != -1:
+    if cfg['min_p'] != -1.0:
         llm_params['min_p'] = cfg["min_p"]
-    if cfg['top_k'] != -1:
-        llm_params['top_k'] = cfg["top_k"]
-    if cfg['top_p'] != -1:
+    if cfg['top_k'] != -1.0:
+        llm_params['top_k'] = round(cfg["top_k"])
+    if cfg['top_p'] != -1.0:
         llm_params['top_p'] = cfg["top_p"]
 
     n_few_shot = cfg["n_few_shot"]

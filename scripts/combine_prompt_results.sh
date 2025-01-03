@@ -49,13 +49,13 @@ do
 for LLM_name in Llama3.1-8B-Q6-K Mistral-Nemo-2407-IQ4-XS Qwen2.5-14B-IQ4-XS
 do
 
-for top_k in -1
+for top_k in -1.0
 do
 
-for min_p in -1
+for min_p in -1.0
 do
 
-for top_p in -1
+for top_p in -1.0
 do
 
 for temperature in -1.0

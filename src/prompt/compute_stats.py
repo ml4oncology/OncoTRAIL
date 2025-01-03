@@ -3,6 +3,7 @@ import argparse
 import logging
 import glob
 import os
+import numpy as np
 from sklearn.metrics import roc_auc_score
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -10,6 +11,11 @@ logging.basicConfig(
 )
 
 def compute_stats(prompt_results, target_names, original_data):
+
+    # bootstrapping parameters
+    n_bootstraps = 1000
+    quantile_left = 0.025
+    quantile_right = 0.975
 
     # list of all target names
     target_list = target_names.split(",")
@@ -24,6 +30,8 @@ def compute_stats(prompt_results, target_names, original_data):
     target_results = []
     n_samples = []
     mean_proba = []
+    auc_left = []
+    auc_right = []
 
     # loop through all files and compute stats
     for file in matching_files:
@@ -62,11 +70,27 @@ def compute_stats(prompt_results, target_names, original_data):
             df_summary = pd.merge(df_summary, df_original, on=['mrn', 'treatment_date'], how='left')
             auc_value = roc_auc_score(df_summary[target_name.replace("-", "_")], df_summary['Probability'])
 
+        # perform bootstrapping here
+        bootstrapped_auc = []
+        for seed in range(n_bootstraps):
+            bootstrap_sample = df_summary.sample(frac=1, replace=True, random_state=seed)
+            if len(target_col_name) == 1:
+                bootstrapped_auc.append(roc_auc_score(bootstrap_sample[target_col_name[0]], bootstrap_sample['Probability']))
+            else:
+                bootstrapped_auc.append(roc_auc_score(bootstrap_sample[target_name.replace("-", "_")], bootstrap_sample['Probability']))
+        
         auc_results.append(auc_value)
         target_results.append(target_name)
+        auc_left.append(np.quantile(bootstrapped_auc, quantile_left))
+        auc_right.append(np.quantile(bootstrapped_auc, quantile_right))
 
     # save AUC and target to csv
-    df_auc = pd.DataFrame({"Target": target_results, "AUC": auc_results, "n_samples": n_samples, "mean_proba": mean_proba})
+    df_auc = pd.DataFrame({"Target": target_results, "AUC": auc_results, "n_samples": n_samples, "mean_proba": mean_proba,
+                           "AUC_left": auc_left, "AUC_right": auc_right})
+    # create a string of confidence interval for the AUC
+    df_auc['CI'] = df_auc.apply(lambda x: f"[{x['AUC_left']:.3f}, {x['AUC_right']:.3f}]", axis=1)
+    # remove AUC_left and AUC_right
+    df_auc = df_auc[['Target', 'AUC', 'n_samples', 'mean_proba', 'CI']]
     df_auc.to_csv(os.path.join(prompt_results, "statistics.csv"))
 
 if __name__ == "__main__":
