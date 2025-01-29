@@ -71,6 +71,8 @@ if int(n_GPU) > 0:
     fp.write('#SBATCH --account=gliugroup_gpu\n')
     fp.write('#SBATCH --gres=gpu:'+ n_GPU +'\n')
     # fp.write('#SBATCH --gpus=p100:'+ n_GPU +'\n')
+    # fp.write('#SBATCH --gres=gpu:1' +'\n')
+    # fp.write('#SBATCH -C "gpu32g"' +'\n')
 else:
     fp.write('#SBATCH -p all')
 fp.write(ADDSLURM)
