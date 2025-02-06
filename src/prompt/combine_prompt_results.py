@@ -38,6 +38,15 @@ def combine_prompt_results(results_dir, target_names):
             
             df = pd.read_csv(file, index_col=0)
 
+            # only retain rows where 'Probability' is a float
+            df = df[pd.to_numeric(df['Probability'], errors='coerce').notna()]
+
+            # only retain rows where 'mrn' is not nan
+            df = df[df['mrn'].notna()]
+
+            # only retain rows where 'treatment_date' is not nan
+            df = df[df['treatment_date'].notna()]
+
             concat_results_list.append(df)
 
         # concatenate all dataframes in list

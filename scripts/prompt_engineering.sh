@@ -20,6 +20,7 @@ prompt_file_dir=${root_dir_proj}/data/prompts
 n_partitions=10
 n_hours=12
 memory=16
+gpu_constraint=0
 
 target_list=(
     "target_hemoglobin_grade2plus"
@@ -95,7 +96,7 @@ do
 for temperature in -1 # 0.5 # 0.7 1.0 1.5
 do
 
-pySLURMargs.py $userName $memory $condaEnv $nGPU $runTime "../src/prompt/prompt_engineering.py $data_dir $file_name $save_dir $start_date $end_date $random_sampling $n_few_shot $LLM_path $LLM_name $quant_level $num_samples $numeric_proba $prompt_file_dir $prompt_num $llama_cpp $top_k $min_p $top_p $temperature $target_names $n_partitions $n_hours $memory"
+pySLURMargs.py $userName $memory $condaEnv $nGPU $runTime "../src/prompt/prompt_engineering.py $data_dir $file_name $save_dir $start_date $end_date $random_sampling $n_few_shot $LLM_path $LLM_name $quant_level $num_samples $numeric_proba $prompt_file_dir $prompt_num $llama_cpp $top_k $min_p $top_p $temperature $target_names $n_partitions $n_hours $memory $gpu_constraint"
 
 # python3 ../src/prompt/prompt_engineering.py \
 #   $data_dir $file_name $save_dir \

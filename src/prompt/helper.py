@@ -123,7 +123,7 @@ def prompt_llm(cfg: dict):
     else:
         if 'Gemma' in LLM_name:
             chat_format = "gemma"
-        elif 'Qwen' in LLM_name:
+        elif 'Qwen' in LLM_name or 'QwQ' in LLM_name:
             chat_format = "chatml"
         else:
             chat_format = "llama-2"
@@ -215,23 +215,29 @@ def prompt_llm(cfg: dict):
 
                 # generate llm response
                 if llama_cpp == 0:
-                    sequences = pipe(
-                        messages, max_new_tokens=250, 
-                        do_sample=True, 
-                        return_full_text=False, 
-                        **llm_params
-                    )
+                    try:
+                        sequences = pipe(
+                            messages, max_new_tokens=250, 
+                            do_sample=True, 
+                            return_full_text=False, 
+                            **llm_params
+                        )
 
-                    seq = sequences[0]
-                    raw_string = seq["generated_text"]
+                        seq = sequences[0]
+                        raw_string = seq["generated_text"]
+                    except:
+                        raw_string = None
 
                 else:
-                    sequences = llm.create_chat_completion(messages=messages, 
-                                               response_format=response_format, 
-                                               max_tokens=250, 
-                                               **llm_params)
-                    raw_string = sequences['choices'][0]['message']['content']
-
+                    try:
+                        sequences = llm.create_chat_completion(messages=messages, 
+                                                response_format=response_format, 
+                                                max_tokens=250, 
+                                                **llm_params)
+                        raw_string = sequences['choices'][0]['message']['content']
+                    except:
+                        raw_string = None
+                        
                 try:
 
                     start_idx = raw_string.find("{")
@@ -268,4 +274,4 @@ def prompt_llm(cfg: dict):
                     llm._sampler.close()
                     llm.close()
                 except:
-                    pass
+                    llm = None

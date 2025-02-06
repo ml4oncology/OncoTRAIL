@@ -34,10 +34,15 @@ def launch(cfg):
         mem_gb=cfg['memory'], # Each job gets 4GB of memory
         timeout_min=cfg['n_hours'] * 60, # Limit the job running time to 2 days
         slurm_gpus_per_node=1, # Each node should use 1 GPU
+        gres="gpu:1",              # Request 1 GPU
         slurm_additional_parameters={
             "account": "gliugroup_gpu",
         }
     )
+
+    if cfg['gpu_constraint'] == 1:
+        executor.update_parameters(constraint="gpu32g")
+
     # load parameters for splitting dataframe
     n_partitions = cfg['n_partitions']
     data_dir = cfg['data_dir']
@@ -72,7 +77,7 @@ def launch(cfg):
     partition_list = np.array_split(df.index, n_partitions)
 
     # if random sampling, change targets of discarded rows to -1
-    if cfg['random_sampling']:
+    if cfg['random_sampling'] == 1:
         n_class_samples = 300
         for target in list_of_targets:
             # randomly select n_class_samples indices
@@ -153,15 +158,18 @@ def launch(cfg):
 
     cfgs = []
 
+    data_path_partitions = f'{data_dir}/randomsampling{cfg["random_sampling"]}_{cfg["start_date"]}_{cfg["end_date"]}'
+    os.makedirs(data_path_partitions, exist_ok=True)
+
     for partition_id, idxs in enumerate(partition_list):
-        partition_path = f'{data_dir}/{partition_id}_{df_name}'
+        partition_path = f'{data_path_partitions}/{partition_id}_{df_name}'
         if not os.path.isfile(partition_path):
             if partition_path.endswith('.csv'):
                 df.loc[idxs].reset_index(drop=True).to_csv(partition_path, index=False)
             elif partition_path.endswith(('.parquet','.parquet.gzip')):
                 df.loc[idxs].reset_index(drop=True).to_parquet(partition_path, compression='gzip', index=False)
 
-        cfgs.append(dict(data_dir=f'{data_dir}', 
+        cfgs.append(dict(data_dir=f'{data_path_partitions}', 
                          file_name=f'{partition_id}_{df_name}',
                          save_dir=save_dir, **cfg))
 
@@ -196,5 +204,6 @@ if __name__ == "__main__":
     parser.add_argument("n_partitions", help="number of partitions", type=int)  # number of partitions
     parser.add_argument("n_hours", help="number of hours", type=int)  # number of hours
     parser.add_argument("memory", help="memory of each node", type=int)  # memory of each node
+    parser.add_argument("gpu_constraint", help="gpu constraint", type=int)  # constraint on gpu
     cfg = vars(parser.parse_args())
     launch(cfg)
