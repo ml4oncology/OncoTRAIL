@@ -4,6 +4,7 @@ from datetime import datetime
 import os
 import numpy as np
 from ml_common.util import load_table
+import pandas as pd
 from llm_notes_classification.prompt.helper import prompt_llm
 
 def launch(cfg):
@@ -15,8 +16,8 @@ def launch(cfg):
     """
 
     # few shot examples not implemented yet
-    if cfg['n_few_shot'] != 0:
-        raise NotImplementedError("few shot examples not implemented yet")
+    # if cfg['n_few_shot'] != 0:
+    #     raise NotImplementedError("few shot examples not implemented yet")
 
     save_dir = cfg['save_dir']
 
@@ -71,6 +72,34 @@ def launch(cfg):
     # list of targets
     list_of_targets = cfg['target_names'].split(",")
 
+    if cfg['n_few_shot'] != 0:
+        for target in list_of_targets:
+            # find indices where target is not -1
+            df_few_shot = df.loc[df['treatment_date']<cfg['few_shot_date']].loc[df['note_summary'].notna()].loc[df[target] != -1].copy()
+            # sample a few examples from df_few_shot
+            df_few_shot_sample_pos = (
+                df_few_shot.loc[df_few_shot[target] == 1]
+                .sample(n=round(cfg['n_few_shot']/2), replace=False, random_state=42)
+                )
+            df_few_shot_sample_neg = (
+                df_few_shot.loc[df_few_shot[target] == 0]
+                .sample(n=cfg['n_few_shot']-df_few_shot_sample_pos.shape[0], replace=False, random_state=42)
+                )
+            
+            # fix this later if there is not enough samples
+            df_few_shot_sample = (pd.concat([df_few_shot_sample_pos, df_few_shot_sample_neg])
+                                    .reset_index(drop=True)
+                                    )
+            if not os.path.isfile(f'{data_dir}/few_shot_{target}.csv'):
+                df_few_shot_sample[['mrn','treatment_date','note','note_summary',target]].to_csv(f'{data_dir}/few_shot_{target}.csv', 
+                                                        index=False)
+
+            # create a new key
+            cfg['few_shot_dir'] = data_dir
+
+            # possibly delete few_shot_file_path from the variable inputs
+            # what if there are not enough positive examples?
+
     # restrict the data frame to time period
     df = df[df['treatment_date'].between(cfg['start_date'], cfg['end_date'])].copy()
 
@@ -99,29 +128,6 @@ def launch(cfg):
 
             # for the rest of the indices, set the target to -1
             non_idxs = np.setdiff1d(df.index, idxs)
-
-            # if cfg['n_few_shot'] != 0:
-                # find indices from non_idxs where target is not -1
-                # df_few_shot = df.loc[non_idxs].loc[df[target] != -1].copy()
-                # sample a few examples from df_few_shot
-                # df_few_shot_sample_pos = (
-                #     df_few_shot.loc[df_few_shot[target] == 1]
-                #    .sample(n=round(cfg['n_few_shot']/2), replace=False, random_state=42)
-                #    )
-                # df_few_shot_sample_neg = (
-                #     df_few_shot.loc[df_few_shot[target] == 0]
-                #    .sample(n=cfg['n_few_shot']-df_few_shot_sample_pos.shape[0], replace=False, random_state=42)
-                #    )
-                #
-                # df_few_shot_sample = (pd.concat([df_few_shot_sample_pos, df_few_shot_sample_neg])
-                #                       .reset_index(drop=True)
-                #                       )
-                # if not os.path.isfile(f'{data_dir}/few_shot_{target}.csv'):
-                #       df_few_shot_sample[['note',target]].to_csv(f'{data_dir}/few_shot_{target}.csv', 
-                #                                           index=False)
-
-                # possibly delete few_shot_file_path from the variable inputs
-                # what if there are not enough positive examples?
 
             df.loc[non_idxs, target] = -1
 
@@ -186,6 +192,7 @@ if __name__ == "__main__":
     parser.add_argument("save_dir", help="save directory", type=str)  # save directory
     parser.add_argument("start_date", help="start date", type=str)  # start date
     parser.add_argument("end_date", help="end date", type=str)  # end date
+    parser.add_argument("few_shot_date", help="date cut-off for few shot examples", type=str) # date cut off for few shot examples
     parser.add_argument("random_sampling", help="random sampling", type=int)  # random sampling
     parser.add_argument("n_few_shot", help="number of few shot examples", type=int)  # number of few shot
     parser.add_argument("LLM_path", help="path to LLM", type=str)  # path to LLM

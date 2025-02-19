@@ -35,11 +35,17 @@ def combine_prompt_results(results_dir, target_names):
         for file in matching_files:
 
             if 'summary' in file: continue
-            
-            df = pd.read_csv(file, index_col=0)
+            try:
+                df = pd.read_csv(file, index_col=0)
+            except:
+                continue
 
             # only retain rows where 'Probability' is a float
-            df = df[pd.to_numeric(df['Probability'], errors='coerce').notna()]
+            if 'Probability' in df.columns:
+                df = df[pd.to_numeric(df['Probability'], errors='coerce').notna()]
+
+            if 'Prediction' in df.columns:
+                df = df[pd.to_numeric(df['Prediction'], errors='coerce').notna()]
 
             # only retain rows where 'mrn' is not nan
             df = df[df['mrn'].notna()]
@@ -47,7 +53,23 @@ def combine_prompt_results(results_dir, target_names):
             # only retain rows where 'treatment_date' is not nan
             df = df[df['treatment_date'].notna()]
 
-            concat_results_list.append(df)
+            # check the number of rows of df
+            if df.shape[0] == 1:
+                concat_results_list.append(df)
+            else:
+                try:
+                    # find the average of the prediction column
+                    if 'Prediction' in df.columns:
+                        df['Probability'] = df['Prediction'].mean()
+                        df['std_Prob'] = df['Prediction'].std()
+                    else:
+                        df['std_Prob'] = df['Probability'].std()
+                        df['Probability'] = df['Probability'].mean()
+                except:
+                    df['Probability'] = pd.NA
+                    df['std_Prob'] = pd.NA
+
+                concat_results_list.append(df[['Reason', 'Probability', 'std_Prob', target, 'mrn', 'treatment_date']].head(1))
 
         # concatenate all dataframes in list
         concat_df = pd.concat(concat_results_list).reset_index(drop=True)

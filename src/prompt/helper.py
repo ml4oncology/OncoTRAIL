@@ -21,6 +21,8 @@ from llama_cpp import Llama
 # Empty cuda cache
 torch.cuda.empty_cache()
 
+# note on few-shot prompting
+# https://www.reddit.com/r/LocalLLaMA/comments/1at0zat/does_this_version_of_fewshot_learning_make_sense/
 
 def get_quant_config():
     """Get quantization configurations for QLoRA - Quantized Low-Rank Adaptation
@@ -34,6 +36,25 @@ def get_quant_config():
         bnb_4bit_use_double_quant=False,
     )
     return quant_config
+
+def alternate_rows(df, target_col):
+    # Interleave the rows so that the target values alternate between 0 and 1
+    # Split the dataframe based on 'target' values
+    df_1 = df[df[target_col] == 1].reset_index(drop=True)
+    df_0 = df[df[target_col] == 0].reset_index(drop=True)
+
+    # Interleave the rows
+    min_len = min(len(df_1), len(df_0))
+    interleaved = pd.concat([df_1.iloc[:min_len], df_0.iloc[:min_len]], axis=1).stack().reset_index(drop=True)
+
+    # Convert interleaved Series back to DataFrame
+    interleaved_df = pd.DataFrame(interleaved.values.reshape(-1, df.shape[1]), columns=df.columns)
+
+    # Append remaining rows properly using pd.concat()
+    remaining = pd.concat([df_1.iloc[min_len:], df_0.iloc[min_len:]])
+
+    # Return final DataFrame with reset index
+    return pd.concat([interleaved_df, remaining], ignore_index=True)
 
 # TO-DO: merge this with llama_cpp
 def prompt_llm(cfg: dict):
@@ -64,6 +85,10 @@ def prompt_llm(cfg: dict):
         llm_params['top_p'] = cfg["top_p"]
 
     n_few_shot = cfg["n_few_shot"]
+    if n_few_shot > 0:
+        few_shot_dir = cfg["few_shot_dir"]
+    
+    max_tokens = 250
 
     # dictionary map
     # event_map = {
@@ -103,6 +128,24 @@ def prompt_llm(cfg: dict):
     # create save folder
     os.makedirs(f'{save_dir}', exist_ok=True)
 
+    # get note data
+    # load the clinical notes file
+    clinical_notes_df = load_table(f"{data_dir}/{file_name}")
+    prompt_file_list = [f'{prompt_file_dir}/prompt_list_{x}_numeric-proba{numeric_proba}.json' for x in target_list]
+
+    # check whether the prompt contains 'Probability:' or 'Prediction:'
+    first_prompt_file = prompt_file_list[0]
+    with open(first_prompt_file, "r") as file:
+        prompt_dict = json.load(file)
+        system_instructions = prompt_dict["0"]
+        # logger.info(f"sys instructions: {system_instructions}\n")
+        if '"Probability":' in system_instructions:
+            return_val = 'proba'
+        elif '"Prediction":' in system_instructions:
+            return_val = 'pred'
+        else:
+            raise NotImplementedError("To be added later.")
+
     # load model
     if llama_cpp == 0:
         model = AutoModelForCausalLM.from_pretrained(
@@ -121,6 +164,7 @@ def prompt_llm(cfg: dict):
             device_map="auto",
         )
     else:
+        n_ctx_length = 8192
         if 'Gemma' in LLM_name:
             chat_format = "gemma"
         elif 'Qwen' in LLM_name or 'QwQ' in LLM_name:
@@ -128,23 +172,29 @@ def prompt_llm(cfg: dict):
         else:
             chat_format = "llama-2"
         
-        response_format = {
-            "type": "json_object",
-            "schema": {
-                "type": "object",
-                "properties": {"Reason": {"type": "string"}, 
-                               "Probability": {"type": "float"}},
-                "required": ["Reason", "Probability"],
-            },
-        }
+        if return_val == "proba":
+            response_format = {
+                "type": "json_object",
+                "schema": {
+                    "type": "object",
+                    "properties": {"Reason": {"type": "string"}, 
+                                "Probability": {"type": "float"}},
+                    "required": ["Reason", "Probability"],
+                },
+            }
+        else:
+            response_format = {
+                "type": "json_object",
+                "schema": {
+                    "type": "object",
+                    "properties": {"Reason": {"type": "string"}, 
+                                "Prediction": {"type": "int"}},
+                    "required": ["Reason", "Prediction"],
+                },
+            }
 
         # llm = Llama(model_path=LLM_path, n_gpu_layers=-1, main_gpu=0,
         #             chat_format=chat_format, seed=42, n_ctx=8192, flash_attn=True)
-
-    # get note data
-    # load the clinical notes file
-    clinical_notes_df = load_table(f"{data_dir}/{file_name}")
-    prompt_file_list = [f'{prompt_file_dir}/prompt_list_{x}_numeric-proba{numeric_proba}.json' for x in target_list]
 
     # if n_few_shot > 0:
         # if condition on ED visit/ other targets
@@ -171,6 +221,16 @@ def prompt_llm(cfg: dict):
 
             logger.info(f"Target: {target_name}\n")
             
+            if n_few_shot > 0:
+                # load few shot file examples
+                df_few_shot = pd.read_csv(f'{few_shot_dir}/few_shot_{target_name}.csv')
+
+                # delete possibly duplicate example
+                df_few_shot = df_few_shot.loc[df_few_shot['note'] != note].copy()
+
+                # re-arrange so there is an alternating +/-
+                df_few_shot = alternate_rows(df_few_shot, target_name)
+
             target_name_nospace = target_name.replace("_", "-")
 
             # check if file already exists, otherwise, skip!
@@ -183,7 +243,7 @@ def prompt_llm(cfg: dict):
                 torch.manual_seed(0)
             else:
                 llm = Llama(model_path=LLM_path, n_gpu_layers=-1, main_gpu=0,
-                    chat_format=chat_format, seed=42, n_ctx=8192, flash_attn=False)
+                    chat_format=chat_format, seed=42, n_ctx=n_ctx_length, flash_attn=False)
 
             # open prompt file and extract prompt
             with open(json_file, "r") as file:
@@ -196,6 +256,55 @@ def prompt_llm(cfg: dict):
             system_instructions = system_instructions.replace(
                 "<TREATMENT DATE>", treatment_date_str
             )
+
+            # if few-shot, add examples so as not to exceed limit
+            if n_few_shot > 0:
+
+                # assert that llama_cpp is equal to 1
+                assert llama_cpp == 1, "Not implemented for hugging face models yet."
+
+                # get tokenized length of note
+                note_tokens = len(llm.tokenize(note.encode('utf-8')))
+
+                # get tokenized length of system instructions
+                system_instructions_tokens = len(llm.tokenize(system_instructions.encode('utf-8')))
+
+                few_shot_phrase = (' Below are examples of clinical note summaries along with whether ' + 
+                 'or not the adverse event occurred (1 = Yes, 0 = No). These examples are for reference, ' +
+                 'but your prediction should be a probability rather than a binary classification.\n' + 
+                 'Examples:\n')
+                
+                # get tokenized length of additional instructions
+                few_shot_phrase_tokens = len(llm.tokenize(few_shot_phrase.encode('utf-8')))
+
+                # get tokenized length of first note to be added
+                first_note_tokens = len(llm.tokenize(df_few_shot.iloc[0]['note_summary'].encode('utf-8')))
+
+                initial_tokens = (note_tokens + system_instructions_tokens + 
+                                few_shot_phrase_tokens + first_note_tokens)
+
+                if initial_tokens < n_ctx_length:
+                    
+                    system_instructions = system_instructions + few_shot_phrase
+                    
+                    for idx_fewshot, row_fewshot in df_few_shot.iterrows():
+
+                        if idx_fewshot + 1 > n_few_shot: break
+
+                        note_summary = row_fewshot["note_summary"]
+                        summary_target_val = row_fewshot[target_name]
+
+                        # prepare new example
+                        new_example = f'Clinical Note Summary: {note_summary}\n'
+                        new_example += f'Outcome: {summary_target_val}\n\n'
+
+                        example_tokens = len(llm.tokenize((system_instructions + new_example).encode('utf-8')))
+                        if example_tokens + note_tokens < (n_ctx_length - max_tokens):
+                            system_instructions += new_example
+                        else:
+                            break
+                    
+                logger.info(f"system instructions: {system_instructions}\n")
 
             # prepare prompt
             # if huggingface
@@ -232,7 +341,7 @@ def prompt_llm(cfg: dict):
                     try:
                         sequences = llm.create_chat_completion(messages=messages, 
                                                 response_format=response_format, 
-                                                max_tokens=250, 
+                                                max_tokens=max_tokens, 
                                                 **llm_params)
                         raw_string = sequences['choices'][0]['message']['content']
                     except:
@@ -245,18 +354,27 @@ def prompt_llm(cfg: dict):
 
                     result = ast.literal_eval(raw_string[start_idx : end_idx + 1])
 
-                    if "Probability" not in result:
-                        result["Probability"] = None
+                    if return_val == 'proba':
+                        if "Probability" not in result:
+                            result["Probability"] = None
+                        if result["Probability"] is not None and result["Probability"] > 1:
+                            result["Probability"] = result["Probability"] / 100
+                    else:
+                        if "Prediction" not in result:
+                            result["Prediction"] = None
+                        if result["Prediction"] is not None and result["Prediction"] not in (0, 1):
+                            result["Prediction"] = 0 if abs(result["Prediction"] - 0) < abs(result["Prediction"] - 1) else 1
+
                     if "Reason" not in result:
                         result["Reason"] = None
 
-                    if result["Probability"] is not None and result["Probability"] > 1:
-                        result["Probability"] = result["Probability"] / 100 
-                    
                     result['Raw'] = raw_string
 
                 except:
-                    result = {"Reason": None, "Probability": None, "Raw": raw_string}
+                    if return_val == 'proba':
+                        result = {"Reason": None, "Probability": None, "Raw": raw_string}
+                    else:
+                        result = {"Reason": None, "Prediction": None, "Raw": raw_string}
 
                 result[target_name] = row[target_name]
 

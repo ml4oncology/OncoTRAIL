@@ -33,7 +33,7 @@ def generate_deid():
 
     return deid_prompt
 
-def generate_target(target_string, simplify):
+def generate_target(target_string, simplify, repeated_sampling):
 
     logger.info(f"target_string: {target_string}")
 
@@ -149,10 +149,17 @@ def generate_target(target_string, simplify):
             else:
                 target_prompt = f"experience increasing blood bilirubin level {time_period}"
 
-    target_prompt = (
-        "Your task is to predict the probability that the patient will "
-        + target_prompt + ". "
-    )
+    if repeated_sampling == 0:
+        target_prompt = (
+            "Your task is to predict the probability that the patient will "
+            + target_prompt + ". "
+        )
+    else:
+        target_prompt = (
+            "Your task is to predict whether the patient will "
+            + target_prompt + ". "
+        )
+
     target_prompt = target_prompt + additional_info
 
     return target_prompt
@@ -209,7 +216,7 @@ def generate_proba(numeric_proba):
 
     return proba_prompt
 
-def generate_prompts(target_names, numeric_proba, save_dir):
+def generate_prompts(target_names, numeric_proba, save_dir, repeated_sampling):
 
     # 0->23: non-simplified
     # 0->7: persona 1
@@ -232,10 +239,16 @@ def generate_prompts(target_names, numeric_proba, save_dir):
     persona_prompt = generate_persona()
     proba_prompt = generate_proba(numeric_proba)
 
-    format_prompt = ("You will only respond with a JSON object with the keys Reason and Probability. " +
-                    "Reason must be a very concise explanation of how you arrived at the predicted probability. " +
-                    proba_prompt +
-                    """Example output: {"Reason": "<Your Reason>", "Probability": 0.5}.""")
+    if repeated_sampling == 0:
+        format_prompt = ("You will only respond with a JSON object with the keys Reason and Probability. " +
+                        "Reason must be a very concise explanation of how you arrived at the predicted probability. " +
+                        proba_prompt +
+                        """Example output: {"Reason": "<Your Reason>", "Probability": 0.5}.""")
+    else:
+        format_prompt = ("You will only respond with a JSON object with the keys Reason and Prediction. " +
+                        "Reason must be a very concise explanation of how you arrived at your prediction. " +
+                        "Prediction must be either 0 or 1. " +
+                        """Example output: {"Reason": "<Your Reason>", "Prediction": 1}.""")
     
     note_details_prompt = ("You are reviewing a de-identified clinical note below from the past 30 days " + 
                            "for a patient receiving systemic cancer therapy on <TREATMENT DATE>. ")
@@ -251,7 +264,7 @@ def generate_prompts(target_names, numeric_proba, save_dir):
 
         ctr = 0
         for simplify in [0, 1]:
-            target_prompt = generate_target(target_name, simplify)
+            target_prompt = generate_target(target_name, simplify, repeated_sampling)
             for persona_val in persona_prompt:
                 for health_val in health_prompt:
                     for add_deid in [0, 1]:
@@ -298,5 +311,6 @@ if __name__ == "__main__":
         "numeric_proba", help="numeric value for probability", type=int
     )  # numeric value for probability?
     parser.add_argument("save_dir", help="save directory", type=str)  # save directory
+    parser.add_argument("repeated_sampling", help="repeated sampling", type=int) # repeated sampling
     args = parser.parse_args()
-    generate_prompts(args.target_names, args.numeric_proba, args.save_dir)
+    generate_prompts(args.target_names, args.numeric_proba, args.save_dir, args.repeated_sampling)
