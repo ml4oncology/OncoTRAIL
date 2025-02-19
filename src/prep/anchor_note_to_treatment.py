@@ -17,8 +17,9 @@ from ml_common.constants import SYMP_COLS
 
 from preduce.acu.label import get_event_labels
 from preduce.symp.label import (get_symptom_labels, convert_to_binary_symptom_labels)
-from preduce.prepare.filter import indicate_immediate_events
-from preduce.prepare.prep import fill_missing_data
+from ml_common.prep import fill_missing_data_heuristically
+from preduce.filter import indicate_immediate_events
+# from preduce.prepare.prep import fill_missing_data
 
 from llm_notes_classification.prep.label import get_ctcae_labels
 from llm_notes_classification.prep.add_tabular_to_note import (
@@ -249,7 +250,7 @@ def anchor_note_to_treatment(notes_data_path,
     df_treat = drop_unused_drug_features(df_treat)
 
     # fill missing data that can be filled heuristically
-    df_treat = fill_missing_data(df_treat)
+    df_treat = fill_missing_data_heuristically(df_treat)
 
     if add_tabular_to_note:
         opis_df = pd.read_parquet(f'{opis_data_path}')
