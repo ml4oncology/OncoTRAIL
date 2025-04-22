@@ -90,8 +90,9 @@ def launch(cfg):
             df_few_shot_sample = (pd.concat([df_few_shot_sample_pos, df_few_shot_sample_neg])
                                     .reset_index(drop=True)
                                     )
-            if not os.path.isfile(f'{data_dir}/few_shot_{target}.csv'):
-                df_few_shot_sample[['mrn','treatment_date','note','note_summary',target]].to_csv(f'{data_dir}/few_shot_{target}.csv', 
+            few_shot_examples_fname = f"few_shot_{target}_nfewshot_{cfg['n_few_shot']}_{cfg['few_shot_date']}.csv"
+            if not os.path.isfile(f'{data_dir}/{few_shot_examples_fname}'):
+                df_few_shot_sample[['mrn','treatment_date','note','note_summary',target]].to_csv(f'{data_dir}/{few_shot_examples_fname}', 
                                                         index=False)
 
             # create a new key
@@ -169,11 +170,11 @@ def launch(cfg):
 
     for partition_id, idxs in enumerate(partition_list):
         partition_path = f'{data_path_partitions}/{partition_id}_{df_name}'
-        if not os.path.isfile(partition_path):
-            if partition_path.endswith('.csv'):
-                df.loc[idxs].reset_index(drop=True).to_csv(partition_path, index=False)
-            elif partition_path.endswith(('.parquet','.parquet.gzip')):
-                df.loc[idxs].reset_index(drop=True).to_parquet(partition_path, compression='gzip', index=False)
+        # if not os.path.isfile(partition_path):
+        if partition_path.endswith('.csv'):
+            df.loc[idxs].reset_index(drop=True).to_csv(partition_path, index=False)
+        elif partition_path.endswith(('.parquet','.parquet.gzip')):
+            df.loc[idxs].reset_index(drop=True).to_parquet(partition_path, compression='gzip', index=False)
 
         cfgs.append(dict(data_dir=f'{data_path_partitions}', 
                          file_name=f'{partition_id}_{df_name}',
