@@ -3,7 +3,7 @@ import submitit
 from datetime import datetime
 import os
 import numpy as np
-from ml_common.util import load_table
+# from ml_common.util import load_table
 import pandas as pd
 from llm_notes_classification.prompt.helper import prompt_llm
 
@@ -37,7 +37,7 @@ def launch(cfg):
         slurm_gpus_per_node=1, # Each node should use 1 GPU
         gres="gpu:1",              # Request 1 GPU
         slurm_additional_parameters={
-            "account": "gliugroup_gpu",
+            "account": "grantgroup_gpu",
         }
     )
 
@@ -50,7 +50,7 @@ def launch(cfg):
     df_name = cfg['file_name']
     
     # read dataframe
-    df = load_table(f'{data_dir}/{df_name}')
+    # df = load_table(f'{data_dir}/{df_name}')
 
     if '.parquet.gzip' in df_name:
         file_name_no_ext = os.path.splitext(df_name)[0]
@@ -70,94 +70,94 @@ def launch(cfg):
     os.makedirs(f"{data_dir}", exist_ok=True)
 
     # list of targets
-    list_of_targets = cfg['target_names'].split(",")
+    # list_of_targets = cfg['target_names'].split(",")
 
     if cfg['n_few_shot'] != 0:
-        for target in list_of_targets:
-            # find indices where target is not -1
-            df_few_shot = df.loc[df['treatment_date']<cfg['few_shot_date']].loc[df['note_summary'].notna()].loc[df[target] != -1].copy()
-            # sample a few examples from df_few_shot
-            df_few_shot_sample_pos = (
-                df_few_shot.loc[df_few_shot[target] == 1]
-                .sample(n=round(cfg['n_few_shot']/2), replace=False, random_state=42)
-                )
-            df_few_shot_sample_neg = (
-                df_few_shot.loc[df_few_shot[target] == 0]
-                .sample(n=cfg['n_few_shot']-df_few_shot_sample_pos.shape[0], replace=False, random_state=42)
-                )
-            
-            # fix this later if there is not enough samples
-            df_few_shot_sample = (pd.concat([df_few_shot_sample_pos, df_few_shot_sample_neg])
-                                    .reset_index(drop=True)
-                                    )
-            few_shot_examples_fname = f"few_shot_{target}_nfewshot_{cfg['n_few_shot']}_{cfg['few_shot_date']}.csv"
-            if not os.path.isfile(f'{data_dir}/{few_shot_examples_fname}'):
-                df_few_shot_sample[['mrn','treatment_date','note','note_summary',target]].to_csv(f'{data_dir}/{few_shot_examples_fname}', 
-                                                        index=False)
+        # create a new key
+        cfg['few_shot_dir'] = data_dir
 
-            # create a new key
-            cfg['few_shot_dir'] = data_dir
+        # for target in list_of_targets:
+        #     # find indices where target is not -1
+        #     df_few_shot = df.loc[df['treatment_date']<cfg['few_shot_date']].loc[df['note_summary'].notna()].loc[df[target] != -1].copy()
+        #     # sample a few examples from df_few_shot
+        #     df_few_shot_sample_pos = (
+        #         df_few_shot.loc[df_few_shot[target] == 1]
+        #         .sample(n=round(cfg['n_few_shot']/2), replace=False, random_state=42)
+        #         )
+        #     df_few_shot_sample_neg = (
+        #         df_few_shot.loc[df_few_shot[target] == 0]
+        #         .sample(n=cfg['n_few_shot']-df_few_shot_sample_pos.shape[0], replace=False, random_state=42)
+        #         )
+            
+        #     # fix this later if there is not enough samples
+        #     df_few_shot_sample = (pd.concat([df_few_shot_sample_pos, df_few_shot_sample_neg])
+        #                             .reset_index(drop=True)
+        #                             )
+        #     few_shot_examples_fname = f"few_shot_{target}_nfewshot_{cfg['n_few_shot']}_{cfg['few_shot_date']}.csv"
+        #     if not os.path.isfile(f'{data_dir}/{few_shot_examples_fname}'):
+        #         df_few_shot_sample[['mrn','treatment_date','note','note_summary',target]].to_csv(f'{data_dir}/{few_shot_examples_fname}', 
+        #                                                 index=False)
 
             # possibly delete few_shot_file_path from the variable inputs
             # what if there are not enough positive examples?
 
     # restrict the data frame to time period
-    df = df[df['treatment_date'].between(cfg['start_date'], cfg['end_date'])].copy()
+    # df = df[df['treatment_date'].between(cfg['start_date'], cfg['end_date'])].copy()
 
-    partition_list = np.array_split(df.index, n_partitions)
+    # partition_list = np.array_split(df.index, n_partitions)
 
-    # if random sampling, change targets of discarded rows to -1
-    if cfg['random_sampling'] == 1:
-        n_class_samples = 300
-        for target in list_of_targets:
-            # randomly select n_class_samples indices
-            df_positive = df[df[target] == 1].copy()
-            positive_idxs = df_positive.sample(n=np.min([n_class_samples, df_positive.shape[0]]), 
-                                               replace=False, 
-                                               random_state=42).index
+    # # if random sampling, change targets of discarded rows to -1
+    # if cfg['random_sampling'] == 1:
+    #     n_class_samples = 300
+    #     for target in list_of_targets:
+    #         # randomly select n_class_samples indices
+    #         df_positive = df[df[target] == 1].copy()
+    #         positive_idxs = df_positive.sample(n=np.min([n_class_samples, df_positive.shape[0]]), 
+    #                                            replace=False, 
+    #                                            random_state=42).index
             
-            df_negative = df[df[target] == 0].copy()
-            n_neg_samples = n_class_samples
-            if df_positive.shape[0] < n_class_samples:
-                n_neg_samples = 2*n_class_samples - df_positive.shape[0]
-            negative_idxs = df_negative.sample(n=n_neg_samples, 
-                                               replace=False, 
-                                               random_state=42).index
+    #         df_negative = df[df[target] == 0].copy()
+    #         n_neg_samples = n_class_samples
+    #         if df_positive.shape[0] < n_class_samples:
+    #             n_neg_samples = 2*n_class_samples - df_positive.shape[0]
+    #         negative_idxs = df_negative.sample(n=n_neg_samples, 
+    #                                            replace=False, 
+    #                                            random_state=42).index
             
-            # take the union of positive and negative indices
-            idxs = np.union1d(positive_idxs, negative_idxs)
+    #         # take the union of positive and negative indices
+    #         idxs = np.union1d(positive_idxs, negative_idxs)
 
-            # for the rest of the indices, set the target to -1
-            non_idxs = np.setdiff1d(df.index, idxs)
+    #         # for the rest of the indices, set the target to -1
+    #         non_idxs = np.setdiff1d(df.index, idxs)
 
-            df.loc[non_idxs, target] = -1
+    #         df.loc[non_idxs, target] = -1
 
-        # re-arrange data frame so that the number of queries across parts is roughly the same
-        non_negatives = (df[list_of_targets] != -1).astype(int)
-        df['non_negative_count'] = non_negatives.sum(axis=1)
-        df.sort_values('non_negative_count', ascending=False, inplace=True)
-        group_sums = [0] * n_partitions  # Keep track of the sum of non_negative_count in each group
-        group_assignments = []  # To store group assignment for each row
+    #     # re-arrange data frame so that the number of queries across parts is roughly the same
+    #     non_negatives = (df[list_of_targets] != -1).astype(int)
+    #     df['non_negative_count'] = non_negatives.sum(axis=1)
+    #     df.sort_values('non_negative_count', ascending=False, inplace=True)
+    #     group_sums = [0] * n_partitions  # Keep track of the sum of non_negative_count in each group
+    #     group_assignments = []  # To store group assignment for each row
 
-        # greedily assign rows to groups
-        for idx, row in df.iterrows():
-            # Find the group with the minimum sum of non_negative_count
-            min_group_index = np.argmin(group_sums)
+    #     # greedily assign rows to groups
+    #     for idx, row in df.iterrows():
+    #         # Find the group with the minimum sum of non_negative_count
+    #         min_group_index = np.argmin(group_sums)
             
-            # Assign the row to that group
-            group_assignments.append(min_group_index)
+    #         # Assign the row to that group
+    #         group_assignments.append(min_group_index)
             
-            # Update the sum of the assigned group
-            group_sums[min_group_index] += row['non_negative_count']
+    #         # Update the sum of the assigned group
+    #         group_sums[min_group_index] += row['non_negative_count']
 
-        df['group'] = group_assignments
-        partition_list = [[] for _ in range(n_partitions)]
+    #     df['group'] = group_assignments
+    #     partition_list = [[] for _ in range(n_partitions)]
 
-        for idx, group in zip(df.index, df['group']):
-            partition_list[group].append(idx)
+    #     for idx, group in zip(df.index, df['group']):
+    #         partition_list[group].append(idx)
         
-        # drop 'group' and 'non_negative_count' columns from df
-        df.drop(columns=['group', 'non_negative_count'], inplace=True)
+    #     # drop 'group' and 'non_negative_count' columns from df
+    #     df.drop(columns=['group', 'non_negative_count'], inplace=True)
 
     cfg.pop('file_name')
     cfg.pop('data_dir')
@@ -168,13 +168,14 @@ def launch(cfg):
     data_path_partitions = f'{data_dir}/randomsampling{cfg["random_sampling"]}_{cfg["start_date"]}_{cfg["end_date"]}'
     os.makedirs(data_path_partitions, exist_ok=True)
 
-    for partition_id, idxs in enumerate(partition_list):
-        partition_path = f'{data_path_partitions}/{partition_id}_{df_name}'
-        # if not os.path.isfile(partition_path):
-        if partition_path.endswith('.csv'):
-            df.loc[idxs].reset_index(drop=True).to_csv(partition_path, index=False)
-        elif partition_path.endswith(('.parquet','.parquet.gzip')):
-            df.loc[idxs].reset_index(drop=True).to_parquet(partition_path, compression='gzip', index=False)
+    # for partition_id, idxs in enumerate(partition_list):
+    for partition_id in range(n_partitions):
+        # partition_path = f'{data_path_partitions}/{partition_id}_{df_name}'
+        # # if not os.path.isfile(partition_path):
+        # if partition_path.endswith('.csv'):
+        #     df.loc[idxs].reset_index(drop=True).to_csv(partition_path, index=False)
+        # elif partition_path.endswith(('.parquet','.parquet.gzip')):
+        #     df.loc[idxs].reset_index(drop=True).to_parquet(partition_path, compression='gzip', index=False)
 
         cfgs.append(dict(data_dir=f'{data_path_partitions}', 
                          file_name=f'{partition_id}_{df_name}',

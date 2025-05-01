@@ -203,6 +203,9 @@ def prompt_llm(cfg: dict):
     
     logger.info(f"{file_name}")
 
+    # max_tokens = 2000
+    # response_format = {}
+
     for _, row in clinical_notes_df.iterrows():
 
         note = row["note"]
@@ -223,7 +226,8 @@ def prompt_llm(cfg: dict):
             
             if n_few_shot > 0:
                 # load few shot file examples
-                df_few_shot = pd.read_csv(f'{few_shot_dir}/few_shot_{target_name}.csv')
+                few_shot_fname = f"few_shot_{target_name}_nfewshot_{cfg['n_few_shot']}_{cfg['few_shot_date']}.csv"
+                df_few_shot = pd.read_csv(f'{few_shot_dir}/{few_shot_fname}')
 
                 # delete possibly duplicate example
                 df_few_shot = df_few_shot.loc[df_few_shot['note'] != note].copy()
@@ -283,6 +287,7 @@ def prompt_llm(cfg: dict):
                 initial_tokens = (note_tokens + system_instructions_tokens + 
                                 few_shot_phrase_tokens + first_note_tokens)
 
+                n_examples_added = 0
                 if initial_tokens < n_ctx_length:
                     
                     system_instructions = system_instructions + few_shot_phrase
@@ -302,8 +307,11 @@ def prompt_llm(cfg: dict):
                         if example_tokens + note_tokens < (n_ctx_length - max_tokens):
                             system_instructions += new_example
                         else:
+                            idx_fewshot = idx_fewshot - 1
                             break
-                    
+
+                    n_examples_added = idx_fewshot + 1
+
                 logger.info(f"system instructions: {system_instructions}\n")
 
             # prepare prompt
@@ -326,7 +334,7 @@ def prompt_llm(cfg: dict):
                 if llama_cpp == 0:
                     try:
                         sequences = pipe(
-                            messages, max_new_tokens=250, 
+                            messages, max_new_tokens=max_tokens, 
                             do_sample=True, 
                             return_full_text=False, 
                             **llm_params
@@ -339,7 +347,12 @@ def prompt_llm(cfg: dict):
 
                 else:
                     try:
-                        sequences = llm.create_chat_completion(messages=messages, 
+                        if len(response_format) == 0:
+                            sequences = llm.create_chat_completion(messages=messages,  
+                                                max_tokens=max_tokens, 
+                                                **llm_params)
+                        else:
+                            sequences = llm.create_chat_completion(messages=messages, 
                                                 response_format=response_format, 
                                                 max_tokens=max_tokens, 
                                                 **llm_params)
@@ -383,6 +396,9 @@ def prompt_llm(cfg: dict):
             results_df = pd.DataFrame(results)
             results_df['mrn'] = mrn
             results_df['treatment_date'] = treatment_date
+            if n_few_shot > 0:
+                results_df['n_few_shot_added'] = n_examples_added
+
             results_df.to_csv(
                 f"{save_dir}/mrn{mrn}_trtdate{treatment_date[:10]}_{target_name_nospace}_{LLM_name}_prompt{prompt_num}.csv"
             )
