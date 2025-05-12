@@ -68,6 +68,7 @@ def anchor_note_to_treatment(notes_data_path,
 
     # load treatment-centered data frame
     df_treat = pd.read_parquet(f'{treatment_data_path}', engine='pyarrow', use_nullable_dtypes = True)
+    df_treat.rename(columns={'target_ED_30d': 'target_ED_visit'}, inplace=True)
 
     df_treat['assessment_date'] = df_treat['treatment_date']
     df_treat['treatment_date'] = pd.to_datetime(df_treat['treatment_date'])
@@ -103,27 +104,33 @@ def anchor_note_to_treatment(notes_data_path,
         targ_cols = [f'target_{symp}_{pt}pt_change' for symp in SYMP_COLS]
         df_treat = indicate_immediate_events(df_treat, targ_cols, date_cols)
 
-    # process death
-    df_treat['target_death_in_365d'] =\
-          df_treat['date_of_death'] < df_treat['treatment_date'] + pd.Timedelta(days=365)
-    df_treat['target_death_in_30d'] =\
-          df_treat['date_of_death'] < df_treat['treatment_date'] + pd.Timedelta(days=30)
+    ####################
+    # Targets now in
+    # treatment data
+    # frame
+    ####################
 
-    last_seen_date = pd.read_parquet(f'{last_seen_data_path}')
-    df_treat['last_seen_date'] = df_treat['mrn'].map(last_seen_date['last_seen_date'])
-    mask = df_treat['last_seen_date'] > df_treat['date_of_death']
+    # # process death
+    # df_treat['target_death_in_365d'] =\
+    #       df_treat['date_of_death'] < df_treat['treatment_date'] + pd.Timedelta(days=365)
+    # df_treat['target_death_in_30d'] =\
+    #       df_treat['date_of_death'] < df_treat['treatment_date'] + pd.Timedelta(days=30)
 
-    df_treat[['target_death_in_365d', 'target_death_in_30d']] =\
-          df_treat[['target_death_in_365d', 'target_death_in_30d']].astype(int)
-    df_treat.loc[mask, ['target_death_in_365d', 'target_death_in_30d']] = -1
+    # last_seen_date = pd.read_parquet(f'{last_seen_data_path}')
+    # df_treat['last_seen_date'] = df_treat['mrn'].map(last_seen_date['last_seen_date'])
+    # mask = df_treat['last_seen_date'] > df_treat['date_of_death']
+
+    # df_treat[['target_death_in_365d', 'target_death_in_30d']] =\
+    #       df_treat[['target_death_in_365d', 'target_death_in_30d']].astype(int)
+    # df_treat.loc[mask, ['target_death_in_365d', 'target_death_in_30d']] = -1
     
-    # add CTCAE targets
-    df_lab = pd.read_parquet(f'{lab_values_data_path}')
-    df_treat = get_ctcae_labels(df_treat,
-                                df_lab,
-                                'treatment_date',
-                                'obs_date'
-                                )
+    # # add CTCAE targets
+    # df_lab = pd.read_parquet(f'{lab_values_data_path}')
+    # df_treat = get_ctcae_labels(df_treat,
+    #                             df_lab,
+    #                             'treatment_date',
+    #                             'obs_date'
+    #                             )
     
     # # DEBUG
     # # before dropping non first treatment
@@ -242,7 +249,14 @@ def anchor_note_to_treatment(notes_data_path,
                         [f'target_{col}_change' for col in SYMP_COLS] +\
                             ['target_CTAS_score', 'target_CEDIS_complaint']
     target_cols = [col for col in keep_cols if col not in exclude_cols]
+    target_cols = [col for col in target_cols if 'max' not in col and 'min' not in col]
     df_treat.loc[:, target_cols].fillna(value=-1, inplace=True)
+
+    # # DEBUG
+    # # save for debugging
+    # df_treat.to_csv(f"{save_dir}/debug_note_anchored_{config_name}.csv")
+
+    df_treat[target_cols] = df_treat[target_cols].replace({'False': 0, 'True': 1})
     df_treat[target_cols] = df_treat[target_cols].astype(int)
     df_treat = drop_samples_with_no_targets(df_treat, target_cols, missing_val=-1) 
 
