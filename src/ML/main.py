@@ -107,7 +107,7 @@ def main(
     df.reset_index(drop=True, inplace=True)
 
     # generate train-validation-test split
-    X_train, Y_train, X_eval, Y_eval, X_valid, Y_valid, X_test, Y_test = gen_data_split(
+    X_train, Y_train, X_eval, Y_eval, X_valid, Y_valid, X_test, Y_test, var_names = gen_data_split(
         df, start_test_date, split_config, embedding, target, data_type, model_name
     )
 
@@ -125,8 +125,14 @@ def main(
         model_name,
         file_save_str,
         LLM_name,
+        data_type
     )
-    train_pred, val_pred, test_pred = trainer.run()
+    (
+        train_pred,
+        val_pred,
+        test_pred,
+        shap_values_test,
+    ) = trainer.run()
 
     # save data
     np.savez(
@@ -137,6 +143,8 @@ def main(
         Y_train=Y_train,
         Y_valid=Y_valid,
         Y_test=Y_test,
+        shap_values_test=shap_values_test,
+        var_names=var_names
     )
 
     # evaluate errors

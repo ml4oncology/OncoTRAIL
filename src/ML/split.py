@@ -141,7 +141,7 @@ def gen_data_split(
         X_valid = np.concatenate([X_valid, valid_data.to_numpy()], axis=1)
         X_test = np.concatenate([X_test, test_data.to_numpy()], axis=1)
 
-    return X_train, Y_train, X_eval, Y_eval, X_valid, Y_valid, X_test, Y_test
+    return X_train, Y_train, X_eval, Y_eval, X_valid, Y_valid, X_test, Y_test, train_data.columns.to_list()
 
 
 def convert_str_list(y):

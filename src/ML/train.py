@@ -14,6 +14,7 @@ from llm_notes_classification.config import (
     LLM_embedding_dim,
 )
 from .models import LR, XGB, LGBM, MLP, MidfusionMLP
+import shap
 
 torch.manual_seed(0)
 np.random.seed(0)
@@ -131,6 +132,7 @@ class Trainer(Tuner):
         alg,
         str_identifier,
         LLM_name,
+        data_type,
         **kwargs,
     ):
         """
@@ -151,6 +153,7 @@ class Trainer(Tuner):
         )
         self.str_identifier = str_identifier
         self.embedding_size = LLM_embedding_dim[LLM_name] if LLM_name is not None else 0
+        self.data_type = data_type
 
     def run(self, bayes_kwargs=None):
         """
@@ -183,7 +186,32 @@ class Trainer(Tuner):
         # Prediction
         test_pred = self.predict(model, self.X_test)
 
-        return train_pred, val_pred, test_pred
+        # compute shapley values
+        # explainer = shap.Explainer(model, self.X_valid)
+
+        Xv = (
+                self.X_valid.cpu().numpy().astype(float)
+                if isinstance(self.X_valid, torch.Tensor)
+                else np.asarray(self.X_valid, dtype=float)
+            )
+        if self.alg_name in ["LR", "XGB", "LGBM"]:
+            explainer = shap.Explainer(model.predict, Xv)
+        elif self.alg_name in ["MLP", "Midfusion"]:
+            model.eval()  # deactivates dropout
+            predict_fn = lambda data: model.predict(data, grad=False, bound_pred=True)
+            explainer = shap.Explainer(predict_fn, Xv)
+
+        if self.data_type == "tabular":
+            Xt = (
+                self.X_test.cpu().numpy().astype(float)
+                if isinstance(self.X_test, torch.Tensor)
+                else np.asarray(self.X_test, dtype=float)
+            )
+            shap_values_test = explainer.shap_values(Xt)
+        else:
+            shap_values_test = []
+
+        return train_pred, val_pred, test_pred, shap_values_test
 
     def train_model(self, **kwargs):
         if self.alg_name in ["LR", "XGB", "LGBM"]:
