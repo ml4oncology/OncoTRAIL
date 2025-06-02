@@ -18,6 +18,95 @@ def clean_col_name(str_name):
     
     return clean_name
 
+def gen_cols_to_add_to_note(clinical_cols_df_names, first_treatment):
+
+    acute_care_use_cols = ['num_prior_ED_visits_within_5_years', 
+                           'days_since_prev_ED_visit']
+    
+    cancer_cols = ([col for col in clinical_cols_df_names 
+                   if 'cancer_site' in col and 'other' not in col and 'missing' not in col] +
+                  [col for col in clinical_cols_df_names 
+                   if 'morphology' in col and 'other' not in col and 'missing' not in col]
+    )
+
+    demographic_cols = ['female', 
+                        'age', 
+                        'height', 
+                        'weight', 
+                        'body_surface_area']
+    
+    laboratory_cols = [
+        'alanine_aminotransferase',
+        'alanine_aminotransferase_change',
+        'albumin',
+        'albumin_change',
+        'alkaline_phosphatase',
+        'alkaline_phosphatase_change',
+        'aspartate_aminotransferase',
+        'aspartate_aminotransferase_change',
+        'creatinine',
+        'creatinine_change',
+        'glucose',
+        'glucose_change',
+        'hemoglobin',
+        'hemoglobin_change',
+        'lactate_dehydrogenase',
+        'lactate_dehydrogenase_change',
+        'lymphocyte',
+        'lymphocyte_change',
+        'neutrophil',
+        'neutrophil_change',
+        'platelet',
+        'platelet_change',
+        'potassium',
+        'potassium_change'
+    ]
+
+    symptoms_cols = ([col for col in clinical_cols_df_names
+                      if 'esas' in col and 'target' not in col and 'missing' not in col] + 
+                      ['patient_ecog', 'patient_ecog_change']
+    )
+    # arrange in alphabetical order
+    symptoms_cols = sorted(symptoms_cols)
+    # remove symptoms_cols that have 'constipation', 'vomiting', or 'diarrhea'
+    symptoms_cols = [col for col in symptoms_cols if col not in 
+                     ('esas_constipation', 'esas_diarrhea', 'esas_vomiting')]
+
+    if first_treatment == 1:
+        # remove cols with 'change' in symptoms_cols
+        symptoms_cols = [col for col in symptoms_cols if 'change' not in col]
+        laboratory_cols = [col for col in laboratory_cols if 'change' not in col]
+
+    treatment_cols = (['drug_and_dose', 'cycle_number', 'intent', 'line_of_therapy'] +
+                       [col for col in clinical_cols_df_names 
+                        if '%_ideal_dose_given' in col and 'missing' not in col]
+    )
+    # 'regimen'
+
+    # retain 4 decimal places for values in laboratory_cols and '%_ideal_dose_given'
+    pct_ideal_dose_given_cols = [col for col in clinical_cols_df_names
+                                  if '%_ideal_dose_given' in col]
+    numeric_cols = laboratory_cols + pct_ideal_dose_given_cols + ['body_surface_area']
+    
+    valid_numeric_cols = [col for col in numeric_cols
+                           if col in clinical_cols_df_names]
+    
+    cols_tabular = (demographic_cols + 
+                       acute_care_use_cols + 
+                       cancer_cols + 
+                       laboratory_cols + 
+                       symptoms_cols + 
+                       treatment_cols)
+    
+    cols_dict = {'Demographic': demographic_cols, 
+                 'Acute care use': acute_care_use_cols, 
+                 'Cancer': cancer_cols, 
+                 'Laboratory': laboratory_cols, 
+                 'Symptoms': symptoms_cols, 
+                 'Treatment': treatment_cols}
+
+    return cols_tabular, valid_numeric_cols, cols_dict
+
 def add_tabular_data_to_note(clinical_notes_df, opis_df, first_treatment):
 
     # process the drug names here
@@ -55,92 +144,12 @@ def add_tabular_data_to_note(clinical_notes_df, opis_df, first_treatment):
             if value not in reversed_dict:
                 reversed_dict[value] = key
 
-    acute_care_use_cols = ['num_prior_ED_visits_within_5_years', 
-                           'days_since_prev_ED_visit']
-    cancer_cols = ([col for col in clinical_notes_df.columns 
-                   if 'cancer_site' in col and 'other' not in col and 'missing' not in col] +
-                  [col for col in clinical_notes_df.columns 
-                   if 'morphology' in col and 'other' not in col and 'missing' not in col]
-    )
+    cols_tabular, valid_numeric_cols, cols_dict = gen_cols_to_add_to_note(clinical_notes_df.columns, first_treatment)
 
-    demographic_cols = ['female', 
-                        'age', 
-                        'height', 
-                        'weight', 
-                        'body_surface_area']
-    
-    laboratory_cols = [
-        'alanine_aminotransferase',
-        'alanine_aminotransferase_change',
-        'albumin',
-        'albumin_change',
-        'alkaline_phosphatase',
-        'alkaline_phosphatase_change',
-        'aspartate_aminotransferase',
-        'aspartate_aminotransferase_change',
-        'creatinine',
-        'creatinine_change',
-        'glucose',
-        'glucose_change',
-        'hemoglobin',
-        'hemoglobin_change',
-        'lactate_dehydrogenase',
-        'lactate_dehydrogenase_change',
-        'lymphocyte',
-        'lymphocyte_change',
-        'neutrophil',
-        'neutrophil_change',
-        'platelet',
-        'platelet_change',
-        'potassium',
-        'potassium_change'
-    ]
-
-    symptoms_cols = ([col for col in clinical_notes_df.columns 
-                      if 'esas' in col and 'target' not in col and 'missing' not in col] + 
-                      ['patient_ecog', 'patient_ecog_change']
-    )
-    # arrange in alphabetical order
-    symptoms_cols = sorted(symptoms_cols)
-    # remove symptoms_cols that have 'constipation', 'vomiting', or 'diarrhea'
-    symptoms_cols = [col for col in symptoms_cols if col not in 
-                     ('esas_constipation', 'esas_diarrhea', 'esas_vomiting')]
-
-    if first_treatment == 1:
-        # remove cols with 'change' in symptoms_cols
-        symptoms_cols = [col for col in symptoms_cols if 'change' not in col]
-        laboratory_cols = [col for col in laboratory_cols if 'change' not in col]
-
-    treatment_cols = (['drug_and_dose', 'cycle_number', 'intent', 'line_of_therapy'] +
-                       [col for col in clinical_notes_df.columns 
-                        if '%_ideal_dose_given' in col and 'missing' not in col]
-    )
-    # 'regimen'
-
-    # retain 4 decimal places for values in laboratory_cols and '%_ideal_dose_given'
-    pct_ideal_dose_given_cols = [col for col in clinical_notes_df.columns
-                                  if '%_ideal_dose_given' in col]
-    numeric_cols = laboratory_cols + pct_ideal_dose_given_cols + ['body_surface_area']
-    valid_numeric_cols = [col for col in numeric_cols
-                           if col in clinical_notes_df.columns]
     #clinical_notes_df[valid_numeric_cols] = clinical_notes_df[valid_numeric_cols].round(4)
     clinical_notes_df[valid_numeric_cols] = (clinical_notes_df[valid_numeric_cols]
                                              .applymap(lambda x: np.round(x, 4) if pd.notna(x) else x)
                                             )
-
-    cols_tabular = (demographic_cols + 
-                       acute_care_use_cols + 
-                       cancer_cols + 
-                       laboratory_cols + 
-                       symptoms_cols + 
-                       treatment_cols)
-    
-    cols_dict = {'Demographic': demographic_cols, 
-                 'Acute care use': acute_care_use_cols, 
-                 'Cancer': cancer_cols, 
-                 'Laboratory': laboratory_cols, 
-                 'Symptoms': symptoms_cols, 
-                 'Treatment': treatment_cols}
 
     valid_cols_tabular = [col for col in cols_tabular
                            if col in clinical_notes_df.columns]

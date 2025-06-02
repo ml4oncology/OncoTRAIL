@@ -6,6 +6,7 @@ import numpy as np
 # from ml_common.util import load_table
 import pandas as pd
 from llm_notes_classification.prompt.helper import prompt_llm
+import sys
 
 def launch(cfg):
     """Use submitit to launch jobs in the SLURM cluster
@@ -214,5 +215,30 @@ if __name__ == "__main__":
     parser.add_argument("n_hours", help="number of hours", type=int)  # number of hours
     parser.add_argument("memory", help="memory of each node", type=int)  # memory of each node
     parser.add_argument("gpu_constraint", help="gpu constraint", type=int)  # constraint on gpu
+
+    # New vLLM-related arguments
+    parser.add_argument("use_vllm", type=int, choices=[0, 1], help="whether to use vLLM (0 or 1)")
+    parser.add_argument("--base_url", type=str, default=None, help="base URL for vLLM server")
+    parser.add_argument("--vllm_model_name", type=str, default=None, help="model name on vLLM server")
+
+    # New shapley-related arguments
+    parser.add_argument("add_shapley", type=int, choices=[0, 1, 2], help="whether to add shapley (1), linear regression coefficient (2), or not (0)")
+    parser.add_argument("--shapley_path", type=str, default=None, help="path for shapley coefficients")
+    parser.add_argument("--log_reg_path", type=str, default=None, help="path for logistic regression coefficients")
+
     cfg = vars(parser.parse_args())
+
+    if cfg["use_vllm"] == 1:
+        if cfg["base_url"] is None or cfg["vllm_model_name"] is None:
+            print("Error: --base_url and --vllm_model_name must be provided when use_vllm is 1.")
+            sys.exit(1)
+
+    if cfg["add_shapley"] > 0 and cfg["shapley_path"] is None:
+        print("Error: --shapley_path must be provided when add_shapley is 1 or 2.")
+        sys.exit(1)
+
+    if cfg["add_shapley"] == 2 and cfg["log_reg_path"] is None:
+        print("Error: --log_reg_path must be provided when add_shapley is 2.")
+        sys.exit(1)    
+
     launch(cfg)

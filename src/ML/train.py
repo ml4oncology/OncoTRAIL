@@ -208,10 +208,18 @@ class Trainer(Tuner):
                 else np.asarray(self.X_test, dtype=float)
             )
             shap_values_test = explainer.shap_values(Xt)
+
+            # Compute correlation for each column
+            corr_coeff = np.array([
+                np.corrcoef(Xt[:, i], shap_values_test[:, i])[0, 1]
+                for i in range(Xt.shape[1])
+            ])
+
         else:
             shap_values_test = []
+            corr_coeff = []
 
-        return train_pred, val_pred, test_pred, shap_values_test
+        return train_pred, val_pred, test_pred, shap_values_test, corr_coeff
 
     def train_model(self, **kwargs):
         if self.alg_name in ["LR", "XGB", "LGBM"]:
@@ -220,6 +228,9 @@ class Trainer(Tuner):
             model = self.train_dl_model(**kwargs, **self.model_static_param)
         else:
             raise Exception("Not implemented yet.")
+
+        # save the trained model
+        save_pickle(model, f"{self.output_path}", 'model_' + self.str_identifier)
 
         return model
 

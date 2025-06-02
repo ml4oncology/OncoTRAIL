@@ -132,6 +132,7 @@ def main(
         val_pred,
         test_pred,
         shap_values_test,
+        corr_coeff
     ) = trainer.run()
 
     # save data
@@ -144,6 +145,7 @@ def main(
         Y_valid=Y_valid,
         Y_test=Y_test,
         shap_values_test=shap_values_test,
+        corr_coeff=corr_coeff,
         var_names=var_names
     )
 

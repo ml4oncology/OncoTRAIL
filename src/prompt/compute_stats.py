@@ -32,6 +32,7 @@ def compute_stats(prompt_results, target_names, original_data):
     mean_proba = []
     auc_left = []
     auc_right = []
+    n_few_shot_added_mean = []
 
     # loop through all files and compute stats
     for file in matching_files:
@@ -58,6 +59,9 @@ def compute_stats(prompt_results, target_names, original_data):
 
         # compute the mean of the column 'Probability'
         mean_proba.append(df_summary['Probability'].mean())
+
+        if "n_few_shot_added" in df_summary.columns:
+            n_few_shot_added_mean.append(df_summary['n_few_shot_added'].mean())
 
         # check if there is a column in df_summary that contains the substring "target"
         target_col_name = [col for col in df_summary.columns if 'target' in col]
@@ -91,6 +95,10 @@ def compute_stats(prompt_results, target_names, original_data):
     df_auc['CI'] = df_auc.apply(lambda x: f"[{x['AUC_left']:.3f}, {x['AUC_right']:.3f}]", axis=1)
     # remove AUC_left and AUC_right
     df_auc = df_auc[['Target', 'AUC', 'n_samples', 'mean_proba', 'CI']]
+
+    if len(n_few_shot_added_mean) > 0:
+        df_auc['n_few_shot_added_mean'] = n_few_shot_added_mean
+        
     df_auc.to_csv(os.path.join(prompt_results, "statistics.csv"))
 
 if __name__ == "__main__":
