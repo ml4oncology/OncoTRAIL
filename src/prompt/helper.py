@@ -677,11 +677,13 @@ def prompt_llm(cfg: dict):
 
         # CALL VLLM here
         vllm_output = []
-        client = OpenAI(base_url=base_url, api_key="EMPTY") 
+        client = OpenAI(base_url=base_url, api_key="EMPTY", timeout=7200) 
         batch_response = client.completions.create(model=model_name, 
                                                     prompt=repeated_apply_chat_template_list, 
                                                     max_tokens=max_tokens, extra_body=extra_body, 
                                                     **llm_params) 
+                                                    # request_timeout = 60 (1 minute)
+                                                    # OPENAI_REQUEST_TIMEOUT=60
         vllm_output = [choice.text.strip() for choice in batch_response.choices]
 
         # loop over each mrn and save the dataframe

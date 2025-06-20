@@ -10,3 +10,4 @@ notebooks/external-examples
 debug
 src/debug
 scripts/debug
+src/finetune/unsloth_compiled_cache

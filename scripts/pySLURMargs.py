@@ -34,7 +34,24 @@ memory = sys.argv[2]
 conda_env = sys.argv[3]
 n_GPU = sys.argv[4]
 run_time = sys.argv[5]
-mcmd = sys.argv[6:]
+
+# Parse optional args
+specific_node = None
+extra_strings = ''
+arg_start = 6
+
+# Check for specific node
+if len(sys.argv) > arg_start and sys.argv[arg_start].startswith("node"):
+    specific_node = sys.argv[arg_start]
+    arg_start += 1
+
+# Check for extra SLURM strings
+if len(sys.argv) > arg_start and sys.argv[arg_start].startswith("extras="):
+    extra_strings = sys.argv[arg_start][len("extras="):].replace("\\n", "\n")
+    arg_start += 1
+
+# Remaining args are the command to run
+mcmd = sys.argv[arg_start:]
 
 os.environ['PATH'] = ('/usr/local/slurm/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/cluster/home/' 
                       + user_name + 
@@ -68,17 +85,22 @@ fp.write('#SBATCH --mem=' + memory + 'GB\n')
 fp.write('#SBATCH --time=' + run_time + '\n')
 if int(n_GPU) > 0:
     fp.write('#SBATCH --partition=gpu\n')
-    fp.write('#SBATCH --account=gliugroup_gpu\n')
+    fp.write('#SBATCH --account=grantgroup_gpu\n')
     fp.write('#SBATCH --gres=gpu:'+ n_GPU +'\n')
     # fp.write('#SBATCH --gpus=p100:'+ n_GPU +'\n')
     # fp.write('#SBATCH --gres=gpu:1' +'\n')
     # fp.write('#SBATCH -C "gpu32g"' +'\n')
 else:
-    fp.write('#SBATCH -p all')
+    fp.write('#SBATCH -p all'+'\n')
+if specific_node:
+    fp.write(f'#SBATCH --nodelist={specific_node}\n')
 fp.write(ADDSLURM)
 fp.write('\n')
 
 fp.write('module load python3\n')
+if extra_strings:
+    fp.write(extra_strings + '\n\n')
+fp.write('\n')
 for i in range(len(mcmd)):
     if(i + 1 == len(mcmd)):
         fp.write( conda_env + ' -u ' + mcmd[i] + '\n\n')
