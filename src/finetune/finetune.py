@@ -19,13 +19,11 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 major_version, minor_version = torch.cuda.get_device_capability()
 logger.info(f"Major: {major_version}, Minor: {minor_version}")
-from datasets import load_dataset
 import datasets
 from trl import SFTTrainer
 import pandas as pd
 import numpy as np
 from unsloth import FastLanguageModel
-from trl import SFTTrainer
 from transformers import TrainingArguments, Trainer, TrainerCallback
 from typing import Tuple
 import warnings
@@ -40,6 +38,10 @@ import re
 import gc
 torch.backends.cuda.matmul.allow_fp16_reduced_precision_reduction = True
 os.environ["FLASH_ATTENTION_FORCE"] = "True"
+from threading import Thread
+import pynvml
+import psutil
+import time
 
 CTCAE_constants = {
     'hemoglobin': {
@@ -75,6 +77,24 @@ CTCAE_constants = {
         'ULN': 22.0
     }
 }
+
+def monitor_gpu_memory(interval_sec=5):
+    pynvml.nvmlInit()
+    handle = pynvml.nvmlDeviceGetHandleByIndex(0)  # Assumes you're using GPU 0
+    while True:
+        mem_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
+        used_mb = mem_info.used / 1024**2
+        total_mb = mem_info.total / 1024**2
+        logger.info(f"[GPU Monitor] Used: {used_mb:.2f} MB | Total: {total_mb:.2f} MB")
+        time.sleep(interval_sec)
+
+def monitor_cpu_memory(interval_sec=5):
+    pid = os.getpid()
+    process = psutil.Process(pid)
+    while True:
+        mem_mb = process.memory_info().rss / 1024**2
+        logger.info(f"[CPU Monitor] RAM Used: {mem_mb:.2f} MB")
+        time.sleep(interval_sec)
 
 def set_seed(seed):
 
@@ -352,8 +372,17 @@ def run_inference(
             gc.collect()
 
     df_results = pd.DataFrame(results)
+    df_sorted = df_sorted.reset_index(drop=True)
+    df_merged = df_sorted.drop(columns=["prompt_text", "token_length"]).copy()
+    df_merged["pred"] = df_results["pred"]
+    df_merged["prob"] = df_results["prob"]
 
-    return df_sorted, df_results
+    # compute AUC
+    auc_val = roc_auc_score(df_merged["label"], df_merged["prob"])
+    # compute cross-entropy loss
+    cross_entropy_loss = log_loss(df_merged['label'], df_merged['prob'])
+
+    return df_merged, auc_val, cross_entropy_loss
 
 # need to figure out the train/validation/test split
 def main(
@@ -409,8 +438,8 @@ def main(
     test_set_df = notes_df[notes_df['treatment_date'] > development_set_date].copy()
 
     # ====================================================================================
-    # 8) Define your binary‐classification prompt template
-    #    Here we ask the LLM to output “0” or “1”
+    # Define the binary‐classification prompt template
+    # Here we ask the LLM to output “0” or “1”
     # ====================================================================================
 
     string_to_add = generate_target_description(target_name, simplify=0)
@@ -428,16 +457,23 @@ def main(
     The correct answer is: class {}""".strip()
 
     train_set_df['text'] = formatting_prompts_func(train_set_df, prompt_template, string_to_add)
-    # randomly select a subset (80%) from train_set_df for train and 20% for evaluation
+    train_set_df, valid_set_df = train_test_split(
+        train_set_df,
+        test_size=0.2,      # 20% for validation
+        random_state=42,    # for reproducibility
+        shuffle=False
+    )
+
     train_set_df, eval_set_df = train_test_split(
         train_set_df,
-        test_size=0.2,      # 20% for evaluation
+        test_size=0.15,      # 15% for evaluation
         random_state=42,    # for reproducibility
         shuffle=False
     )
 
     train_dataset = datasets.Dataset.from_pandas(train_set_df, preserve_index=False)
     eval_dataset = datasets.Dataset.from_pandas(eval_set_df, preserve_index=False)
+    valid_dataset = datasets.Dataset.from_pandas(valid_set_df, preserve_index=False)
 
     NUM_CLASSES = 2  # ⇨ CHANGE: 2 classes (0 or 1)
     max_seq_length = 8192
@@ -522,12 +558,15 @@ def main(
         weight_decay=0.01,
         lr_scheduler_type="cosine",
         seed=3407,
-        output_dir=os.path.join(results_dir, 'checkpoints'),
+        output_dir=os.path.join(results_dir, f'{param_string}_checkpoints'),
         num_train_epochs=n_epochs,
         report_to="none",
         group_by_length=True,
         eval_strategy="steps",
-        eval_steps = 50
+        eval_steps = 50,
+        load_best_model_at_end=True,
+        metric_for_best_model="eval_loss",
+        greater_is_better=False
     )
 
     csv_logger = CSVLoggerCallback(csv_path=os.path.join(results_dir, f"loss_log_{param_string}.csv"))
@@ -560,6 +599,10 @@ def main(
     # ====================================================================================
     # Start training
     # ====================================================================================
+
+    Thread(target=monitor_gpu_memory, daemon=True).start()
+    Thread(target=monitor_cpu_memory, daemon=True).start()
+
     trainer_stats = trainer.train()
 
     # (Optional) Print final memory/time stats
@@ -570,9 +613,6 @@ def main(
     logger.info(f"Training runtime: {trainer_stats.metrics['train_runtime']} seconds")
     logger.info(f"Peak GPU memory reserved: {used_gpu} GB ({percent_used}%).  LoRA‐only: {percent_lora}%.")
 
-    # ====================================================================================
-    # Switch to inference mode (same as example)
-    # ====================================================================================
     del trainer
     gc.collect()
     torch.cuda.empty_cache()
@@ -608,6 +648,10 @@ def main(
     model.save_pretrained(save_path)
     tokenizer.save_pretrained(save_path)
 
+    # ====================================================================================
+    # Switch to inference mode
+    # ====================================================================================
+
     FastLanguageModel.for_inference(model)
     logger.info("Model is ready for inference.")
 
@@ -627,7 +671,7 @@ def main(
     set_seed(3407)
 
     device = model.device
-    train_set_df_sorted, df_train_result = run_inference(
+    df_merged_train, train_auc, train_cross_entropy_loss = run_inference(
         inference_prompt_template,
         model,
         tokenizer,
@@ -639,11 +683,11 @@ def main(
         batch_size_test
     )
 
-    eval_set_df_sorted, df_eval_result = run_inference(
+    df_merged_valid, valid_auc, valid_cross_entropy_loss = run_inference(
         inference_prompt_template,
         model,
         tokenizer,
-        eval_set_df,
+        valid_set_df,
         string_to_add,
         number_token_ids,
         device,
@@ -651,7 +695,7 @@ def main(
         batch_size_test
     )
 
-    test_set_df_sorted, df_test_result = run_inference(
+    df_merged_test, test_auc, test_cross_entropy_loss = run_inference(
         inference_prompt_template,
         model,
         tokenizer,
@@ -662,63 +706,36 @@ def main(
         max_seq_length,
         batch_size_test
     )
-
-    train_set_df_sorted = train_set_df_sorted.reset_index(drop=True)
-    eval_set_df_sorted = eval_set_df_sorted.reset_index(drop=True)
-    test_set_df_sorted = test_set_df_sorted.reset_index(drop=True)
     
-    df_merged_train = train_set_df_sorted.drop(columns=["prompt_text", "token_length"]).copy()
-    df_merged_train["pred"] = df_train_result["pred"]
-    df_merged_train["prob"] = df_train_result["prob"]
-    # compute train AUC
-    train_auc = roc_auc_score(df_merged_train["label"], df_merged_train["prob"])
     logger.info(f"Train AUC: {train_auc:.4f}")
-    # compute cross-entropy loss
-    train_cross_entropy_loss = log_loss(df_merged_train['label'], df_merged_train['prob'])
     logger.info(f"Train Cross-Entropy Loss: {train_cross_entropy_loss:.4f}")
 
-    df_merged_eval = eval_set_df_sorted.drop(columns=["prompt_text", "token_length"]).copy()
-    df_merged_eval["pred"] = df_eval_result["pred"]
-    df_merged_eval["prob"] = df_eval_result["prob"]
-    # compute eval AUC
-    eval_auc = roc_auc_score(df_merged_eval["label"], df_merged_eval["prob"])
-    logger.info(f"Eval AUC: {eval_auc:.4f}")
-    # compute cross-entropy loss
-    eval_cross_entropy_loss = log_loss(df_merged_eval['label'], df_merged_eval['prob'])
-    logger.info(f"Eval Cross-Entropy Loss: {eval_cross_entropy_loss:.4f}")
+    logger.info(f"Eval AUC: {valid_auc:.4f}")
+    logger.info(f"Eval Cross-Entropy Loss: {valid_cross_entropy_loss:.4f}")
 
-    df_merged_test = test_set_df_sorted.drop(columns=["prompt_text", "token_length"]).copy()
-    df_merged_test["pred"] = df_test_result["pred"]
-    df_merged_test["prob"] = df_test_result["prob"]
-    # compute test AUC
-    test_auc = roc_auc_score(df_merged_test["label"], df_merged_test["prob"])
     logger.info(f"Test AUC: {test_auc:.4f}")
-    # compute cross-entropy loss
-    test_cross_entropy_loss = log_loss(df_merged_test['label'], df_merged_test['prob'])
     logger.info(f"Test Cross-Entropy Loss: {test_cross_entropy_loss:.4f}")
 
     # save predictions to output directory
     csv_path = os.path.join(results_dir, f"{target_name}_train_predictions_{param_string}.csv")
     df_merged_train.to_csv(csv_path, index=False)
-    csv_path = os.path.join(results_dir, f"{target_name}_eval_predictions_{param_string}.csv")
-    df_merged_eval.to_csv(csv_path, index=False)
+    csv_path = os.path.join(results_dir, f"{target_name}_valid_predictions_{param_string}.csv")
+    df_merged_valid.to_csv(csv_path, index=False)
     csv_path = os.path.join(results_dir, f"{target_name}_test_predictions_{param_string}.csv")
     df_merged_test.to_csv(csv_path, index=False)
 
     # save train loss, test loss, train AUC, test AUC into csv file
     results = {
         "train_auc": train_auc,
-        "eval_auc": eval_auc,
+        "valid_auc": valid_auc,
         "test_auc": test_auc,
         "train_loss": train_cross_entropy_loss,
-        "eval_loss": eval_cross_entropy_loss,
+        "valid_loss": valid_cross_entropy_loss,
         "test_loss": test_cross_entropy_loss,
     }
     results_df = pd.DataFrame(results, index=[0])
     results_df.to_csv(os.path.join(results_dir, f"{target_name}_metrics_{param_string}.csv"), index=False)
 
-    # evaluation set... add evaluation and metrics
-    # save model and load model
     # write code to load the finetuned model and perform inference
 
 if __name__ == "__main__":
