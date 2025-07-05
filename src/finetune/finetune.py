@@ -360,7 +360,7 @@ def run_inference(
 
             for j in range(len(batch)):
                 pred_label = int(preds[j])
-                pred_prob = float(probs[j, pred_label].cpu().numpy())
+                pred_prob = float(probs[j, 1].cpu().numpy())
 
                 results.append({
                     "pred": pred_label,
@@ -454,21 +454,21 @@ def main(
     class 1: Yes
 
     SOLUTION
-    The correct answer is: class {}""".strip()
+    The correct answer is: class {}"""
 
     train_set_df['text'] = formatting_prompts_func(train_set_df, prompt_template, string_to_add)
     train_set_df, valid_set_df = train_test_split(
         train_set_df,
         test_size=0.2,      # 20% for validation
         random_state=42,    # for reproducibility
-        shuffle=False
+        shuffle=True
     )
 
     train_set_df, eval_set_df = train_test_split(
         train_set_df,
         test_size=0.15,      # 15% for evaluation
         random_state=42,    # for reproducibility
-        shuffle=False
+        shuffle=True
     )
 
     train_dataset = datasets.Dataset.from_pandas(train_set_df, preserve_index=False)
@@ -666,7 +666,7 @@ def main(
         "{}\n\n"
         "Based on this note, will the patient {}\n"
         "class "
-    ).strip()
+    )
 
     set_seed(3407)
 
