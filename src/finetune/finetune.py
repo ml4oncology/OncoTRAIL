@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 major_version, minor_version = torch.cuda.get_device_capability()
 logger.info(f"Major: {major_version}, Minor: {minor_version}")
 import datasets
-from trl import SFTTrainer
+from trl import SFTTrainer, SFTConfig
 import pandas as pd
 import numpy as np
 from unsloth import FastLanguageModel
@@ -361,7 +361,7 @@ def run_inference(
 
             for j in range(len(batch)):
                 pred_label = int(preds[j])
-                pred_prob = float(probs[j, 1].cpu().numpy())
+                pred_prob = probs[j, :].float().cpu().numpy()
 
                 results.append({
                     "pred": pred_label,
@@ -378,12 +378,97 @@ def run_inference(
     df_merged["pred"] = df_results["pred"]
     df_merged["prob"] = df_results["prob"]
 
+    probs_np = np.stack(df_merged["prob"].values) 
+
     # compute AUC
-    auc_val = roc_auc_score(df_merged["label"], df_merged["prob"])
+    auc_val = roc_auc_score(df_merged["label"], probs_np[:, 1])
     # compute cross-entropy loss
-    cross_entropy_loss = log_loss(df_merged['label'], df_merged['prob'])
+    cross_entropy_loss = log_loss(df_merged['label'], probs_np, labels=[0, 1])
 
     return df_merged, auc_val, cross_entropy_loss
+
+def perform_inference(model, tokenizer, 
+                      inference_prompt_template,
+                      string_to_add,
+                      max_seq_length,
+                      batch_size,
+                      str_descriptor,
+                      number_token_ids,
+                      train_set_df,
+                      valid_set_df,
+                      test_set_df,
+                      results_dir,
+                      target_name,
+                      param_string):
+    
+    device = model.device
+
+    # run on train set
+    df_merged_train, train_auc, train_cross_entropy_loss = run_inference(
+        inference_prompt_template,
+        model,
+        tokenizer,
+        train_set_df,
+        string_to_add,
+        number_token_ids,
+        device,
+        max_seq_length,
+        batch_size
+    )
+
+    df_merged_valid, valid_auc, valid_cross_entropy_loss = run_inference(
+        inference_prompt_template,
+        model,
+        tokenizer,
+        valid_set_df,
+        string_to_add,
+        number_token_ids,
+        device,
+        max_seq_length,
+        batch_size
+    )
+
+    df_merged_test, test_auc, test_cross_entropy_loss = run_inference(
+        inference_prompt_template,
+        model,
+        tokenizer,
+        test_set_df,
+        string_to_add,
+        number_token_ids,
+        device,
+        max_seq_length,
+        batch_size
+    )
+    
+    logger.info(f"{str_descriptor} Train AUC: {train_auc:.4f}")
+    logger.info(f"{str_descriptor} Train Cross-Entropy Loss: {train_cross_entropy_loss:.4f}")
+
+    logger.info(f"{str_descriptor} Valid AUC: {valid_auc:.4f}")
+    logger.info(f"{str_descriptor} Valid Cross-Entropy Loss: {valid_cross_entropy_loss:.4f}")
+
+    logger.info(f"{str_descriptor} Test AUC: {test_auc:.4f}")
+    logger.info(f"{str_descriptor} Test Cross-Entropy Loss: {test_cross_entropy_loss:.4f}")
+
+    # save predictions to output directory
+    csv_path = os.path.join(results_dir, f"{str_descriptor}_{target_name}_train_predictions_{param_string}.csv")
+    df_merged_train.to_csv(csv_path, index=False)
+    csv_path = os.path.join(results_dir, f"{str_descriptor}_{target_name}_valid_predictions_{param_string}.csv")
+    df_merged_valid.to_csv(csv_path, index=False)
+    csv_path = os.path.join(results_dir, f"{str_descriptor}_{target_name}_test_predictions_{param_string}.csv")
+    df_merged_test.to_csv(csv_path, index=False)
+
+    # save train loss, test loss, train AUC, test AUC into csv file
+    results = {
+        "train_auc": train_auc,
+        "valid_auc": valid_auc,
+        "test_auc": test_auc,
+        "train_loss": train_cross_entropy_loss,
+        "valid_loss": valid_cross_entropy_loss,
+        "test_loss": test_cross_entropy_loss,
+    }
+    results_df = pd.DataFrame(results, index=[0])
+    results_df.to_csv(os.path.join(results_dir, f"{str_descriptor}_{target_name}_metrics_{param_string}.csv"), index=False)
+
 
 class LLMFineTuner:
     def __init__(self, LLM_path, max_seq_length=8192, num_classes=2):
@@ -463,7 +548,7 @@ class LLMFineTuner:
             callbacks=[csv_logger]
         )
 
-        assert self.model.config.num_labels == 2, "Model should have exactly 2 output labels"
+        # assert self.model.config.num_labels == 2, "Model should have exactly 2 output labels"
 
         # (Optional) Print GPU memory stats
         gpu_stats = torch.cuda.get_device_properties(0)
@@ -622,11 +707,42 @@ def main(
     eval_dataset = datasets.Dataset.from_pandas(eval_set_df, preserve_index=False)
     valid_dataset = datasets.Dataset.from_pandas(valid_set_df, preserve_index=False)
 
-    NUM_CLASSES = 2  # ⇨ CHANGE: 2 classes (0 or 1)
+    NUM_CLASSES = len(notes_df['label'].unique())
     # assert NUM_CLASSES == 2
     assert NUM_CLASSES == 2, "NUM_CLASSES must be 2"
 
     max_seq_length = 8000 #8192
+
+    # ====================================================================================
+    # Perform inference before fine-tuning to get the baseline performance
+    logger.info("Running inference before fine-tuning to get the baseline performance...")
+    trainer = LLMFineTuner(LLM_path, max_seq_length=max_seq_length, num_classes=NUM_CLASSES)
+    trainer.load_model()
+    trainer.create_collator()
+    trainer.fix_lm_head_for_inference()
+    model, tokenizer = trainer.get_model_and_tokenizer()
+
+    inference_prompt_template = prompt_template.split("class {}")[0] + "class "
+
+    FastLanguageModel.for_inference(model)
+
+    set_seed(3407)
+
+    perform_inference(model, tokenizer,
+                      inference_prompt_template,
+                      string_to_add,
+                      max_seq_length,
+                      batch_size_test,
+                      "pre_finetune",
+                      trainer.number_token_ids,
+                      train_set_df,
+                      valid_set_df,
+                      test_set_df,
+                      results_dir,
+                      target_name,
+                      param_string)
+
+    # ====================================================================================
 
     trainer = LLMFineTuner(LLM_path, max_seq_length=max_seq_length, num_classes=NUM_CLASSES)
     trainer.load_model()
@@ -643,7 +759,7 @@ def main(
 
     eval_steps = max(1, total_steps // num_evals)
 
-    training_args = TrainingArguments(
+    training_args = SFTConfig(
         per_device_train_batch_size=batch_size_train,
         gradient_accumulation_steps=gradient_accumulation_steps,
         warmup_steps=10,
@@ -687,95 +803,36 @@ def main(
     # Evaluate on validation set (build DataFrame)
     # ================================================
 
-    # Build the inference prompt template
-    # inference_prompt_template = (
-    #     "Here is a de-identified clinical note from the past 30 days for a patient \n"
-    #     "receiving systemic cancer therapy on {}:\n"
-    #     "{}\n\n"
-    #     "Based on this note, will the patient {}\n"
-    #     "class "
-    # )
+    # inference_prompt_template = """
+    # Here is a de-identified clinical note from the past 30 days for a patient 
+    # receiving systemic cancer therapy on {}:
+    # {}
 
-    inference_prompt_template = """
-    Here is a de-identified clinical note from the past 30 days for a patient 
-    receiving systemic cancer therapy on {}:
-    {}
+    # Based on this note, will the patient {}
+    # class 0: No
+    # class 1: Yes
 
-    Based on this note, will the patient {}
-    class 0: No
-    class 1: Yes
+    # SOLUTION
+    # The correct answer is: class """
 
-    SOLUTION
-    The correct answer is: class """
+    inference_prompt_template = prompt_template.split("class {}")[0] + "class "
 
     set_seed(3407)
 
-    device = model.device
-    df_merged_train, train_auc, train_cross_entropy_loss = run_inference(
-        inference_prompt_template,
-        model,
-        tokenizer,
-        train_set_df,
-        string_to_add,
-        trainer.number_token_ids,
-        device,
-        max_seq_length,
-        batch_size_test
-    )
-
-    df_merged_valid, valid_auc, valid_cross_entropy_loss = run_inference(
-        inference_prompt_template,
-        model,
-        tokenizer,
-        valid_set_df,
-        string_to_add,
-        trainer.number_token_ids,
-        device,
-        max_seq_length,
-        batch_size_test
-    )
-
-    df_merged_test, test_auc, test_cross_entropy_loss = run_inference(
-        inference_prompt_template,
-        model,
-        tokenizer,
-        test_set_df,
-        string_to_add,
-        trainer.number_token_ids,
-        device,
-        max_seq_length,
-        batch_size_test
-    )
+    perform_inference(model, tokenizer,
+                      inference_prompt_template,
+                      string_to_add,
+                      max_seq_length,
+                      batch_size_test,
+                      "post_finetune",
+                      trainer.number_token_ids,
+                      train_set_df,
+                      valid_set_df,
+                      test_set_df,
+                      results_dir,
+                      target_name,
+                      param_string)
     
-    logger.info(f"Train AUC: {train_auc:.4f}")
-    logger.info(f"Train Cross-Entropy Loss: {train_cross_entropy_loss:.4f}")
-
-    logger.info(f"Eval AUC: {valid_auc:.4f}")
-    logger.info(f"Eval Cross-Entropy Loss: {valid_cross_entropy_loss:.4f}")
-
-    logger.info(f"Test AUC: {test_auc:.4f}")
-    logger.info(f"Test Cross-Entropy Loss: {test_cross_entropy_loss:.4f}")
-
-    # save predictions to output directory
-    csv_path = os.path.join(results_dir, f"{target_name}_train_predictions_{param_string}.csv")
-    df_merged_train.to_csv(csv_path, index=False)
-    csv_path = os.path.join(results_dir, f"{target_name}_valid_predictions_{param_string}.csv")
-    df_merged_valid.to_csv(csv_path, index=False)
-    csv_path = os.path.join(results_dir, f"{target_name}_test_predictions_{param_string}.csv")
-    df_merged_test.to_csv(csv_path, index=False)
-
-    # save train loss, test loss, train AUC, test AUC into csv file
-    results = {
-        "train_auc": train_auc,
-        "valid_auc": valid_auc,
-        "test_auc": test_auc,
-        "train_loss": train_cross_entropy_loss,
-        "valid_loss": valid_cross_entropy_loss,
-        "test_loss": test_cross_entropy_loss,
-    }
-    results_df = pd.DataFrame(results, index=[0])
-    results_df.to_csv(os.path.join(results_dir, f"{target_name}_metrics_{param_string}.csv"), index=False)
-
     # write code to load the finetuned model and perform inference
     # what happens when the number of evaluation steps is smaller than the total number of steps?
 
