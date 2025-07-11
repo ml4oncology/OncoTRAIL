@@ -26,14 +26,12 @@ import pandas as pd
 import numpy as np
 from unsloth import FastLanguageModel
 from transformers import TrainingArguments, Trainer, TrainerCallback
-from typing import Tuple
+from typing import Tuple, Any, Dict, List, Union
 import warnings
-from typing import Any, Dict, List, Union
 from transformers import DataCollatorForLanguageModeling
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import roc_auc_score
+from sklearn.metrics import roc_auc_score, log_loss
 from scipy.special import softmax
-from sklearn.metrics import log_loss
 from peft import LoftQConfig
 import re
 import gc
@@ -43,6 +41,9 @@ from threading import Thread
 import pynvml
 import psutil
 import time
+from scipy.special import softmax, expit  # softmax and sigmoid
+from transformers import AutoTokenizer
+# from torch.utils.data import Subset
 
 CTCAE_constants = {
     'hemoglobin': {
@@ -122,6 +123,70 @@ class CSVLoggerCallback(TrainerCallback):
     def on_train_end(self, args, state, control, **kwargs):
         df = pd.DataFrame(self.logs)
         df.to_csv(self.csv_path, index=False)
+
+# class TrainAUCLoggerCallback(TrainerCallback):
+#     def __init__(self, trainer, full_train_dataset, max_eval_samples=300, seed=42):
+#         self.trainer = trainer
+#         self.full_train_dataset = full_train_dataset
+#         self.max_eval_samples = max_eval_samples
+#         self.seed = seed
+
+#     def on_step_end(self, args, state, control, **kwargs):
+#         if state.global_step % args.eval_steps == 0:
+#             # Sample a subset of the training data
+#             total_samples = len(self.full_train_dataset)
+#             sample_size = min(self.max_eval_samples, total_samples)
+
+#             random.seed(self.seed + state.global_step)  # deterministic per step
+#             indices = random.sample(range(total_samples), sample_size)
+
+#             sampled_train_dataset = self.full_train_dataset.select(indices)
+
+#             # Evaluate and log
+#             metrics = self.trainer.evaluate(sampled_train_dataset, metric_key_prefix="train_subset")
+#             metrics["step"] = state.global_step
+#             self.trainer.log(metrics)
+
+
+# def compute_metrics(eval_pred):
+#     logits, labels = eval_pred  # logits: (batch_size, seq_len, vocab_size)
+#     logits = np.array(logits)
+#     labels = np.array(labels)
+
+#     batch_size, seq_len, vocab_size = logits.shape
+#     logger.info(f"[DEBUG] Logits shape: {logits.shape}")
+#     logger.info(f"[DEBUG] Labels shape: {labels.shape}")
+
+#     # Get the position of the last non-ignored label (not -100) for each example
+#     last_label_positions = (labels != -100).argmax(axis=1)
+
+#     target_token_ids = labels[np.arange(batch_size), last_label_positions]
+#     target_logits = logits[np.arange(batch_size), last_label_positions, :]  # shape: (batch_size, vocab_size)
+
+#     logger.info(f"[DEBUG] Target token IDs: {target_token_ids[:10]}")
+
+#     # Get model's logits for class 1 token (assumes 0 and 1 are tokens for the two classes)
+#     # Identify token ids for '0' and '1' in tokenizer
+#     label_token_ids = list(range(vocab_size))
+
+#     if max(label_token_ids) >= vocab_size:
+#         logger.warning(f"[ERROR] Label token IDs {label_token_ids} exceed vocab size {vocab_size}")
+#         return {"auc": float("nan")}
+
+#     probs = softmax(target_logits[:, label_token_ids], axis=1)[:, 1]  # prob of '1'
+
+#     logger.info(f"[DEBUG] Probs min/max: {probs.min():.4f} / {probs.max():.4f}")
+#     logger.info(f"[DEBUG] Probs sample: {probs[:min(len(probs), 10)]}")
+    
+#     try:
+#         auc = roc_auc_score((target_token_ids == label_token_ids[1]).astype(int), probs)
+#     except ValueError as e:
+#         logger.warning(f"[AUC Error] {e}")
+#         auc = float("nan")
+
+#     return {
+#         "auc": auc
+#     }
 
 def formatting_prompts_func(df_, prompt_template, string_to_add):
     texts = []
@@ -334,7 +399,6 @@ def run_inference(
         f"[Evaluating] Starting inference: Allocated {torch.cuda.memory_allocated() / 1024**3:.2f} GB, Reserved {torch.cuda.memory_reserved() / 1024**3:.2f} GB"
     )
 
-    # with torch.inference_mode():
     with torch.inference_mode():
         for i in tqdm(range(0, len(df_sorted), batch_size), desc="Evaluating"):
             batch = df_sorted.iloc[i : i + batch_size]
@@ -356,6 +420,7 @@ def run_inference(
 
             probs_all = F.softmax(last_logits, dim=-1)
             probs = probs_all[:, number_token_ids]  # Shape: (batch_size, 2)
+            probs = probs / probs.sum(dim=1, keepdim=True)
 
             preds = torch.argmax(probs, dim=-1).cpu().numpy()
 
@@ -400,6 +465,42 @@ def perform_inference(model, tokenizer,
                       results_dir,
                       target_name,
                       param_string):
+    
+    # device = model.device
+    # data_set_dict = {
+    #     'train': train_set_df,
+    #     'valid': valid_set_df,
+    #     'test': test_set_df
+    # }
+    #
+    # results = {}
+    #
+    # for key in data_set_dict:
+        # df_merged, auc, loss = run_inference(
+        #     inference_prompt_template,
+        #     model,
+        #     tokenizer,
+        #     data_set_dict[key],
+        #     string_to_add,
+        #     number_token_ids,
+        #     device,
+        #     max_seq_length,
+        #     batch_size
+        # )
+        
+    #     # log results
+    #     logger.info(f"{str_descriptor} {key} AUC: {auc:.4f}")
+    #     logger.info(f"{str_descriptor} {key} Cross-Entropy Loss: {loss:.4f}")
+
+    #     results[f"{key}_auc"] = auc
+    #     results[f"{key}_loss"] = loss
+
+    #     # save results
+    #     csv_path = os.path.join(results_dir, f"{str_descriptor}_{target_name}_{key}_predictions_{param_string}.csv")
+    #     prob_df.to_csv(csv_path, index=False)
+
+    # results_df = pd.DataFrame(results, index=[0])
+    # results_df.to_csv(os.path.join(results_dir, f"{str_descriptor}_{target_name}_metrics_{param_string}.csv"), index=False)
     
     device = model.device
 
@@ -469,6 +570,15 @@ def perform_inference(model, tokenizer,
     results_df = pd.DataFrame(results, index=[0])
     results_df.to_csv(os.path.join(results_dir, f"{str_descriptor}_{target_name}_metrics_{param_string}.csv"), index=False)
 
+def tokenize_function_factory(tokenizer, max_length):
+    def tokenize_function(example):
+        return tokenizer(
+            example["text"],
+            truncation=True,
+            padding=True,
+            max_length=max_length,
+        )
+    return tokenize_function
 
 class LLMFineTuner:
     def __init__(self, LLM_path, max_seq_length=8192, num_classes=2):
@@ -550,6 +660,9 @@ class LLMFineTuner:
 
         # assert self.model.config.num_labels == 2, "Model should have exactly 2 output labels"
 
+        # train_auc_callback = TrainAUCLoggerCallback(trainer=trainer, full_train_dataset=train_dataset)
+        # trainer.add_callback(train_auc_callback)
+
         # (Optional) Print GPU memory stats
         gpu_stats = torch.cuda.get_device_properties(0)
         start_gpu = round(torch.cuda.max_memory_reserved() / 1024**3, 3)
@@ -621,6 +734,8 @@ def main(
     """
     
     """
+
+    # TO-DO: compute max token length
 
     set_seed(3407)
 
@@ -698,17 +813,25 @@ def main(
         shuffle=True
     )
 
-    # # save the train/valid/test sets
-    # train_set_df.to_csv(os.path.join(results_dir, f"train_set_{param_string}.csv"))
-    # valid_set_df.to_csv(os.path.join(results_dir, f"valid_set_{param_string}.csv"))
-    # eval_set_df.to_csv(os.path.join(results_dir, f"eval_set_{param_string}.csv"))
-
     train_dataset = datasets.Dataset.from_pandas(train_set_df, preserve_index=False)
     eval_dataset = datasets.Dataset.from_pandas(eval_set_df, preserve_index=False)
     valid_dataset = datasets.Dataset.from_pandas(valid_set_df, preserve_index=False)
 
+    # ====================================================================================
+    # Compute tokenized length to determine max_seq_length
+    # ====================================================================================
+
+    # tokenizer_max_length = AutoTokenizer.from_pretrained(LLM_path) 
+    # notes_df['token_length'] = notes_df['note'].apply(lambda x: len(tokenizer_max_length.tokenize(x)))
+    # max_seq_length_temp = notes_df['token_length'].max()
+
+    # find the tokenized length of string_to_add
+    # max_seq_length_temp = max_seq_length_temp + len(tokenizer_max_length.tokenize(string_to_add))
+    # find the tokenized length of the prompt_template
+    # max_seq_length_temp = max_seq_length_temp + len(tokenizer_max_length.tokenize(prompt_template))
+    # max_seq_length = min(8192, max_seq_length_temp + 100)  # add some buffer
+
     NUM_CLASSES = len(notes_df['label'].unique())
-    # assert NUM_CLASSES == 2
     assert NUM_CLASSES == 2, "NUM_CLASSES must be 2"
 
     max_seq_length = 8000 #8192
@@ -716,6 +839,9 @@ def main(
     # ====================================================================================
     # Perform inference before fine-tuning to get the baseline performance
     logger.info("Running inference before fine-tuning to get the baseline performance...")
+
+    set_seed(3407)
+    
     trainer = LLMFineTuner(LLM_path, max_seq_length=max_seq_length, num_classes=NUM_CLASSES)
     trainer.load_model()
     trainer.create_collator()
@@ -725,8 +851,6 @@ def main(
     inference_prompt_template = prompt_template.split("class {}")[0] + "class "
 
     FastLanguageModel.for_inference(model)
-
-    set_seed(3407)
 
     perform_inference(model, tokenizer,
                       inference_prompt_template,
@@ -743,7 +867,8 @@ def main(
                       param_string)
 
     # ====================================================================================
-
+    
+    set_seed(3407)
     trainer = LLMFineTuner(LLM_path, max_seq_length=max_seq_length, num_classes=NUM_CLASSES)
     trainer.load_model()
     trainer.create_collator()
@@ -755,7 +880,7 @@ def main(
     num_batches = len(train_dataset) // batch_size_train
     steps_per_epoch = num_batches // gradient_accumulation_steps
     total_steps = steps_per_epoch * n_epochs
-    num_evals = 10
+    num_evals = 12 * n_epochs
 
     eval_steps = max(1, total_steps // num_evals)
 
@@ -780,10 +905,15 @@ def main(
         save_steps=eval_steps,
         load_best_model_at_end=True,
         metric_for_best_model="eval_loss",
-        greater_is_better=False
+        greater_is_better=False,
     )
 
     csv_logger = CSVLoggerCallback(csv_path=os.path.join(results_dir, f"loss_log_{param_string}.csv"))
+
+    _, tokenizer = trainer.get_model_and_tokenizer()
+    tokenize_function = tokenize_function_factory(tokenizer, max_length=max_seq_length)
+    train_dataset = train_dataset.map(tokenize_function, batched=True)
+
     trainer.train_model(train_dataset, eval_dataset, training_args, csv_logger)
 
     # ====================================================================================
@@ -834,7 +964,6 @@ def main(
                       param_string)
     
     # write code to load the finetuned model and perform inference
-    # what happens when the number of evaluation steps is smaller than the total number of steps?
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
