@@ -8,6 +8,7 @@ tokenizer_utils.fix_untrained_tokens = do_nothing
 
 import os
 os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":16:8"
+os.environ["UNSLOTH_CACHE_DISABLE"] = "1"
 import torch
 import torch.nn.functional as F
 from tqdm import tqdm
@@ -466,107 +467,39 @@ def perform_inference(model, tokenizer,
                       target_name,
                       param_string):
     
-    # device = model.device
-    # data_set_dict = {
-    #     'train': train_set_df,
-    #     'valid': valid_set_df,
-    #     'test': test_set_df
-    # }
-    #
-    # results = {}
-    #
-    # for key in data_set_dict:
-        # df_merged, auc, loss = run_inference(
-        #     inference_prompt_template,
-        #     model,
-        #     tokenizer,
-        #     data_set_dict[key],
-        #     string_to_add,
-        #     number_token_ids,
-        #     device,
-        #     max_seq_length,
-        #     batch_size
-        # )
-        
-    #     # log results
-    #     logger.info(f"{str_descriptor} {key} AUC: {auc:.4f}")
-    #     logger.info(f"{str_descriptor} {key} Cross-Entropy Loss: {loss:.4f}")
-
-    #     results[f"{key}_auc"] = auc
-    #     results[f"{key}_loss"] = loss
-
-    #     # save results
-    #     csv_path = os.path.join(results_dir, f"{str_descriptor}_{target_name}_{key}_predictions_{param_string}.csv")
-    #     prob_df.to_csv(csv_path, index=False)
-
-    # results_df = pd.DataFrame(results, index=[0])
-    # results_df.to_csv(os.path.join(results_dir, f"{str_descriptor}_{target_name}_metrics_{param_string}.csv"), index=False)
-    
     device = model.device
-
-    # run on train set
-    df_merged_train, train_auc, train_cross_entropy_loss = run_inference(
-        inference_prompt_template,
-        model,
-        tokenizer,
-        train_set_df,
-        string_to_add,
-        number_token_ids,
-        device,
-        max_seq_length,
-        batch_size
-    )
-
-    df_merged_valid, valid_auc, valid_cross_entropy_loss = run_inference(
-        inference_prompt_template,
-        model,
-        tokenizer,
-        valid_set_df,
-        string_to_add,
-        number_token_ids,
-        device,
-        max_seq_length,
-        batch_size
-    )
-
-    df_merged_test, test_auc, test_cross_entropy_loss = run_inference(
-        inference_prompt_template,
-        model,
-        tokenizer,
-        test_set_df,
-        string_to_add,
-        number_token_ids,
-        device,
-        max_seq_length,
-        batch_size
-    )
-    
-    logger.info(f"{str_descriptor} Train AUC: {train_auc:.4f}")
-    logger.info(f"{str_descriptor} Train Cross-Entropy Loss: {train_cross_entropy_loss:.4f}")
-
-    logger.info(f"{str_descriptor} Valid AUC: {valid_auc:.4f}")
-    logger.info(f"{str_descriptor} Valid Cross-Entropy Loss: {valid_cross_entropy_loss:.4f}")
-
-    logger.info(f"{str_descriptor} Test AUC: {test_auc:.4f}")
-    logger.info(f"{str_descriptor} Test Cross-Entropy Loss: {test_cross_entropy_loss:.4f}")
-
-    # save predictions to output directory
-    csv_path = os.path.join(results_dir, f"{str_descriptor}_{target_name}_train_predictions_{param_string}.csv")
-    df_merged_train.to_csv(csv_path, index=False)
-    csv_path = os.path.join(results_dir, f"{str_descriptor}_{target_name}_valid_predictions_{param_string}.csv")
-    df_merged_valid.to_csv(csv_path, index=False)
-    csv_path = os.path.join(results_dir, f"{str_descriptor}_{target_name}_test_predictions_{param_string}.csv")
-    df_merged_test.to_csv(csv_path, index=False)
-
-    # save train loss, test loss, train AUC, test AUC into csv file
-    results = {
-        "train_auc": train_auc,
-        "valid_auc": valid_auc,
-        "test_auc": test_auc,
-        "train_loss": train_cross_entropy_loss,
-        "valid_loss": valid_cross_entropy_loss,
-        "test_loss": test_cross_entropy_loss,
+    data_set_dict = {
+        'train': train_set_df,
+        'valid': valid_set_df,
+        'test': test_set_df
     }
+    
+    results = {}
+    
+    for key in data_set_dict:
+        df_merged, auc, loss = run_inference(
+            inference_prompt_template,
+            model,
+            tokenizer,
+            data_set_dict[key],
+            string_to_add,
+            number_token_ids,
+            device,
+            max_seq_length,
+            batch_size
+        )
+        
+        # log results
+        logger.info(f"{str_descriptor} {key} AUC: {auc:.4f}")
+        logger.info(f"{str_descriptor} {key} Cross-Entropy Loss: {loss:.4f}")
+
+        results[f"{key}_auc"] = auc
+        results[f"{key}_loss"] = loss
+
+        # save results
+        csv_path = os.path.join(results_dir, f"{str_descriptor}_{target_name}_{key}_predictions_{param_string}.csv")
+        df_merged.to_csv(csv_path, index=False)
+
     results_df = pd.DataFrame(results, index=[0])
     results_df.to_csv(os.path.join(results_dir, f"{str_descriptor}_{target_name}_metrics_{param_string}.csv"), index=False)
 
@@ -821,21 +754,21 @@ def main(
     # Compute tokenized length to determine max_seq_length
     # ====================================================================================
 
-    # tokenizer_max_length = AutoTokenizer.from_pretrained(LLM_path) 
-    # notes_df['token_length'] = notes_df['note'].apply(lambda x: len(tokenizer_max_length.tokenize(x)))
-    # max_seq_length_temp = notes_df['token_length'].max()
+    tokenizer_max_length = AutoTokenizer.from_pretrained(LLM_path) 
+    notes_df['token_length'] = notes_df['note'].apply(lambda x: len(tokenizer_max_length.tokenize(x)))
+    max_seq_length_temp = notes_df['token_length'].max()
 
     # find the tokenized length of string_to_add
-    # max_seq_length_temp = max_seq_length_temp + len(tokenizer_max_length.tokenize(string_to_add))
+    max_seq_length_temp = max_seq_length_temp + len(tokenizer_max_length.tokenize(string_to_add))
     # find the tokenized length of the prompt_template
-    # max_seq_length_temp = max_seq_length_temp + len(tokenizer_max_length.tokenize(prompt_template))
-    # max_seq_length = min(8192, max_seq_length_temp + 100)  # add some buffer
+    max_seq_length_temp = max_seq_length_temp + len(tokenizer_max_length.tokenize(prompt_template))
+    max_seq_length = min(8192, math.ceil((max_seq_length_temp + 100) / 8) * 8)  # add some buffer
+
+    logger.info(f"max_seq_length: {max_seq_length}")
 
     NUM_CLASSES = len(notes_df['label'].unique())
     assert NUM_CLASSES == 2, "NUM_CLASSES must be 2"
-
-    max_seq_length = 8000 #8192
-
+    
     # ====================================================================================
     # Perform inference before fine-tuning to get the baseline performance
     logger.info("Running inference before fine-tuning to get the baseline performance...")
