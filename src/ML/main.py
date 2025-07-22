@@ -35,7 +35,7 @@ def main(
     hyperparam_eval: select best hyperparameters based on AUC or logloss
     model_name: machine learning/deep learning model
     setup_str: combination of LLM and note configuration
-    data_type: notes, notes-tabular, tabular
+    data_type: notes, notes-tabular, tabular, nlp
     target_name: name of target
     model_dir: directory where to save trained model parameters
     results_dir: directory where to save the results of the model runs
@@ -47,7 +47,7 @@ def main(
         assert data_type == "notes", "Implementation not yet available when sex is a target."
 
     # extract LLM_name from setup_str
-    if data_type != 'tabular':
+    if data_type != 'tabular' and 'nlp' not in data_type:
         LLM_name = setup_str.split("_")[0]
     else:
         LLM_name = None
@@ -75,7 +75,7 @@ def main(
         raise NotImplementedError
     
     embedding = None
-    if data_type != 'tabular':
+    if data_type != 'tabular' and 'nlp' not in data_type:
         # load embedding
         with np.load(embedding_path) as data:
             embedding_unique = data["embeddings"]
@@ -101,9 +101,9 @@ def main(
         df = df.loc[mask, keep_cols]
     else:
         if mask is not None:
-            df = df.loc[mask, ["mrn", "treatment_date"]]
+            df = df.loc[mask, ["mrn", "note", "treatment_date"]]
         else:
-            df = df.loc[:, ["mrn", "treatment_date"]]
+            df = df.loc[:, ["mrn", "note", "treatment_date"]]
     df.reset_index(drop=True, inplace=True)
 
     # generate train-validation-test split

@@ -15,6 +15,7 @@ from llm_notes_classification.config import (
 )
 from .models import LR, XGB, LGBM, MLP, MidfusionMLP
 import shap
+import os
 
 torch.manual_seed(0)
 np.random.seed(0)
@@ -201,7 +202,7 @@ class Trainer(Tuner):
             predict_fn = lambda data: model.predict(data, grad=False, bound_pred=True)
             explainer = shap.Explainer(predict_fn, Xv)
 
-        if self.data_type == "tabular":
+        if self.data_type == "tabular" or 'nlp' in self.data_type:
             Xt = (
                 self.X_test.cpu().numpy().astype(float)
                 if isinstance(self.X_test, torch.Tensor)
@@ -232,6 +233,16 @@ class Trainer(Tuner):
         # save the trained model
         save_pickle(model, f"{self.output_path}", 'model_' + self.str_identifier)
 
+        # if model is logistic regression, save coefficients
+        if self.alg_name == "LR":
+            # Extract coefficients
+            coefficients = model.model.coef_[0]
+
+            # file path for coefficients
+            coef_output_file = os.path.join(self.output_path, f"model_{self.str_identifier}_coefficients.npz")
+
+            np.savez(coef_output_file, coefficients=coefficients)
+        
         return model
 
     def train_ml_model(self, **kwargs):
