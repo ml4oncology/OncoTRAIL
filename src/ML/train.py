@@ -326,7 +326,7 @@ class Trainer(Tuner):
             msg = [f"{k}: {v.mean():.4f}" for k, v in perf[epoch].items()]
             logger.info(f"Epoch {epoch}, {(', ').join(msg)}")
 
-            if np.isnan(train_loss / (i + 1)) or np.isnan(valid_loss):
+            if torch.isnan(train_loss / (i + 1)) or torch.isnan(valid_loss):
                 break
 
             # save best model so far

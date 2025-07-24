@@ -4,28 +4,8 @@ import numpy as np
 import argparse
 import os
 from llm_notes_classification.prompt.base_runner import load_shapley_df, load_logistic_df
+from llm_notes_classification.constants import target_dict_mapping
 
-dict_mapping = {
-    'target-hemoglobin-grade2plus': 'Hb',
-    'target-neutrophil-grade2plus': 'ANC',
-    'target-bilirubin-grade2plus': 'Bili',
-    'target-platelet-grade2plus': 'PLT',
-    'target-ALT-grade2plus': 'ALT',
-    'target-AST-grade2plus': 'AST',
-    'target-AKI-grade2plus': 'AKI',
-    'target-death-in-30d': '30d death',
-    'target-death-in-365d': '1y death',
-    'target-ED-visit': 'ED visits',
-    'target-esas-depression-3pt-change': 'Depression',
-    'target-esas-pain-3pt-change': 'Pain',
-    'target-esas-anxiety-3pt-change': 'Anxiety',
-    'target-esas-tiredness-3pt-change': 'Tired',
-    'target-esas-nausea-3pt-change': 'Nausea',
-    'target-esas-drowsiness-3pt-change': 'Drowsy',
-    'target-esas-appetite-3pt-change': 'Appetite',
-    'target-esas-well-being-3pt-change': 'Well-being',
-    'target-esas-shortness-of-breath-3pt-change': 'Dsypnea',
-}
 
 def plot_coef_heatmap_with_labels(
     data_dict, save_dir, col_name, file_name, str_title, auc_df,
@@ -46,9 +26,6 @@ def plot_coef_heatmap_with_labels(
         df = data_dict[target].copy()
         df["abs_coef"] = df[col_name].abs()
         df = df.nlargest(top_n, "abs_coef").reset_index(drop=True)
-
-        print(f"Target: {target}")
-        print(df.head(top_n))
 
         for i in range(len(df)):
             feature_texts[i, j] = df.loc[i, "var_names"]
@@ -105,7 +82,7 @@ def plot_coef_heatmap_with_labels(
         spine.set_visible(False)
 
     ax.set_xticks(np.arange(num_targets))
-    ax.set_xticklabels([f"{dict_mapping[target]} (AUC: {auc_dict[target]:.3f})" for target in targets], rotation=45, ha="right", fontsize=9)
+    ax.set_xticklabels([f"{target_dict_mapping[target]} (AUC: {auc_dict[target]:.3f})" for target in targets], rotation=45, ha="right", fontsize=9)
     ax.set_yticks(np.arange(num_features))
     ax.set_yticklabels([f"Top {i+1}" for i in range(num_features)], fontsize=9)
 

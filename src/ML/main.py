@@ -75,7 +75,7 @@ def main(
         raise NotImplementedError
     
     embedding = None
-    if data_type != 'tabular' and 'nlp' not in data_type:
+    if data_type in ["notes", "notes-tabular"]:
         # load embedding
         with np.load(embedding_path) as data:
             embedding_unique = data["embeddings"]

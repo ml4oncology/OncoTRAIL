@@ -55,8 +55,10 @@ def gen_data_split(
 
     elif 'nlp' in data_type:
 
+        X = {}
+
         # generate the tf-idf vocabulary from the train set
-        vocab = extract_top_ngrams(train_data, text_col="note_lemmatized_note", top_k=300)
+        vocab = extract_top_ngrams(train_data, text_col="note_lemmatized_note", top_k=250)
         
         if model_name == "LR":
             train_data = pd.concat([train_data, eval_data])
@@ -70,15 +72,10 @@ def gen_data_split(
             X["train"], word_vec = build_count_matrix(train_data, text_col="note_lemmatized_note", vocabulary=vocab)
         X["train"] = X["train"].toarray().astype(float)
 
-        # Fit StandardScaler on training data
-        scaler = StandardScaler().fit(X["train"])
-        X["train"] = scaler.transform(X["train"])
-
         # Transform eval, valid, test using same vectorizer and scaler
         for split in ["eval", "valid", "test"]:
-            if split in X and X[split] is not None:
-                X_split = word_vec.transform(eval(f"{split}_data")["note_lemmatized_note"]).toarray().astype(float)
-                X[split] = scaler.transform(X_split)
+            if split != "eval" or model_name != "LR":
+                X[split] = word_vec.transform(eval(f"{split}_data")["note_lemmatized_note"]).toarray().astype(float)
 
         train_col_names = vocab
 
@@ -93,7 +90,7 @@ def gen_data_split(
         Y["train"] = np.concatenate([Y["train"], Y["eval"]])
         X["eval"], Y["eval"] = None, None
     
-    if data_type in ["notes", "notes-tabular"]:
+    if "nlp" in data_type or data_type in ["notes", "notes-tabular"]:
         scaler = StandardScaler()
         X["train"] = scaler.fit_transform(X["train"])
         if X["eval"] is not None:
