@@ -33,7 +33,11 @@ def generate_deid():
 
     return deid_prompt
 
-def generate_target(target_string, simplify, repeated_sampling):
+def generate_target_description(target_string, 
+                                simplify, 
+                                repeated_sampling,
+                                include_task_instruction,
+                                use_question_mark):
 
     logger.info(f"target_string: {target_string}")
 
@@ -89,7 +93,7 @@ def generate_target(target_string, simplify, repeated_sampling):
             if simplify == 0:
                 target_prompt = (
                     f"experience grade {grade} and above anemia {time_period}, {CTCAE_meaning} "
-                    f" as a hemoglobin level under {CTCAE_constants[quantity][f'grade{grade}plus']} g/L"
+                    f"as a hemoglobin level under {CTCAE_constants[quantity][f'grade{grade}plus']} g/L"
                 )
             else:
                 target_prompt = f"experience worsening anemia {time_period}"
@@ -149,18 +153,17 @@ def generate_target(target_string, simplify, repeated_sampling):
             else:
                 target_prompt = f"experience increasing blood bilirubin level {time_period}"
 
-    if repeated_sampling == 0:
-        target_prompt = (
-            "Your task is to predict the probability that the patient will "
-            + target_prompt + ". "
-        )
-    else:
-        target_prompt = (
-            "Your task is to predict whether the patient will "
-            + target_prompt + ". "
-        )
+    # Add task instruction if requested
+    if include_task_instruction:
+        prefix = "Your task is to predict the probability that the patient will " if repeated_sampling == 0 \
+            else "Your task is to predict whether the patient will "
+        target_prompt = prefix + target_prompt
 
-    target_prompt = target_prompt + additional_info
+    # Add punctuation
+    target_prompt += "?" if use_question_mark else "."
+
+    # Add additional info if requested
+    target_prompt += " " + additional_info
 
     return target_prompt
 
@@ -262,9 +265,12 @@ def generate_prompts(target_names, numeric_proba, save_dir, repeated_sampling):
 
         prompt_dict = {}
 
-        ctr = 0
+        ctr = 0 
         for simplify in [0, 1]:
-            target_prompt = generate_target(target_name, simplify, repeated_sampling)
+            target_prompt = generate_target_description(target_name, 
+                                                        simplify, 
+                                                        repeated_sampling,
+                                                        True, False)
             for persona_val in persona_prompt:
                 for health_val in health_prompt:
                     for add_deid in [0, 1]:

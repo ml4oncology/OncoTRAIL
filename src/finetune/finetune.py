@@ -44,42 +44,8 @@ import psutil
 import time
 from scipy.special import softmax, expit  # softmax and sigmoid
 from transformers import AutoTokenizer
+from llm_notes_classification.prompt.generate_prompts import generate_target_description
 # from torch.utils.data import Subset
-
-CTCAE_constants = {
-    'hemoglobin': {
-        'grade2plus': 100,
-        'grade3plus': 80
-    },
-    'neutrophil': {
-        'grade2plus': 1.5,
-        'grade3plus': 1.0
-    },
-    'platelet': {
-        'grade2plus': 75,
-        'grade3plus': 50
-    },
-    'AKI': {
-        'grade2plus': 1.5,
-        'grade3plus': 3.0,
-        'ULN': 353.68
-    },
-    'ALT': {
-        'grade2plus': 3.0,
-        'grade3plus': 5.0,
-        'ULN': 40.0
-    },
-    'AST': {
-        'grade2plus': 3.0,
-        'grade3plus': 5.0,
-        'ULN': 34.0
-    },
-    'bilirubin': {
-        'grade2plus': 1.5,
-        'grade3plus': 3.0,
-        'ULN': 22.0
-    }
-}
 
 def monitor_gpu_memory(interval_sec=5):
     pynvml.nvmlInit()
@@ -197,125 +163,6 @@ def formatting_prompts_func(df_, prompt_template, string_to_add):
         full = prompt_template.format(date_, text_, string_to_add, lbl)
         texts.append(full)
     return texts
-
-def generate_target_description(target_string, simplify):
-
-    time_period = "within the next 30 days"
-    additional_info = ""
-    if target_string == "target_ED_visit":
-        target_prompt = f"visit the emergency department {time_period}"
-    elif target_string == "target_death_in_365d":
-        target_prompt = "die within the next year"
-    elif target_string == "target_death_in_30d":
-        target_prompt = "die within the next 30 days"
-    elif "esas" in target_string:
-        if "well_being" in target_string:
-            target_string = target_string.replace("well_being", "well-being")
-
-        if "shortness_of_breath" in target_string:
-            target_string = target_string.replace(
-                "shortness_of_breath", "shortness of breath"
-            )
-
-        # extract the target
-        esas_target = target_string.split("_")[2]
-        esas_change_value = target_string.split("_")[3][0]
-
-        if simplify == 0:
-            target_prompt = (f"experience a {esas_change_value} point change in the ESAS score for {esas_target}" +
-                             ' ' + time_period)
-
-            # extract the point change
-
-            additional_info = (
-                "The ESAS score refers to the Edmonton Symptom Assessment System. "
-                + "It's a clinical tool used to assess the severity of common symptoms "
-                + "experienced by patients with cancer and other advanced illnesses. Patients rate the "
-                + "severity of each symptom on a scale from 0 to 10, with 0 indicating no symptom "
-                + "and 10 indicating the worst possible severity. This assessment helps healthcare "
-                + "providers manage symptoms and improve quality of life for patients. "
-            )
-        else:
-            target_prompt = f"experience worsening {esas_target} {time_period}"
-
-    elif re.search(r'grade\d+plus', target_string) is not None:
-
-        match = re.search(r'target_(.*?)_grade([1-5])plus', target_string)
-        # extract the grade
-        grade = match.group(2)
-        # extract the quantity
-        quantity = match.group(1)
-
-        CTCAE_meaning = "defined by the CTCAE (Common Terminology Criteria for Adverse Events)"
-
-        if "hemoglobin" in target_string:
-            if simplify == 0:
-                target_prompt = (
-                    f"experience grade {grade} and above anemia {time_period}, {CTCAE_meaning} "
-                    f" as a hemoglobin level under {CTCAE_constants[quantity][f'grade{grade}plus']} g/L"
-                )
-            else:
-                target_prompt = f"experience worsening anemia {time_period}"
-
-        elif "neutrophil" in target_string:
-            if simplify == 0:
-                target_prompt = (
-                    f"experience grade {grade} and above neutrophil count decrease {time_period}, {CTCAE_meaning} "
-                    f"as a neutrophil count under {CTCAE_constants[quantity][f'grade{grade}plus']} x 10e9/L"
-                )
-            else:
-                target_prompt = f"experience worsening neutrophil count {time_period}"
-
-        elif "platelet" in target_string:
-            if simplify == 0:
-                target_prompt = (
-                    f"experience grade {grade} and above platelet count decrease {time_period}, {CTCAE_meaning} "
-                    f"as a platelet count under {CTCAE_constants[quantity][f'grade{grade}plus']} x 10e9/L"
-                )
-            else:
-                target_prompt = f"experience worsening platelet count {time_period}"
-
-        elif "AKI" in target_string:
-            if simplify == 0:
-                target_prompt = (
-                    f"experience grade {grade} and above creatinine increase {time_period}, {CTCAE_meaning} "
-                    f"as creatinine increasing {CTCAE_constants[quantity][f'grade{grade}plus']} times above "
-                    f"baseline or {CTCAE_constants[quantity][f'grade{grade}plus']} times above " 
-                    f" the upper limit of normal ({CTCAE_constants[quantity]['ULN']} umol/L)"
-                )
-            else:
-                target_prompt = f"experience acute kidney injury {time_period}"
-
-        elif "ALT" in target_string or "AST" in target_string:
-            if 'ALT' in target_string:
-                quantity_full = 'alanine aminotransferase'
-
-            elif 'AST' in target_string:
-                quantity_full = 'aspartate aminotransferase'
-
-            if simplify == 0:
-                target_prompt = (
-                    f"experience grade {grade} and above {quantity_full} increase {time_period}, {CTCAE_meaning} "
-                    f"as {quantity_full} increasing {CTCAE_constants[quantity][f'grade{grade}plus']} times above "
-                    f"the upper limit of normal ({CTCAE_constants[quantity]['ULN']} U/L) or baseline if the baseline was abnormal"
-                )
-            else:
-                target_prompt = f"experience increasing {quantity_full} level {time_period}"
-
-        elif "bilirubin" in target_string:
-            if simplify == 0:
-                target_prompt = (
-                    f"experience grade {grade} and above blood bilirubin increase {time_period}, {CTCAE_meaning} "
-                    f"as blood bilirubin increasing {CTCAE_constants[quantity][f'grade{grade}plus']} times above "
-                    f"the upper limit of normal ({CTCAE_constants[quantity]['ULN']} umol/L) or baseline if the baseline was abnormal"
-                )
-            else:
-                target_prompt = f"experience increasing blood bilirubin level {time_period}"
-
-    target_prompt = target_prompt + '? ' + additional_info
-
-    return target_prompt
-
 
 # ====================================================================================
 # Build a custom DataCollator that only trains on the final “0/1” token  
@@ -717,7 +564,7 @@ def main(
     # Here we ask the LLM to output “0” or “1”
     # ====================================================================================
 
-    string_to_add = generate_target_description(target_name, simplify=0)
+    string_to_add = generate_target_description(target_name, 0, False, False, True)
 
     prompt_template = """
     Here is a de-identified clinical note from the past 30 days for a patient 
