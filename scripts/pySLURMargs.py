@@ -38,6 +38,7 @@ run_time = sys.argv[5]
 # Parse optional args
 specific_node = None
 extra_strings = ''
+group_name = 'grantgroup_gpu'  # Default
 arg_start = 6
 
 # Check for specific node
@@ -48,6 +49,11 @@ if len(sys.argv) > arg_start and sys.argv[arg_start].startswith("node"):
 # Check for extra SLURM strings
 if len(sys.argv) > arg_start and sys.argv[arg_start].startswith("extras="):
     extra_strings = sys.argv[arg_start][len("extras="):].replace("\\n", "\n")
+    arg_start += 1
+
+# Check for custom SLURM account
+if len(sys.argv) > arg_start and sys.argv[arg_start].startswith("group="):
+    group_name = sys.argv[arg_start][len("group="):]
     arg_start += 1
 
 # Remaining args are the command to run
@@ -85,10 +91,11 @@ fp.write('#SBATCH --mem=' + memory + 'GB\n')
 fp.write('#SBATCH --time=' + run_time + '\n')
 if int(n_GPU) > 0:
     fp.write('#SBATCH --partition=gpu\n')
-    fp.write('#SBATCH --account=grantgroup_gpu\n')
+    fp.write('#SBATCH --account=' + group_name + '\n')
     fp.write('#SBATCH --gres=gpu:'+ n_GPU +'\n')
-    # fp.write('#SBATCH --gpus=p100:'+ n_GPU +'\n')
     # fp.write('#SBATCH --gres=gpu:1' +'\n')
+    # fp.write('#SBATCH --gpus=p100:'+ n_GPU +'\n')
+    
     # fp.write('#SBATCH -C "gpu32g"' +'\n')
 else:
     fp.write('#SBATCH -p all'+'\n')
