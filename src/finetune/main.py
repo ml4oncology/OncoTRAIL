@@ -153,15 +153,10 @@ def main(
     finetuner.calculate_max_seq_length(pd.concat([train_set_df, eval_set_df, valid_set_df, test_set_df]))
     
     # Prepare datasets for training/pre-training inference
-    if model_type.lower() == 'decoder':
-        train_dataset, eval_dataset = finetuner.prepare_datasets(
-            train_set_df, eval_set_df
-        )
-    elif model_type.lower() == 'encoder':
-        train_dataset, eval_dataset = finetuner.prepare_datasets(
+    train_set_df, eval_set_df, valid_set_df, test_set_df = finetuner.prepare_datasets(
             train_set_df, eval_set_df, valid_set_df, test_set_df
         )
-
+        
     # Perform pre-training inference
     set_seed(3407)
     logger.info("Running inference before fine-tuning...")
@@ -172,8 +167,8 @@ def main(
     # Train the model
     logger.info("Starting fine-tuning...")
     finetuner.train_model(
-        train_dataset=train_dataset,
-        eval_dataset=eval_dataset,
+        train_dataset=train_set_df,
+        eval_dataset=eval_set_df,
         learning_rate=learning_rate,
         n_epochs=n_epochs,
         batch_size_train=batch_size_train,

@@ -213,7 +213,7 @@ class DecoderFineTuner:
         logger.info(f"Calculated max_seq_length: {max_seq_length}")
         self.max_seq_length = max_seq_length
 
-    def prepare_datasets(self, train_set_df, eval_set_df):
+    def prepare_datasets(self, train_set_df, eval_set_df, valid_set_df, test_set_df):
         """Prepare datasets for training."""
 
         # Format training data with prompts
@@ -223,11 +223,7 @@ class DecoderFineTuner:
         eval_set_df = eval_set_df.copy()
         eval_set_df['text'] = formatting_prompts_func(eval_set_df, self.prompt_template, self.string_to_add)
 
-        # Create datasets
-        train_dataset = datasets.Dataset.from_pandas(train_set_df, preserve_index=False)
-        eval_dataset = datasets.Dataset.from_pandas(eval_set_df, preserve_index=False)
-
-        return train_dataset, eval_dataset
+        return train_set_df, eval_set_df, valid_set_df, test_set_df 
 
     def _run_inference(self, df, batch_size):
         """Run inference on a DataFrame."""
@@ -337,6 +333,11 @@ class DecoderFineTuner:
 
     def train_model(self, train_dataset, eval_dataset, learning_rate, n_epochs, batch_size_train, gradient_accumulation_steps):
         """Train the model."""
+
+        # Create datasets
+        train_dataset = datasets.Dataset.from_pandas(train_dataset, preserve_index=False)
+        eval_dataset = datasets.Dataset.from_pandas(eval_dataset, preserve_index=False)
+
         num_batches = len(train_dataset) // batch_size_train
         steps_per_epoch = num_batches // gradient_accumulation_steps
         total_steps = steps_per_epoch * n_epochs
