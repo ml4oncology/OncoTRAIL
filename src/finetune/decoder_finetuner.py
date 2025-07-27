@@ -332,7 +332,6 @@ class DecoderFineTuner:
 
     def perform_post_training_inference(self, train_set_df, valid_set_df, test_set_df, batch_size):
         """Perform inference after training."""
-        self.fix_lm_head_for_inference()
         FastLanguageModel.for_inference(self.model)
         self._perform_inference_on_sets(train_set_df, valid_set_df, test_set_df, batch_size, "post_finetune")
 
@@ -411,6 +410,8 @@ class DecoderFineTuner:
         gc.collect()
         torch.cuda.empty_cache()
 
+        self.fix_lm_head_for_inference()
+
     def fix_lm_head_for_inference(self):
         """Reconstruct full lm_head for inference."""
         trimmed_lm_head = self.model.lm_head.weight.data.clone()
@@ -440,3 +441,4 @@ class DecoderFineTuner:
         """Save the fine-tuned model."""
         self.model.save_pretrained(output_dir)
         self.tokenizer.save_pretrained(output_dir)
+        logger.info(f"Model saved to {output_dir}")

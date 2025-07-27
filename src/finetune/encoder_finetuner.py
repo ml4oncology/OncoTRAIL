@@ -162,7 +162,7 @@ class EncoderFineTuner:
 
         results_df = pd.DataFrame(results, index=[0])
         # drop the column "note" if it exists
-        if "note" in results_df.columns:
+        if set(["note", "text"]).issubset(results_df.columns):
             results_df = results_df.drop(columns=["note"])
         results_df.to_csv(os.path.join(self.results_dir, f"{str_descriptor}_{self.target_name}_metrics_{self.param_string}.csv"), index=False)
 
@@ -244,75 +244,3 @@ class EncoderFineTuner:
         self.trainer.save_model(output_dir)
         self.tokenizer.save_pretrained(output_dir)
         logger.info(f"Model saved to {output_dir}")
-
-
-    # set_seed(3407)
-    # # Extract model name from path
-    # LLM_name = LLM_path.split("/")[-1]
-    
-    # # Create results directory
-    # results_dir = os.path.join(results_dir, target_name)
-    # os.makedirs(results_dir, exist_ok=True)
-    
-    # # Create parameter string for naming
-    # param_string = (
-    #     f"LLM-{LLM_name}_"
-    #     f"lr-{learning_rate}_"
-    #     f"epochs-{n_epochs}_"
-    #     f"batchsizetrain-{batch_size_train}_"
-    #     f"gradientsteps-{gradient_accumulation_steps}"
-    # )
-    
-    # logger.info(f"Configuration: {target_name}_{param_string}")
-    
-    # # Prepare data
-    # train_set_df, eval_set_df, valid_set_df, test_set_df = prepare_data(
-    #     notes_path, target_name, development_set_date
-    # )
-    
-    # finetuner = EncoderFineTuner(
-    #         LLM_path=LLM_path,
-    #         target_name=target_name,
-    #         results_dir=results_dir,
-    #         param_string=param_string
-    #     )
-    
-    # # Load model and tokenizer
-    # finetuner.load_model()
-
-    # # Calculate maximum sequence length
-    # finetuner.calculate_max_seq_length(pd.concat([train_set_df, eval_set_df, valid_set_df, test_set_df]))
-    
-    # train_dataset, eval_dataset = finetuner.prepare_datasets(
-    #         train_set_df, eval_set_df, valid_set_df, test_set_df
-    #     )
-    
-    # # Perform pre-training inference
-    # set_seed(3407)
-    # logger.info("Running inference before fine-tuning...")
-    # finetuner.perform_pre_training_inference(
-    #     train_set_df, valid_set_df, test_set_df, batch_size_test
-    # )
-    
-    # # Train the model
-    # logger.info("Starting fine-tuning...")
-    # finetuner.train_model(
-    #     train_dataset=train_dataset,
-    #     eval_dataset=eval_dataset,
-    #     learning_rate=learning_rate,
-    #     n_epochs=n_epochs,
-    #     batch_size_train=batch_size_train,
-    #     gradient_accumulation_steps=gradient_accumulation_steps
-    # )
-    
-    # # Save the model
-    # save_path = os.path.join(results_dir, param_string)
-    
-    # # Perform post-training inference
-    # set_seed(3407)
-    # logger.info("Running inference after fine-tuning...")
-    # finetuner.perform_post_training_inference(
-    #     train_set_df, valid_set_df, test_set_df, batch_size_test
-    # )
-    
-    # logger.info("Fine-tuning complete!")

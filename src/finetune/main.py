@@ -122,7 +122,6 @@ def main(
     logger.info(f"Configuration: {target_name}_{param_string}")
     
     # Prepare data
-    # Note: if decoder, do not rename note to text
     train_set_df, eval_set_df, valid_set_df, test_set_df = prepare_data(
         notes_path, target_name, development_set_date
     )
