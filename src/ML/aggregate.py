@@ -74,19 +74,32 @@ def compute_AUC_CI(data_dict, n_bootstraps=1000, alpha=0.05):
     Returns:
         Tuple[float, float]: (lower, upper) bounds of CI.
     """
-    preds = data_dict['test_pred']
-    labels = data_dict['Y_test']
-    n = preds.shape[0]
+    preds_test = data_dict['test_pred']
+    labels_test = data_dict['Y_test']
+    n_test = preds_test.shape[0]
 
-    bootstrapped_scores = []
+    preds_train = data_dict['train_pred']
+    labels_train = data_dict['Y_train']
+    n_train = preds_train.shape[0]
+
+    bootstrapped_scores_test = []
+    bootstrapped_scores_train = []
     for seed in range(n_bootstraps):
         random.seed(seed)
-        idx = random.choices(range(n), k=n)
-        bootstrapped_scores.append(roc_auc_score(labels[idx], preds[idx]))
+        idx = random.choices(range(n_test), k=n_test)
+        bootstrapped_scores_test.append(roc_auc_score(labels_test[idx], preds_test[idx]))
 
-    lower = np.quantile(bootstrapped_scores, alpha / 2)
-    upper = np.quantile(bootstrapped_scores, 1 - alpha / 2)
-    return lower, upper
+        random.seed(seed)
+        idx = random.choices(range(n_train), k=n_train)
+        bootstrapped_scores_train.append(roc_auc_score(labels_train[idx], preds_train[idx]))
+
+    lower_test = np.quantile(bootstrapped_scores_test, alpha / 2)
+    upper_test = np.quantile(bootstrapped_scores_test, 1 - alpha / 2)
+
+    lower_train = np.quantile(bootstrapped_scores_train, alpha / 2)
+    upper_train = np.quantile(bootstrapped_scores_train, 1 - alpha / 2)
+
+    return lower_test, upper_test, lower_train, upper_train
 
 
 def summarize_best_result(pred_directory, model_directory, target_list, split_list, note_list,
@@ -145,14 +158,10 @@ def summarize_best_result(pred_directory, model_directory, target_list, split_li
             col if isinstance(col, str) else '_'.join(col).strip()
             for col in summary.columns
         ]
-        summary.columns = [
-            f'{col}_{data_type}' if any(metric in col for metric in ['auc', 'logloss']) else col
-            for col in summary.columns
-        ]
         summary.columns = [col.rstrip('_') for col in summary.columns]
 
         # Compute CI
-        CI_vals, pred_file_names, model_file_names = [], [], []
+        CI_vals_test, CI_vals_train, pred_file_names, model_file_names = [], [], [], []
         for _, row in summary.iterrows():
             setup = row['training-setup']
             target = row['target']
@@ -165,14 +174,16 @@ def summarize_best_result(pred_directory, model_directory, target_list, split_li
             npz_path = os.path.join(pred_directory, npz_name)
 
             if not os.path.exists(npz_path):
-                CI_vals.append('[NA,NA]')
+                CI_vals_test.append('[NA,NA]')
+                CI_vals_train.append('[NA,NA]')
                 pred_file_names.append('missing')
                 model_file_names.append('missing')
                 continue
 
             data = np.load(npz_path)
-            low, high = compute_AUC_CI(data)
-            CI_vals.append(f'[{low:.3f},{high:.3f}]')
+            low_test, high_test, low_train, high_train = compute_AUC_CI(data)
+            CI_vals_test.append(f'[{low_test:.3f},{high_test:.3f}]')
+            CI_vals_train.append(f'[{low_train:.3f},{high_train:.3f}]')
             pred_file_names.append(npz_path)
 
             # load model file names
@@ -183,7 +194,8 @@ def summarize_best_result(pred_directory, model_directory, target_list, split_li
             else:
                 model_file_names.append('not available')
 
-        summary['Test_CI'] = CI_vals
+        summary['test_CI'] = CI_vals_test
+        summary['train_CI'] = CI_vals_train
         summary['pred_file_name'] = pred_file_names
         summary['model_file_name'] = model_file_names
 

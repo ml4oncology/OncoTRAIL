@@ -8,11 +8,28 @@ import pandas as pd
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
+import random
 from llm_notes_classification.constants import target_dict_mapping
+from sklearn.metrics import roc_auc_score
 
 # Setup logger
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 logger = logging.getLogger(__name__)
+
+def compute_AUC_CI(df, n_bootstraps=1000, alpha=0.05):
+
+    bootstrapped_scores = []
+    for seed in range(n_bootstraps):
+        sampled_df = df.sample(frac=1, replace=True, random_state=seed) 
+        probs_np = np.stack(sampled_df["prob"].apply(lambda x: np.fromstring(x.strip("[]"), sep=' ')).values)
+        true_labels_np = np.array(sampled_df["label"].values)
+        auc = roc_auc_score(true_labels_np, probs_np[:, 1])
+        bootstrapped_scores.append(auc)
+
+    lower = np.quantile(bootstrapped_scores, alpha / 2)
+    upper = np.quantile(bootstrapped_scores, 1 - alpha / 2)
+
+    return lower, upper
 
 def format_lr(lr):
     return f"{lr:.6f}".rstrip('0').rstrip('.') if lr >= 0.0001 else f"{lr:.0e}"
@@ -112,7 +129,7 @@ def collect_finetune_metrics(base_dir):
     final_df = final_df[[col for col in reordered if col in final_df.columns]]
 
     return final_df
-def get_best_configs(df):
+def get_best_configs(df, base_dir):
     if df.empty:
         logger.warning("Empty DataFrame passed to get_best_configs.")
         return pd.DataFrame()
@@ -124,6 +141,61 @@ def get_best_configs(df):
 
     best_results = df.groupby("target").apply(lambda x: x.loc[x['post_valid_auc'].idxmax()]).reset_index(drop=True)
     best_results.sort_values(by="post_test_auc", ascending=False, inplace=True)
+
+    # compute the CI of the AUC
+    train_CI = []
+    test_CI = []
+    # here
+
+    for _, row in best_results.iterrows():
+        target = row["target"]
+        lr = row["lr"]
+        epochs = row["epochs"]
+        gradientsteps = row["gradientsteps"]
+
+        target_path = os.path.join(base_dir, target)
+        if not os.path.isdir(target_path):
+            logger.warning(f"Target directory not found: {target_path}")
+            continue
+
+        # do for train data
+
+        formatted_lr = format_lr(lr)
+        pattern = f"*post_finetune*_train_*lr-{formatted_lr}_epochs-{int(epochs)}_batchsizetrain-*_gradientsteps-{int(gradientsteps)}*.csv"
+        search_path = os.path.join(target_path, pattern)
+        matching_files = glob.glob(search_path)
+
+        if len(matching_files) == 1:
+            try:
+                df = pd.read_csv(matching_files[0])
+                lower, upper = compute_AUC_CI(df)
+                train_CI.append(f'[{lower:.3f},{upper:.3f}]')
+
+            except Exception as e:
+                logger.error(f"Failed to process {matching_files[0]}: {e}")
+        else:
+            logger.warning(f"Expected 1 file, found {len(matching_files)}: {matching_files}")
+
+        # do for test data
+        pattern = f"*post_finetune*_test_*lr-{formatted_lr}_epochs-{int(epochs)}_batchsizetrain-*_gradientsteps-{int(gradientsteps)}*.csv"
+        search_path = os.path.join(target_path, pattern)
+        matching_files = glob.glob(search_path)
+
+        if len(matching_files) == 1:
+            try:
+                df = pd.read_csv(matching_files[0])
+                lower, upper = compute_AUC_CI(df)
+                test_CI.append(f'[{lower:.3f},{upper:.3f}]')
+
+            except Exception as e:
+                logger.error(f"Failed to process {matching_files[0]}: {e}")
+        else:
+            logger.warning(f"Expected 1 file, found {len(matching_files)}: {matching_files}")
+
+    # append results to dataframe
+    best_results["train_CI"] = train_CI
+    best_results["test_CI"] = test_CI
+
     return best_results
 
 def plot_delta_auc(best_df, save_path):
@@ -188,12 +260,20 @@ def main(base_dir, save_dir):
         logger.error("No valid result pairs found.")
         return
 
-    best_df = get_best_configs(df)
+    best_df = get_best_configs(df, base_dir)
     best_df.to_csv(os.path.join(save_dir, "best_finetune_results.csv"), index=False)
     logger.info(f"Saved best configurations to {save_dir}/best_finetune_results_per_target.csv")
 
     plot_delta_auc(best_df, save_dir)
     plot_all_loss_curves(best_df, base_dir, save_dir)
+
+    # make adjustments to saving best_df for comparison with other methods
+    # rename post_train_auc to auc_train and post_test_auc to auc_test
+    best_df = best_df.rename(columns={
+        "post_train_auc": "auc_train",
+        "post_test_auc": "auc_test"
+    })
+    best_df.to_csv(os.path.join(save_dir, "best_finetune_results_for_comparison.csv"), index=False)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Plot figures for finetuning results")

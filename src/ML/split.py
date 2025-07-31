@@ -44,6 +44,22 @@ def gen_data_split(
         "test": test_data.index.to_list(),
     }
 
+    # Extract mrn for each split
+    if model_name == "LR":
+        mrn_sets = {
+            "train": np.concatenate([train_data["mrn"].to_numpy(), eval_data["mrn"].to_numpy()]).astype(int),
+            "eval": None,
+            "valid": valid_data["mrn"].to_numpy().astype(int),
+            "test": test_data["mrn"].to_numpy().astype(int),
+        }
+    else:
+        mrn_sets = {
+            "train": train_data["mrn"].to_numpy().astype(int),
+            "eval": eval_data["mrn"].to_numpy().astype(int),
+            "valid": valid_data["mrn"].to_numpy().astype(int),
+            "test": test_data["mrn"].to_numpy().astype(int),
+        }
+
     Y = {k: target[idx] for k, idx in index_sets.items()}
 
     if data_type in ["notes", "notes-tabular"]:
@@ -144,7 +160,11 @@ def gen_data_split(
             X["eval"], Y["eval"],
             X["valid"], Y["valid"],
             X["test"], Y["test"],
-            train_col_names)
+            train_col_names,
+            mrn_sets["train"], 
+            mrn_sets["eval"], 
+            mrn_sets["valid"], 
+            mrn_sets["test"])
 
 
 def convert_str_list(y):

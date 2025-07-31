@@ -181,6 +181,13 @@ class Trainer(Tuner):
         # Apply model to training data
         train_pred = self.predict(model, self.X_train)
 
+        # if X_eval not none
+        if self.X_eval is not None:
+            # Apply model to evaluation data
+            eval_pred = self.predict(model, self.X_eval)
+        else:
+            eval_pred = None
+
         # Apply model to validation data
         val_pred = self.predict(model, self.X_valid)
 
@@ -220,7 +227,7 @@ class Trainer(Tuner):
             shap_values_test = []
             corr_coeff = []
 
-        return train_pred, val_pred, test_pred, shap_values_test, corr_coeff
+        return train_pred, eval_pred, val_pred, test_pred, shap_values_test, corr_coeff
 
     def train_model(self, **kwargs):
         if self.alg_name in ["LR", "XGB", "LGBM"]:

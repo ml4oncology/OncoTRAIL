@@ -107,8 +107,21 @@ def main(
     df.reset_index(drop=True, inplace=True)
 
     # generate train-validation-test split
-    X_train, Y_train, X_eval, Y_eval, X_valid, Y_valid, X_test, Y_test, var_names = gen_data_split(
-        df, start_test_date, split_config, embedding, target, data_type, model_name
+    (
+        X_train, Y_train,
+        X_eval, Y_eval,
+        X_valid, Y_valid,
+        X_test, Y_test,
+        var_names,
+        mrn_train, mrn_eval, mrn_valid, mrn_test
+    ) = gen_data_split(
+        df,
+        start_test_date,
+        split_config,
+        embedding,
+        target,
+        data_type,
+        model_name
     )
 
     # call trainer on predictions
@@ -129,6 +142,7 @@ def main(
     )
     (
         train_pred,
+        eval_pred,
         val_pred,
         test_pred,
         shap_values_test,
@@ -141,9 +155,15 @@ def main(
         train_pred=train_pred,
         val_pred=val_pred,
         test_pred=test_pred,
+        eval_pred=eval_pred,
         Y_train=Y_train,
         Y_valid=Y_valid,
         Y_test=Y_test,
+        Y_eval=Y_eval,
+        mrn_train=mrn_train,
+        mrn_valid=mrn_valid,
+        mrn_test=mrn_test,
+        mrn_eval=mrn_eval,
         shap_values_test=shap_values_test,
         corr_coeff=corr_coeff,
         var_names=var_names
@@ -165,6 +185,12 @@ def main(
     results = pd.concat([train_results, valid_results, test_results])
     results.to_csv(f"{results_dir}/{file_save_str}.csv")
 
+    # Tabular to do:
+    # check how to save model and load model
+
+    # fine tune to do:
+    # evaluate on eval data
+    # check how to do inference
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
