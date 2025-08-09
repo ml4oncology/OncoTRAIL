@@ -154,7 +154,7 @@ if __name__ == "__main__":
     parser.add_argument("--vllm_model_name", type=str, default=None, help="model name on vLLM server")
 
     # New shapley-related arguments
-    parser.add_argument("add_shapley", type=int, choices=[0, 1, 2], help="whether to add shapley (1), linear regression coefficient (2), or not (0)")
+    parser.add_argument("add_tabularML_prediction", type=int, choices=[0, 1, 2, 3], help="whether to add shapley (1), linear regression coefficient (2), or (3) tabular prediction or not (0)")
     parser.add_argument("--shapley_path", type=str, default=None, help="path for shapley coefficients")
     parser.add_argument("--log_reg_path", type=str, default=None, help="path for logistic regression coefficients")
 
@@ -165,12 +165,12 @@ if __name__ == "__main__":
             print("Error: --base_url and --vllm_model_name must be provided when use_vllm is 1.")
             sys.exit(1)
 
-    if cfg["add_shapley"] > 0 and cfg["shapley_path"] is None:
-        print("Error: --shapley_path must be provided when add_shapley is 1 or 2.")
+    if cfg["add_tabularML_prediction"] > 0 and cfg["shapley_path"] is None:
+        print("Error: --shapley_path must be provided when add_tabularML_prediction is 1 or 2.")
         sys.exit(1)
 
-    if cfg["add_shapley"] == 2 and cfg["log_reg_path"] is None:
-        print("Error: --log_reg_path must be provided when add_shapley is 2.")
+    if cfg["add_tabularML_prediction"] == 2 and cfg["log_reg_path"] is None:
+        print("Error: --log_reg_path must be provided when add_tabularML_prediction is 2.")
         sys.exit(1)    
 
     launch(cfg)

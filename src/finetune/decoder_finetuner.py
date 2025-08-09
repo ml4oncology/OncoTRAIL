@@ -292,10 +292,11 @@ class DecoderFineTuner:
 
         return df_merged, auc_val, cross_entropy_loss
 
-    def _perform_inference_on_sets(self, train_set_df, valid_set_df, test_set_df, batch_size, str_descriptor):
+    def _perform_inference_on_sets(self, train_set_df, eval_set_df, valid_set_df, test_set_df, batch_size, str_descriptor):
         """Perform inference on all data sets."""
         data_set_dict = {
             'train': train_set_df,
+            'eval': eval_set_df,
             'valid': valid_set_df,
             'test': test_set_df
         }
@@ -317,19 +318,19 @@ class DecoderFineTuner:
         results_df = pd.DataFrame(results, index=[0])
         results_df.to_csv(os.path.join(self.results_dir, f"{str_descriptor}_{self.target_name}_metrics_{self.param_string}.csv"), index=False)
 
-    def perform_pre_training_inference(self, train_set_df, valid_set_df, test_set_df, batch_size):
+    def perform_pre_training_inference(self, train_set_df, eval_set_df, valid_set_df, test_set_df, batch_size):
         """Perform inference before training."""
         self.fix_lm_head_for_inference()
         FastLanguageModel.for_inference(self.model)
-        self._perform_inference_on_sets(train_set_df, valid_set_df, test_set_df, batch_size, "pre_finetune")
+        self._perform_inference_on_sets(train_set_df, eval_set_df, valid_set_df, test_set_df, batch_size, "pre_finetune")
         
         # Reset model for training
         self.load_model()
 
-    def perform_post_training_inference(self, train_set_df, valid_set_df, test_set_df, batch_size):
+    def perform_post_training_inference(self, train_set_df, eval_set_df, valid_set_df, test_set_df, batch_size):
         """Perform inference after training."""
         FastLanguageModel.for_inference(self.model)
-        self._perform_inference_on_sets(train_set_df, valid_set_df, test_set_df, batch_size, "post_finetune")
+        self._perform_inference_on_sets(train_set_df, eval_set_df,valid_set_df, test_set_df, batch_size, "post_finetune")
 
     def train_model(self, train_dataset, eval_dataset, learning_rate, n_epochs, batch_size_train, gradient_accumulation_steps):
         """Train the model."""

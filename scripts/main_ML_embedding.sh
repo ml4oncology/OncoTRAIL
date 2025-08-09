@@ -8,7 +8,7 @@ nGPU=0
 runTime='0-05:00:00'
 
 rootDir=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/LLM-notes-classification
-resultsRootDir=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/LLM-notes-classification
+resultsRootDir=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/LLM-notes-classification/traditional_ML_models
 modelDir=${resultsRootDir}/models_tabular
 resultsDir=${resultsRootDir}/results_tabular
 embeddingDir=/cluster/projects/gliugroup/2BLAST/data/processed/clinical_notes/embedding_2024-06-04
@@ -35,7 +35,7 @@ target_list=(
     "target_ED_visit"
 )
 
-for dataType in "tabular" # "notes-tabular" "notes" 
+for dataType in "nlp-tfidf" "nlp-count" "tabular" # "nlp" # "tabular" # "notes-tabular" "notes" 
 do 
     for anchorType in "firstTreatmentOnly-medOnc-ConsultLetterClinic_deid" # "firstVisitOnly-medOnc-ConsultLetterClinic_deid" "firstTreatmentOnly-medOnc-ConsultLetterClinic_deid" "mostRecentVisit-appendFirst-medOnc-ConsultLetterClinic_deid" "mostRecentVisit-medOnc-ConsultLetterClinic_deid" 
     do
@@ -48,7 +48,7 @@ do
         for splitConfig in 'Temporal' 'Random'
         do
 
-        for LLMName in 'ClinicalLongformer' 'Llama3-8B' 'Mistral' 'BioMistral'
+        for LLMName in 'ClinicalLongformer' # 'Llama3-8B' 'Mistral' 'BioMistral'
         do
 
         for hyperParamEval in 'logloss' 'AUROC'
@@ -56,22 +56,26 @@ do
 
         embeddingPath=${embeddingDir}/note_anchored_${anchorType}_${LLMName}_embedding.npz
         
-        if [ "$dataType" == "tabular" ]; then
+        if [[ "$dataType" == "tabular" || "$dataType" == *"nlp"* ]]; then
             setupStr="$anchorType"
         else
             setupStr="${LLMName}_${anchorType}"
         fi
 
-        for modelName in 'LR' 'LGBM' 'XGB' 'MLP' 
+        for modelName in 'MLP' # 'LR' 'LGBM' 'XGB'   
         do
 
         if [[ $modelName == "MLP" ]]; then
             nGPU=1
+            memory=30
+            runTime='0-06:00:00'
         else
             nGPU=0
+            memory=16
+            runTime='0-05:00:00'
         fi
 
-        pySLURMargs.py $userName $memory $condaEnv $nGPU $runTime "../src/ML/main.py $notesPath $embeddingPath $splitConfig $hyperParamEval $modelName $setupStr $dataType $targetName $modelDir $resultsDir"
+        pySLURMargs.py $userName $memory $condaEnv $nGPU $runTime group=gliugroup_gpu "../src/ML/main.py $notesPath $embeddingPath $splitConfig $hyperParamEval $modelName $setupStr $dataType $targetName $modelDir $resultsDir"
 
         done
 

@@ -8,8 +8,10 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import roc_auc_score
 import torch
 import random
+from llm_notes_classification.config import date_lower_limit, date_upper_limit
 
 # Import our custom modules
+from ml_common.prep import Splitter
 from llm_notes_classification.finetune.decoder_finetuner import DecoderFineTuner
 from llm_notes_classification.finetune.encoder_finetuner import EncoderFineTuner
 
@@ -40,6 +42,10 @@ def prepare_data(notes_path, target_name, development_set_date):
     # Only keep notes where target value is not -1
     notes_df = notes_df[notes_df[target_name] != -1].copy()
     
+    # restrict date range
+    notes_df = notes_df[(notes_df['treatment_date'] >= date_lower_limit) & 
+                        (notes_df['treatment_date'] <= date_upper_limit)].copy()
+
     # Assert that notes_df[target_name] has length 2
     assert len(notes_df[target_name].unique()) == 2, f"Target {target_name} must have exactly 2 unique values"
 
@@ -50,24 +56,30 @@ def prepare_data(notes_path, target_name, development_set_date):
         lambda x: datetime.strptime(x[:10], "%Y-%m-%d").strftime("%b %d, %Y")
     )
 
-    # Split into development and test set
-    train_set_df = notes_df[notes_df['treatment_date'] <= development_set_date].copy()
-    test_set_df = notes_df[notes_df['treatment_date'] > development_set_date].copy()
+    # # Split into development and test set
+    # train_set_df = notes_df[notes_df['treatment_date'] <= development_set_date].copy()
+    # test_set_df = notes_df[notes_df['treatment_date'] > development_set_date].copy()
     
-    # Further split training set
-    train_set_df, valid_set_df = train_test_split(
-        train_set_df,
-        test_size=0.2,
-        random_state=42,
-        shuffle=True
-    )
+    # # Further split training set
+    # train_set_df, valid_set_df = train_test_split(
+    #     train_set_df,
+    #     test_size=0.2,
+    #     random_state=42,
+    #     shuffle=True
+    # )
 
-    train_set_df, eval_set_df = train_test_split(
-        train_set_df,
-        test_size=0.15,
-        random_state=42,
-        shuffle=True
-    )
+    # train_set_df, eval_set_df = train_test_split(
+    #     train_set_df,
+    #     test_size=0.15,
+    #     random_state=42,
+    #     shuffle=True
+    # )
+
+    splitter = Splitter()
+    train_eval_data, valid_set_df, test_set_df = splitter.split_data(
+            notes_df, development_set_date
+        )
+    train_set_df, eval_set_df = splitter.random_split(train_eval_data, test_size=0.15)
 
     return train_set_df, eval_set_df, valid_set_df, test_set_df
 
@@ -161,7 +173,7 @@ def main(
     set_seed(3407)
     logger.info("Running inference before fine-tuning...")
     finetuner.perform_pre_training_inference(
-        train_set_df, valid_set_df, test_set_df, batch_size_test
+        train_set_df, eval_set_df, valid_set_df, test_set_df, batch_size_test
     )
     
     # Train the model
@@ -183,7 +195,7 @@ def main(
     set_seed(3407)
     logger.info("Running inference after fine-tuning...")
     finetuner.perform_post_training_inference(
-        train_set_df, valid_set_df, test_set_df, batch_size_test
+        train_set_df, eval_set_df, valid_set_df, test_set_df, batch_size_test
     )
     
     logger.info("Fine-tuning complete!")

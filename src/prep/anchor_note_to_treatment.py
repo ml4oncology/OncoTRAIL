@@ -161,7 +161,7 @@ def anchor_note_to_treatment(notes_data_path,
         # only consider notes written by a medical oncologist 
         # only consider consultation, letter, clinic notes
         medOncs = list(set(aliasDictionary.values()))
-        procName = ['Clinic Note', 'Letter', 'History & Physical Note', 'Consultation Note']
+        procName = ['Clinic Note', 'Letter', 'History & Physical Note', 'Consultation Note', 'Clinic Note (Non-dictated)']
         merged_notes = merged_notes.loc[(merged_notes['processed_physician_name'].isin(medOncs)) &\
                                        (merged_notes['Observations.ProcName'].isin(procName))].copy()
         

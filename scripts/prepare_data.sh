@@ -9,11 +9,23 @@ runTime='0-00:30:00'
 
 root_dir_proj=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/LLM-notes-classification
 
+# start_date='2008-01-01'
+# end_date='2015-12-31'
+# numeric_proba=1
+# n_partitions=10
+# random_sampling=1
+
 start_date='2008-01-01'
 end_date='2015-12-31'
 numeric_proba=1
 n_partitions=10
-random_sampling=1
+random_sampling=0
+
+# start_date='2016-01-01'
+# end_date='2019-12-31'
+# numeric_proba=1
+# n_partitions=10
+# random_sampling=0
 
 target_list=(
     "target_hemoglobin_grade2plus"
@@ -39,8 +51,6 @@ target_list=(
 
 target_names=$(IFS=','; echo "${target_list[*]}")
 
-llama_cpp=1
-
 # few_shot_date=NA
 few_shot_date='2016-01-01'
 
@@ -51,7 +61,6 @@ for n_few_shot in 0 4 10 20
 do
 
     file_name=${fname}.csv
-    save_dir=${root_dir_proj}/data/prompt_engineering/stage1/${fname}
 
     if [ "$fname" == "note_anchored_firstTreatmentOnly-medOnc-ConsultLetterClinic_deid" ]; then
         data_dir=${root_dir_proj}/data/note_anchored_deid

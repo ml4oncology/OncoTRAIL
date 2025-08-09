@@ -40,7 +40,6 @@ original_data="None"
 start_date='2008-01-01'
 end_date='2015-12-31'
 random_sampling=1
-n_few_shot=0
 numeric_proba=1
 quant_level=NA
 
@@ -65,7 +64,10 @@ do
 for temperature in -1.0
 do
 
-results_dir_parent=${root_dir_proj}/data/prompt_engineering/${fname}
+for n_few_shot in 0 4 10 20
+do
+
+results_dir_parent=${root_dir_proj}/data/prompt_engineering/stage1/${fname}
 
 prompt_results="${results_dir_parent}/"\
 "${fname}_${LLM_name}_${quant_level}_"\
@@ -75,6 +77,7 @@ prompt_results="${results_dir_parent}/"\
 
 pySLURMargs.py $userName $memory $condaEnv $nGPU $runTime "../src/prompt/compute_stats.py $prompt_results $target_names $original_data"
 
+done
 done
 done
 done

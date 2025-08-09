@@ -8,7 +8,8 @@ nGPU=0
 runTime='0-01:00:00'
 
 rootDirProj=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/LLM-notes-classification
-saveDir=${rootDirProj}/data/prompts
+# saveDir=${rootDirProj}/data/prompts
+saveDir=${rootDirProj}/data/prompts_repeated_sampling
 
 target_list=(
     "target_hemoglobin_grade2plus"
@@ -42,5 +43,7 @@ target_array=$(IFS=','; echo "${target_list[*]}")
 
 numeric_proba=1
 
-pySLURMargs.py $userName $memory $condaEnv $nGPU $runTime "../src/prompt/generate_prompts.py $target_array $numeric_proba $saveDir"
+repeated_sampling=1
+
+pySLURMargs.py $userName $memory $condaEnv $nGPU $runTime "../src/prompt/generate_prompts.py $target_array $numeric_proba $saveDir $repeated_sampling"
 

@@ -102,6 +102,8 @@ class Tuner:
         # )
 
         # save the best hyperparameters
+        if not os.path.exists(self.output_path):
+            os.makedirs(self.output_path)
         save_pickle(best_param, f"{self.output_path}", filename)
 
         return best_param
@@ -238,6 +240,8 @@ class Trainer(Tuner):
             raise Exception("Not implemented yet.")
 
         # save the trained model
+        if not os.path.exists(self.output_path):
+            os.makedirs(self.output_path)
         save_pickle(model, f"{self.output_path}", 'model_' + self.str_identifier)
 
         # if model is logistic regression, save coefficients
@@ -247,7 +251,6 @@ class Trainer(Tuner):
 
             # file path for coefficients
             coef_output_file = os.path.join(self.output_path, f"model_{self.str_identifier}_coefficients.npz")
-
             np.savez(coef_output_file, coefficients=coefficients)
         
         return model
@@ -344,6 +347,9 @@ class Trainer(Tuner):
                 early_stop_counter = 0
 
                 if save_checkpoints:
+                    # check if self.output_path exists
+                    if not os.path.exists(self.output_path):
+                        os.makedirs(self.output_path)
                     save_path = f"{self.output_path}/train_perf/{self.str_identifier}-checkpoint"
                     torch.save(
                         {
@@ -364,6 +370,8 @@ class Trainer(Tuner):
 
         if save:
             save_path = f"{self.output_path}/train_perf"
+            if not os.path.exists(save_path):
+                os.makedirs(save_path)
             save_pickle(perf, save_path, f"{self.str_identifier}_perf")
             save_path = f"{self.output_path}/{self.str_identifier}"
             torch.save(best_model_weights, save_path)

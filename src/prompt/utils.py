@@ -296,6 +296,7 @@ def load_aggregate_statistics(results_dir_parent, target_list_master, stage):
         "stage1": ['Target', 'AUC', 'n_samples', 'mean_proba', 'LLM_name', 'prompt_num', 'tabular', 'n_few_shot'],
         "stage2": ['Target', 'AUC', 'n_samples', 'mean_proba', 'CI', 'n_few_shot_added_mean', 'LLM_name', 'n_params', 'quantization_level', 'quant_ranking', 'n_few_shot', 'target_type'],
         "stage3": ['Target', 'AUC', 'n_samples', 'mean_proba', 'CI', 'n_few_shot_added_mean', 'LLM_name', 'temp', 'top_p', 'min_p', 'top_k', 'n_few_shot', 'target_type'],
+        "train": ['Target', 'AUC', 'n_samples', 'mean_proba', 'CI'],
         "test": ['Target', 'AUC', 'n_samples', 'mean_proba', 'CI'],
     }
 

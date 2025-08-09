@@ -34,7 +34,6 @@ target_names=$(IFS=','; echo "${target_list[*]}")
 start_date='2008-01-01'
 end_date='2015-12-31'
 random_sampling=1
-n_few_shot=0
 numeric_proba=1
 quant_level=NA
 
@@ -61,7 +60,10 @@ do
 for temperature in -1.0
 do
 
-results_dir_parent=${root_dir_proj}/data/prompt_engineering/${fname}
+for n_few_shot in 0 4 10 20
+do
+
+results_dir_parent=${root_dir_proj}/data/prompt_engineering/stage1/${fname}
 
 results_dir="${results_dir_parent}/"\
 "${fname}_${LLM_name}_${quant_level}_"\
@@ -71,6 +73,7 @@ results_dir="${results_dir_parent}/"\
 
 pySLURMargs.py $userName $memory $condaEnv $nGPU $runTime "../src/prompt/combine_prompt_results.py $results_dir $target_names"
 
+done
 done
 done
 done

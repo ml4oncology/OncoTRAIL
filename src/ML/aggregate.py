@@ -202,6 +202,11 @@ def summarize_best_result(pred_directory, model_directory, target_list, split_li
         out_csv = f'best_result_summary_{note_config}_{data_type}_{model_str}_{split_str}.csv'
         summary.to_csv(os.path.join(save_dir, out_csv), index=False)
 
+        # remove all columns from summary with CI string
+        summary = summary.loc[:, ~summary.columns.str.contains('CI')]
+        out_csv = f'best_result_summary_{note_config}_{data_type}_{model_str}_{split_str}_noCI.csv'
+        summary.to_csv(os.path.join(save_dir, out_csv), index=False)
+
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Summarize best model results with confidence intervals.")

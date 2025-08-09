@@ -8,7 +8,7 @@ nGPU=0
 runTime='0-02:00:00'
 
 data_path="/cluster/projects/gliugroup/2BLAST/data/processed/clinical_notes/deid_data_pull_2024-06-04/deid_merged_processed_cleaned_clinical_notes_medonc_only.parquet.gzip"
-treatment_data_path="/cluster/projects/gliugroup/2BLAST/data/final/treatment_centered_clinical_dataset.parquet.gzip"
+treatment_data_path="/cluster/projects/gliugroup/2BLAST/data/final/treatment_centered_dataset.parquet.gzip"
 ed_visit_data_path="/cluster/projects/gliugroup/2BLAST/data/final/data/interim/emergency_room_visit.parquet.gzip"
 symptom_data_path="/cluster/projects/gliugroup/2BLAST/data/final/data/interim/symptom.parquet.gzip" 
 last_seen_data_path="/cluster/projects/gliugroup/2BLAST/data/final/data/processed/last_seen_dates.parquet.gzip"

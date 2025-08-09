@@ -47,7 +47,7 @@ class LocalLLMRunner(BaseLLMRunner):
         if os.path.isfile(out_path):
             return
 
-        system_instructions, n_examples_added = self.prepare_system_instructions(target_name, treatment_date, note)
+        system_instructions, n_examples_added = self.prepare_system_instructions(target_name, treatment_date, note, mrn)
         logger.info(f"system instructions: {system_instructions}\n")
 
         messages = [

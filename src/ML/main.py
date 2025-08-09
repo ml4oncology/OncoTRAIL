@@ -3,8 +3,8 @@ import pandas as pd
 import argparse
 from sklearn.metrics import average_precision_score, roc_auc_score, log_loss
 import sys
-
-from llm_notes_classification.config import start_test_date
+import os
+from llm_notes_classification.config import start_test_date, date_lower_limit, date_upper_limit
 from llm_notes_classification.ML.split import gen_data_split
 from llm_notes_classification.ML.train import Trainer
 import logging
@@ -73,6 +73,10 @@ def main(
         target = df.loc[mask, target_name].to_numpy()
     else:
         raise NotImplementedError
+
+    # update mask for treatment_date based on date limits
+    date_mask = ((df['treatment_date'] >= date_lower_limit) & (df['treatment_date'] <= date_upper_limit)).to_numpy()
+    mask = mask & date_mask
     
     embedding = None
     if data_type in ["notes", "notes-tabular"]:
@@ -150,6 +154,9 @@ def main(
     ) = trainer.run()
 
     # save data
+    # create results_dir if it does not exist
+    if not os.path.exists(results_dir):
+        os.makedirs(results_dir)
     np.savez(
         f"{results_dir}/predictdata_{file_save_str}.npz",
         train_pred=train_pred,
@@ -184,13 +191,6 @@ def main(
 
     results = pd.concat([train_results, valid_results, test_results])
     results.to_csv(f"{results_dir}/{file_save_str}.csv")
-
-    # Tabular to do:
-    # check how to save model and load model
-
-    # fine tune to do:
-    # evaluate on eval data
-    # check how to do inference
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

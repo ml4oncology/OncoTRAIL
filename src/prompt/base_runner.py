@@ -97,7 +97,7 @@ class PromptingConfig:
         self.n_few_shot = cfg.get("n_few_shot", 0)
         self.few_shot_dir = cfg.get("few_shot_dir")
         self.few_shot_date = cfg.get("few_shot_date")
-        self.add_shapley = cfg.get("add_shapley", 0)
+        self.add_tabularML_prediction = cfg.get("add_tabularML_prediction", 0)
         self.shapley_path = cfg.get("shapley_path")
         self.log_reg_path = cfg.get("log_reg_path")
         self.base_url = cfg.get("base_url")
@@ -228,6 +228,15 @@ class PromptingUtils:
         ]
         return "\n".join([intro, header] + lines)
 
+    @staticmethod
+    def format_tabularMLprediction(prediction):
+        tabular_ml_string = (
+            f"Based on structured EHR data—covering demographics, cancer characteristics, "
+            f"treatment details, lab tests, acute care history, and patient-reported symptoms—a "
+            f"machine learning model predicted the risk of this adverse event as {prediction:.2f}. "
+            f"You must take this prediction into account when forming your own assessment."
+        )
+        return tabular_ml_string
 
 class BaseLLMRunner:
     """Base class with shared functionality for both local and vLLM runners."""
@@ -249,7 +258,29 @@ class BaseLLMRunner:
 
     def _load_logistic_string(self):
         df_logistic = load_logistic_df(self.config.shapley_path, self.config.log_reg_path)
-        return self.utils.format_logistic_coefficients(df)
+        return self.utils.format_logistic_coefficients(df_logistic)
+    
+    def _load_tabularMLprediction_string(self, mrn):
+        npz_file = np.load(self.config.shapley_path)
+        mrn_pred_pairs = [
+            ('mrn_train', 'train_pred'),
+            ('mrn_valid', 'val_pred'),
+            ('mrn_test', 'test_pred'),
+            ('mrn_eval', 'eval_pred'),
+        ]
+
+        for mrn_key, pred_key in mrn_pred_pairs:
+            mrns = npz_file[mrn_key]
+            preds = npz_file[pred_key]
+
+            # Check if target_mrn is in this array
+            indices = np.where(mrns == mrn)[0]
+            if len(indices) == 1:
+                prediction = preds[indices.item()]
+                return self.utils.format_tabularMLprediction(prediction)
+            elif len(indices) > 1:
+                raise ValueError(f"MRN {mrn} appears multiple times in {mrn_key}.")
+            
 
     def load_prompt_files(self):
         self.clinical_notes_df = load_table(f"{self.config.data_dir}/{self.config.file_name}")
@@ -311,7 +342,7 @@ class BaseLLMRunner:
 
         return system_instructions, n_added
 
-    def prepare_system_instructions(self, target_name, treatment_date, note):
+    def prepare_system_instructions(self, target_name, treatment_date, note, mrn):
         """Prepare system instructions for a given target and note."""
         with open(self.prompt_file_list[self.config.target_list.index(target_name)], "r") as f:
             prompt_dict = json.load(f)
@@ -327,10 +358,12 @@ class BaseLLMRunner:
         else:
             n_examples_added = 0
 
-        if self.config.add_shapley == 1:
+        if self.config.add_tabularML_prediction == 1:
             system_instructions += "\n" + self._load_shapley_string()
-        elif self.config.add_shapley == 2:
+        elif self.config.add_tabularML_prediction == 2:
             system_instructions += "\n" + self._load_logistic_string()
+        elif self.config.add_tabularML_prediction == 3:
+            system_instructions += "\n" + self._load_tabularMLprediction_string(mrn)
 
         return system_instructions, n_examples_added
 
