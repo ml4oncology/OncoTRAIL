@@ -25,102 +25,9 @@ logger = logging.getLogger(__name__)
 algs = {"LR": LR, "XGB": XGB, "LGBM": LGBM, "MLP": MLP, "Midfusion": MidfusionMLP}
 
 
-###############################################################################
-# Tune Models
-###############################################################################
-class Tuner:
-    def __init__(
-        self,
-        X_train,
-        Y_train,
-        X_eval,
-        Y_eval,
-        X_valid,
-        Y_valid,
-        X_test,
-        score_func,
-        output_path,
-        alg,
-    ):
-        self.X_train = X_train
-        self.Y_train = Y_train
-        self.X_eval = X_eval
-        self.Y_eval = Y_eval
-        self.X_valid = X_valid
-        self.Y_valid = Y_valid
-        self.X_test = X_test
-
-        self.n_features = X_train.shape[1]
-        self.n_targets = 1
-
-        if score_func == "AUROC":
-            self.score_func = roc_auc_score
-        elif score_func == "logloss":
-            self.score_func = lambda y_true, y_pred: -1.0 * log_loss(y_true, y_pred)
-        self.output_path = output_path
-
-        self.model_static_param = copy.deepcopy(model_static_param)[alg]
-        self.model_tuning_param = copy.deepcopy(model_tuning_param)[alg]
-        self.bayesopt_param = copy.deepcopy(bayesopt_param)[alg]
-        self.alg_name = alg
-        self.alg = copy.deepcopy(algs)[alg]
-
-    def bayesopt(self, filename, random_state=42, bopt_kwargs=None):
-        """Conduct bayesian optimization, a sequential search framework
-        for finding optimal hyperparameters using bayes theorem
-        """
-        if bopt_kwargs is None:
-            bopt_kwargs = {}
-
-        # set up
-        hyperparam_config = self.model_tuning_param
-        optim_config = self.bayesopt_param
-        eval_func = self._eval_func
-        bo = BayesianOptimization(
-            f=eval_func,
-            pbounds=hyperparam_config,
-            verbose=2,
-            random_state=random_state,
-            allow_duplicate_points=True,
-            **bopt_kwargs,
-        )
-
-        # find the best hyperparameters
-        bo.maximize(**optim_config)
-        best_param = bo.max["params"]
-        best_param = self.convert_hyperparams(best_param)
-
-        # # save target values in bayesian optimization
-        # target_vals = []
-        # for _, res in enumerate(bo.res):
-        #     target_vals.append(res["target"])
-        # target_vals = np.array(target_vals)
-
-        # np.savez(
-        #     f"{self.output_path}/BayesOpttarget_vals_{filename}.npz",
-        #     target_vals=target_vals,
-        # )
-
-        # save the best hyperparameters
-        if not os.path.exists(self.output_path):
-            os.makedirs(self.output_path)
-        save_pickle(best_param, f"{self.output_path}", filename)
-
-        return best_param
-
-    def _eval_func(self, *args, **kwargs):
-        """Evaluation function for bayesian optimization"""
-        raise NotImplementedError
-
-    def convert_hyperparams(self, best_param):
-        """You can overwrite this to convert the hyperparmeters as desired"""
-        return best_param
-
-
-###############################################################################
-# Train Models
-###############################################################################
-class Trainer(Tuner):
+class ModelTrainer:
+    """Handles model training with hyperparameter optimization"""
+    
     def __init__(
         self,
         X_train,
@@ -138,124 +45,116 @@ class Trainer(Tuner):
         data_type,
         **kwargs,
     ):
-        """
-        Args:
-            **kwargs (dict): the parameters of MLModels
-        """
-        super().__init__(
-            X_train,
-            Y_train,
-            X_eval,
-            Y_eval,
-            X_valid,
-            Y_valid,
-            X_test,
-            score_func,
-            output_path,
-            alg,
-        )
+        self.X_train = X_train
+        self.Y_train = Y_train
+        self.X_eval = X_eval
+        self.Y_eval = Y_eval
+        self.X_valid = X_valid
+        self.Y_valid = Y_valid
+        self.X_test = X_test
+
+        self.n_features = X_train.shape[1]
+        self.n_targets = 1
+
+        if score_func == "AUROC":
+            self.score_func = roc_auc_score
+        elif score_func == "logloss":
+            self.score_func = lambda y_true, y_pred: -1.0 * log_loss(y_true, y_pred)
+        
+        self.output_path = output_path
         self.str_identifier = str_identifier
         self.embedding_size = LLM_embedding_dim[LLM_name] if LLM_name is not None else 0
         self.data_type = data_type
 
-    def run(self, bayes_kwargs=None):
+        self.model_static_param = copy.deepcopy(model_static_param)[alg]
+        self.model_tuning_param = copy.deepcopy(model_tuning_param)[alg]
+        self.bayesopt_param = copy.deepcopy(bayesopt_param)[alg]
+        self.alg_name = alg
+        self.alg = copy.deepcopy(algs)[alg]
+
+    def train(self, bayes_kwargs=None):
         """
-        Args:
-            bayes_kwargs: keyword arguments fed into BayesianOptimization
+        Main training method
+        Returns: train_pred, eval_pred, val_pred, test_pred, shap_values_test, corr_coeff
         """
         if bayes_kwargs is None:
             bayes_kwargs = {}
 
         # Hyperparameter Tuning
-
-        best_param = self.bayesopt(
+        best_param = self._bayesopt(
             filename=self.str_identifier, bopt_kwargs=bayes_kwargs
         )
 
         train_kwargs = {}
-        # NOTE: train_kwargs takes precedence if there are duplicate keys
         for name, param in best_param.items():
             train_kwargs[name] = train_kwargs.get(name, param)
 
         # Model Training
-        model = self.train_model(**train_kwargs)
+        model = self._train_model(**train_kwargs)
 
-        # Apply model to training data
-        train_pred = self.predict(model, self.X_train)
+        # Predictions
+        train_pred = self._predict(model, self.X_train)
+        eval_pred = self._predict(model, self.X_eval) if self.X_eval is not None else None
+        val_pred = self._predict(model, self.X_valid)
+        test_pred = self._predict(model, self.X_test)
 
-        # if X_eval not none
-        if self.X_eval is not None:
-            # Apply model to evaluation data
-            eval_pred = self.predict(model, self.X_eval)
-        else:
-            eval_pred = None
-
-        # Apply model to validation data
-        val_pred = self.predict(model, self.X_valid)
-
-        # Prediction
-        test_pred = self.predict(model, self.X_test)
-
-        # compute shapley values
-        # explainer = shap.Explainer(model, self.X_valid)
-
-        Xv = (
-                self.X_valid.cpu().numpy().astype(float)
-                if isinstance(self.X_valid, torch.Tensor)
-                else np.asarray(self.X_valid, dtype=float)
-            )
-        if self.alg_name in ["LR", "XGB", "LGBM"]:
-            explainer = shap.Explainer(model.predict, Xv)
-        elif self.alg_name in ["MLP", "Midfusion"]:
-            model.eval()  # deactivates dropout
-            predict_fn = lambda data: model.predict(data, grad=False, bound_pred=True)
-            explainer = shap.Explainer(predict_fn, Xv)
-
-        if self.data_type == "tabular" or 'nlp' in self.data_type:
-            Xt = (
-                self.X_test.cpu().numpy().astype(float)
-                if isinstance(self.X_test, torch.Tensor)
-                else np.asarray(self.X_test, dtype=float)
-            )
-            shap_values_test = explainer.shap_values(Xt)
-
-            # Compute correlation for each column
-            corr_coeff = np.array([
-                np.corrcoef(Xt[:, i], shap_values_test[:, i])[0, 1]
-                for i in range(Xt.shape[1])
-            ])
-
-        else:
-            shap_values_test = []
-            corr_coeff = []
+        # SHAP values
+        shap_values_test, corr_coeff = self._compute_shap_values(model)
 
         return train_pred, eval_pred, val_pred, test_pred, shap_values_test, corr_coeff
 
-    def train_model(self, **kwargs):
+    def _bayesopt(self, filename, random_state=42, bopt_kwargs=None):
+        """Conduct bayesian optimization"""
+        if bopt_kwargs is None:
+            bopt_kwargs = {}
+
+        hyperparam_config = self.model_tuning_param
+        optim_config = self.bayesopt_param
+        eval_func = self._eval_func
+        
+        bo = BayesianOptimization(
+            f=eval_func,
+            pbounds=hyperparam_config,
+            verbose=2,
+            random_state=random_state,
+            allow_duplicate_points=True,
+            **bopt_kwargs,
+        )
+
+        bo.maximize(**optim_config)
+        best_param = bo.max["params"]
+        best_param = self._convert_hyperparams(best_param)
+
+        # Save best hyperparameters
+        if not os.path.exists(self.output_path):
+            os.makedirs(self.output_path)
+        save_pickle(best_param, f"{self.output_path}", filename)
+
+        return best_param
+
+    def _train_model(self, **kwargs):
+        """Train the model"""
         if self.alg_name in ["LR", "XGB", "LGBM"]:
-            model = self.train_ml_model(**kwargs, **self.model_static_param)
+            model = self._train_ml_model(**kwargs, **self.model_static_param)
         elif self.alg_name in ["MLP", "Midfusion"]:
-            model = self.train_dl_model(**kwargs, **self.model_static_param)
+            model = self._train_dl_model(**kwargs, **self.model_static_param)
         else:
             raise Exception("Not implemented yet.")
 
-        # save the trained model
+        # Save trained model
         if not os.path.exists(self.output_path):
             os.makedirs(self.output_path)
         save_pickle(model, f"{self.output_path}", 'model_' + self.str_identifier)
 
-        # if model is logistic regression, save coefficients
+        # Save coefficients for LR
         if self.alg_name == "LR":
-            # Extract coefficients
             coefficients = model.model.coef_[0]
-
-            # file path for coefficients
             coef_output_file = os.path.join(self.output_path, f"model_{self.str_identifier}_coefficients.npz")
             np.savez(coef_output_file, coefficients=coefficients)
         
         return model
 
-    def train_ml_model(self, **kwargs):
+    def _train_ml_model(self, **kwargs):
         """Train machine learning models"""
         model = self.alg(**kwargs)
 
@@ -265,7 +164,7 @@ class Trainer(Tuner):
             model.fit(self.X_train, self.Y_train)
         return model
 
-    def train_dl_model(
+    def _train_dl_model(
         self,
         epochs=200,
         batch_size=128,
@@ -284,8 +183,8 @@ class Trainer(Tuner):
                 self.n_features, self.embedding_size, self.n_targets, **kwargs
             )
 
-        train_dataset = self.transform_to_tensor_dataset(self.X_train, self.Y_train)
-        valid_dataset = self.transform_to_tensor_dataset(self.X_eval, self.Y_eval)
+        train_dataset = self._transform_to_tensor_dataset(self.X_train, self.Y_train)
+        valid_dataset = self._transform_to_tensor_dataset(self.X_eval, self.Y_eval)
 
         def collate_fn(batch):
             feats, targets = zip(*batch)
@@ -301,17 +200,18 @@ class Trainer(Tuner):
         best_val_loss = prev_val_loss = np.inf
         best_model_weights = None
         early_stop_counter = 0
-        perf = {}  # performance scores
+        perf = {}
 
         lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
             model.optimizer, T_0=10
         )
         iters = len(train_loader)
+        
         for epoch in range(epochs):
-            model.train()  # activate dropout
+            model.train()
             train_loss = 0
             for i, batch in enumerate(train_loader):
-                model.optimizer.zero_grad()  # clear gradients
+                model.optimizer.zero_grad()
                 feats, targets = batch
                 preds = model.predict(feats, grad=True, bound_pred=False)
 
@@ -319,19 +219,20 @@ class Trainer(Tuner):
                 loss = loss.mean(dim=0)
                 train_loss += loss
 
-                preds = torch.sigmoid(preds)  # bound the model prediction
+                preds = torch.sigmoid(preds)
 
                 loss = loss.mean()
-                loss.backward()  # back propagation, compute gradients
+                loss.backward()
                 if clip_gradients:
                     model.clip_gradients()
-                model.optimizer.step()  # apply gradients
+                model.optimizer.step()
                 lr_scheduler.step(epoch + i / iters)
 
-            model.eval()  # deactivates dropout
+            model.eval()
             valid_loss = self._validate_dl_model(model, valid_loader)
             if model.use_gpu:
                 train_loss = train_loss.cpu().detach()
+            
             perf[epoch] = {"Train Loss": train_loss / (i + 1), "Valid Loss": valid_loss}
             msg = [f"{k}: {v.mean():.4f}" for k, v in perf[epoch].items()]
             logger.info(f"Epoch {epoch}, {(', ').join(msg)}")
@@ -339,7 +240,6 @@ class Trainer(Tuner):
             if torch.isnan(train_loss / (i + 1)) or torch.isnan(valid_loss):
                 break
 
-            # save best model so far
             cur_val_loss = valid_loss.mean()
             if cur_val_loss < best_val_loss:
                 best_val_loss = cur_val_loss
@@ -347,7 +247,6 @@ class Trainer(Tuner):
                 early_stop_counter = 0
 
                 if save_checkpoints:
-                    # check if self.output_path exists
                     if not os.path.exists(self.output_path):
                         os.makedirs(self.output_path)
                     save_path = f"{self.output_path}/train_perf/{self.str_identifier}-checkpoint"
@@ -360,10 +259,7 @@ class Trainer(Tuner):
                         save_path,
                     )
 
-            # early stopping
-            if (
-                early_stop_counter > early_stop_count
-            ):  # (prev_val_loss - cur_val_loss < early_stop_tol)
+            if early_stop_counter > early_stop_count:
                 break
             early_stop_counter += 1
             prev_val_loss = cur_val_loss
@@ -380,6 +276,7 @@ class Trainer(Tuner):
         return model
 
     def _validate_dl_model(self, model, loader):
+        """Validate deep learning model"""
         total_loss = 0
         for i, batch in enumerate(loader):
             feats, targets = batch
@@ -393,31 +290,34 @@ class Trainer(Tuner):
 
     def _eval_func(self, **kwargs):
         """Evaluation function for bayesian optimization"""
-        kwargs = self.convert_hyperparams(kwargs)
-        model = self.train_model(**kwargs)
-
-        pred = self.predict(model, self.X_valid)
-
+        kwargs = self._convert_hyperparams(kwargs)
+        model = self._train_model(**kwargs)
+        pred = self._predict(model, self.X_valid)
         return self.score_func(self.Y_valid, pred)
 
-    def predict(self, model, data):
+    def _predict(self, model, data):
+        """Make predictions"""
+        if data is None:
+            return None
+            
         if self.alg_name in ["LR", "XGB", "LGBM"]:
             pred = model.predict(data)
         elif self.alg_name in ["MLP", "Midfusion"]:
             pred = self._nn_predict(model, data)
         else:
             raise Exception("Not implemented yet.")
-
         return pred
 
     def _nn_predict(self, model, data):
-        model.eval()  # deactivates dropout
+        """Neural network prediction"""
+        model.eval()
         pred = model.predict(data, grad=False, bound_pred=True)
         if model.use_gpu:
             pred = pred.cpu()
         return pred
 
-    def convert_hyperparams(self, params):
+    def _convert_hyperparams(self, params):
+        """Convert hyperparameters to appropriate types"""
         cat_param_choices = np.geomspace(start=16, stop=4096, num=9)
         for param, value in params.items():
             if param == "max_depth":
@@ -453,7 +353,8 @@ class Trainer(Tuner):
 
         return params
 
-    def transform_to_tensor_dataset(self, X, Y):
+    def _transform_to_tensor_dataset(self, X, Y):
+        """Transform data to tensor dataset"""
         try:
             X = X.astype(float)
         except Exception as e:
@@ -462,3 +363,37 @@ class Trainer(Tuner):
         X = torch.tensor(X, dtype=torch.float32)
         Y = torch.tensor(Y, dtype=torch.float32)
         return TensorDataset(X, Y)
+
+    def _compute_shap_values(self, model):
+        """Compute SHAP values for interpretability"""
+        Xv = (
+            self.X_valid.cpu().numpy().astype(float)
+            if isinstance(self.X_valid, torch.Tensor)
+            else np.asarray(self.X_valid, dtype=float)
+        )
+        
+        if self.alg_name in ["LR", "XGB", "LGBM"]:
+            explainer = shap.Explainer(model.predict, Xv)
+        elif self.alg_name in ["MLP", "Midfusion"]:
+            model.eval()
+            predict_fn = lambda data: model.predict(data, grad=False, bound_pred=True)
+            explainer = shap.Explainer(predict_fn, Xv)
+
+        if self.data_type == "tabular" or 'nlp' in self.data_type:
+            Xt = (
+                self.X_test.cpu().numpy().astype(float)
+                if isinstance(self.X_test, torch.Tensor)
+                else np.asarray(self.X_test, dtype=float)
+            )
+            shap_values_test = explainer.shap_values(Xt)
+
+            # Compute correlation for each column
+            corr_coeff = np.array([
+                np.corrcoef(Xt[:, i], shap_values_test[:, i])[0, 1]
+                for i in range(Xt.shape[1])
+            ])
+        else:
+            shap_values_test = []
+            corr_coeff = []
+
+        return shap_values_test, corr_coeff
