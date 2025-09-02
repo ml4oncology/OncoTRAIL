@@ -132,26 +132,36 @@ def gen_data_split(
 
         prep = PrepData()
         data_frames = {
-            "train": prep.transform_data(train_data, data_name="training"),
-            "eval": prep.transform_data(eval_data, data_name="evaluation"),
-            "valid": prep.transform_data(valid_data, data_name="validation"),
-            "test": prep.transform_data(test_data, data_name="test"),
-        }
+                "train": prep.transform_data(
+                    pd.concat([train_data, eval_data]) if model_name == "LR" else train_data,
+                    data_name="training"
+                ),
+                "eval": None if model_name == "LR" else prep.transform_data(eval_data, data_name="evaluation"),
+                "valid": prep.transform_data(valid_data, data_name="validation"),
+                "test": prep.transform_data(test_data, data_name="test"),
+            }
 
         # remove columns that are not needed
         drop_cols = ["mrn", "treatment_date", "stats_physician"]
         for k in data_frames:
-            data_frames[k].drop(columns=drop_cols, inplace=True)
+            if data_frames[k] is not None:
+                data_frames[k].drop(columns=drop_cols, inplace=True)
 
-        if model_name == "LR":
-            combined_df = pd.concat([data_frames["train"], data_frames["eval"]])
-            X["train"] = np.concatenate([X["train"], combined_df.to_numpy()], axis=1)
-        else:
-            for split in ["train", "eval"]:
-                X[split] = np.concatenate([X[split], data_frames[split].to_numpy()], axis=1)
+        for key in ["train", "eval", "valid", "test"]:
+            if data_frames[key] is None:
+                continue
+            else:
+                X[key] = np.concatenate([X[key], data_frames[key].to_numpy()], axis=1)
 
-        X["valid"] = np.concatenate([X["valid"], data_frames["valid"].to_numpy()], axis=1)
-        X["test"] = np.concatenate([X["test"], data_frames["test"].to_numpy()], axis=1)
+        # if model_name == "LR":
+        #     combined_df = pd.concat([data_frames["train"], data_frames["eval"]])
+        #     X["train"] = np.concatenate([X["train"], combined_df.to_numpy()], axis=1)
+        # else:
+        #     for split in ["train", "eval"]:
+        #         X[split] = np.concatenate([X[split], data_frames[split].to_numpy()], axis=1)
+
+        # X["valid"] = np.concatenate([X["valid"], data_frames["valid"].to_numpy()], axis=1)
+        # X["test"] = np.concatenate([X["test"], data_frames["test"].to_numpy()], axis=1)
 
     if 'nlp' not in data_type:
         train_col_names = train_data.columns.to_list()

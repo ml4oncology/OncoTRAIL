@@ -161,7 +161,13 @@ def summarize_best_result(pred_directory, model_directory, target_list, split_li
         summary.columns = [col.rstrip('_') for col in summary.columns]
 
         # Compute CI
-        CI_vals_test, CI_vals_train, pred_file_names, model_file_names = [], [], [], []
+        (CI_vals_test, 
+        CI_vals_train, 
+        pred_file_names, 
+        model_file_names, 
+        preprocessing_file_names,
+        saved_model_file_names) = [], [], [], [], [], []
+
         for _, row in summary.iterrows():
             setup = row['training-setup']
             target = row['target']
@@ -191,13 +197,23 @@ def summarize_best_result(pred_directory, model_directory, target_list, split_li
                 model_coef_name = f'model_{model_name}_{note_config}_{split}_{metric}_{data_type}_{target}_coefficients.npz'
                 model_coef_path = os.path.join(model_directory, model_coef_name)    
                 model_file_names.append(model_coef_path)
+                model_type = "LR"
             else:
                 model_file_names.append('not available')
+                model_type = "NonLR"
+            
+            preprocessing_fname = f'{note_config}_{target}_{split}_{data_type}_{model_type}_preprocessing_artifacts.pkl'
+            preprocessing_file_names.append(os.path.join(model_directory, preprocessing_fname))
+
+            saved_model_path = f'model_{model_name}_{note_config}_{split}_{metric}_{data_type}_{target}'
+            saved_model_file_names.append(os.path.join(model_directory, saved_model_path))
 
         summary['test_CI'] = CI_vals_test
         summary['train_CI'] = CI_vals_train
         summary['pred_file_name'] = pred_file_names
         summary['model_file_name'] = model_file_names
+        summary['preprocessing_file_name'] = preprocessing_file_names
+        summary['saved_model_path'] = saved_model_file_names
 
         out_csv = f'best_result_summary_{note_config}_{data_type}_{model_str}_{split_str}.csv'
         summary.to_csv(os.path.join(save_dir, out_csv), index=False)

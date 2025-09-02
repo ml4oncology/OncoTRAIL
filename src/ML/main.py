@@ -69,14 +69,15 @@ def main(
     if target_name != "target_sex":
         mask = (df[target_name] != -1).to_numpy()
 
-        # only extract target where index != -1
-        target = df.loc[mask, target_name].to_numpy()
     else:
         raise NotImplementedError
 
     # update mask for treatment_date based on date limits
     date_mask = ((df['treatment_date'] >= date_lower_limit) & (df['treatment_date'] <= date_upper_limit)).to_numpy()
     mask = mask & date_mask
+    
+    # only extract target where index != -1
+    target = df.loc[mask, target_name].to_numpy()
     
     embedding = None
     if data_type in ["notes", "notes-tabular"]:
