@@ -129,7 +129,7 @@ def collect_finetune_metrics(base_dir):
     final_df = final_df[[col for col in reordered if col in final_df.columns]]
 
     return final_df
-def get_best_configs(df, base_dir):
+def get_best_configs(df, base_dir, model_name):
     if df.empty:
         logger.warning("Empty DataFrame passed to get_best_configs.")
         return pd.DataFrame()
@@ -145,11 +145,12 @@ def get_best_configs(df, base_dir):
     # compute the CI of the AUC
     train_CI = []
     test_CI = []
-    # here
+    saved_model_path = []
 
     for _, row in best_results.iterrows():
         target = row["target"]
         lr = row["lr"]
+        formatted_lr = format_lr(lr)
         epochs = row["epochs"]
         gradientsteps = row["gradientsteps"]
 
@@ -158,9 +159,14 @@ def get_best_configs(df, base_dir):
             logger.warning(f"Target directory not found: {target_path}")
             continue
 
-        # do for train data
+        # add saved model path
+        saved_fname = f"LLM-{model_name}_lr-{formatted_lr}_epochs-{int(epochs)}_batchsizetrain-*_gradientsteps-{int(gradientsteps)}"
+        matching_dirs = glob.glob(os.path.join(target_path, saved_fname))
+        directory_name = matching_dirs[0]  # Since you know there's only 1
+        # append target_path and directory_name
+        saved_model_path.append(directory_name)
 
-        formatted_lr = format_lr(lr)
+        # do for train data
         pattern = f"*post_finetune*_train_*lr-{formatted_lr}_epochs-{int(epochs)}_batchsizetrain-*_gradientsteps-{int(gradientsteps)}*.csv"
         search_path = os.path.join(target_path, pattern)
         matching_files = glob.glob(search_path)
@@ -195,6 +201,7 @@ def get_best_configs(df, base_dir):
     # append results to dataframe
     best_results["train_CI"] = train_CI
     best_results["test_CI"] = test_CI
+    best_results["saved_model_path"] = saved_model_path
 
     return best_results
 
@@ -252,7 +259,7 @@ def plot_all_loss_curves(best_df, base_dir, save_dir):
         else:
             logger.warning(f"Expected 1 file, found {len(matching_files)}: {matching_files}")
 
-def main(base_dir, save_dir):
+def main(base_dir, save_dir, model_name):
     os.makedirs(save_dir, exist_ok=True)
     df = collect_finetune_metrics(base_dir)
 
@@ -260,7 +267,7 @@ def main(base_dir, save_dir):
         logger.error("No valid result pairs found.")
         return
 
-    best_df = get_best_configs(df, base_dir)
+    best_df = get_best_configs(df, base_dir, model_name)
     best_df.to_csv(os.path.join(save_dir, "best_finetune_results.csv"), index=False)
     logger.info(f"Saved best configurations to {save_dir}/best_finetune_results_per_target.csv")
 
@@ -275,9 +282,14 @@ def main(base_dir, save_dir):
     })
     best_df.to_csv(os.path.join(save_dir, "best_finetune_results_for_comparison.csv"), index=False)
 
+    # drop any columns with _CI in the name
+    best_df = best_df[[col for col in best_df.columns if "_CI" not in col]]
+    best_df.to_csv(os.path.join(save_dir, "best_finetune_results_no_CI.csv"), index=False)
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Plot figures for finetuning results")
     parser.add_argument("base_dir", type=str, help="Base directory where results are saved")
     parser.add_argument("save_dir", type=str, help="Directory where to save plots and CSVs")
+    parser.add_argument("model_name", type=str, help="LLM name")
     args = parser.parse_args()
-    main(args.base_dir, args.save_dir)
+    main(args.base_dir, args.save_dir, args.model_name)

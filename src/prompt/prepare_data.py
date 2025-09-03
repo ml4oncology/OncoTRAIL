@@ -19,12 +19,18 @@ def prepare_data(cfg):
     n_partitions = cfg['n_partitions']
     data_dir = cfg['data_dir']
     df_name = cfg['file_name']
+    mode = cfg['mode']
+    
+    # Validation: random_sampling must be 0 when mode is inference
+    if mode == "inference":
+        assert cfg['random_sampling'] == 0, "random_sampling must be 0 when mode is 'inference'"
     
     # read dataframe
     df = load_table(f'{data_dir}/{df_name}')
 
-    # restrict the data to study dates only
-    df = df[df['treatment_date'].between(date_lower_limit, date_upper_limit)].copy()
+    # restrict the data to study dates only (only for train mode)
+    if mode == "train":
+        df = df[df['treatment_date'].between(date_lower_limit, date_upper_limit)].copy()
 
     if '.parquet.gzip' in df_name:
         file_name_no_ext = os.path.splitext(df_name)[0]
@@ -40,7 +46,8 @@ def prepare_data(cfg):
     # list of targets
     list_of_targets = cfg['target_names'].split(",")
 
-    if cfg['n_few_shot'] != 0:
+    # Few-shot sampling (only for train mode)
+    if mode == "train" and cfg['n_few_shot'] != 0:
         for target in list_of_targets:
             # find indices where target is not -1
             df_few_shot = df.loc[df['treatment_date']<cfg['few_shot_date']].loc[df['note_summary'].notna()].loc[df[target] != -1].copy()
@@ -136,6 +143,7 @@ def prepare_data(cfg):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument("mode", help="mode: 'train' or 'inference'", type=str, choices=["train", "inference"])  # mode
     parser.add_argument("data_dir", help="data directory", type=str)  # data directory
     parser.add_argument("file_name", help="notes file name", type=str)  # notes file name
     parser.add_argument("start_date", help="start date", type=str)  # start date
