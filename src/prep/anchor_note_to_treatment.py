@@ -26,13 +26,12 @@ from llm_notes_classification.prep.add_tabular_to_note import (
     add_tabular_data_to_note
 )
 
-# import sys
-# sys.path.insert(1, "/cluster/projects/gliugroup/2BLAST/data/processed/clinical_notes/HealthReportRecords/constants")
-# # load constants from file
-# from constants import aliasDictionary
+# refactor this to also generate inference data
+# find mrns which have their first entry in EPIC for inference data
+# Question: can you just run this code as is using the patients with epic notes or are there notes that will be missing?
 
 import importlib.util
-spec = importlib.util.spec_from_file_location("constants", "/cluster/projects/gliugroup/2BLAST/data/processed/clinical_notes/HealthReportRecords/constants/constants.py")
+spec = importlib.util.spec_from_file_location("phys_names", "/cluster/projects/gliugroup/2BLAST/data/info/phys_names.py")
 constants = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(constants)
 aliasDictionary = constants.aliasDictionary
@@ -41,8 +40,6 @@ def anchor_note_to_treatment(notes_data_path,
                             treatment_data_path, 
                             ed_visit_data_path,
                             symptom_data_path, 
-                            last_seen_data_path,
-                            lab_values_data_path,
                             opis_data_path,
                             save_dir, config_name,
                             test_end_date, 
@@ -55,8 +52,6 @@ def anchor_note_to_treatment(notes_data_path,
         treatment_data_path: file path of the treatment data frame
         ed_visit_data_path: data path of the ED visit data frame
         symptom_data_path: data path of the symptom data frame
-        last_seen_data_path: data path of the last seen data frame
-        lab_values_data_path: data path of the lab values data frame
         opis_data_path: data path of the opis data frame
         save_dir: directory path where processed data frame will be saved
         config_name: configuration name for how to anchor note to treatment date
@@ -131,10 +126,6 @@ def anchor_note_to_treatment(notes_data_path,
     #                             'treatment_date',
     #                             'obs_date'
     #                             )
-    
-    # # DEBUG
-    # # before dropping non first treatment
-    # df_treat.to_csv(f"{save_dir}/debug_before_first_note_anchored_{config_name}.csv")
 
     # if first treatment only, select the first row for every mrn and treatment_date
     if 'firstTreatmentOnly-medOnc-ConsultLetterClinic' in config_name:
@@ -142,10 +133,6 @@ def anchor_note_to_treatment(notes_data_path,
         df_treat.sort_values(by='treatment_date', inplace=True)
         # select the first row for every mrn and treatment_date
         df_treat = df_treat.groupby(['mrn']).first(skipna=False).reset_index()
-
-    # # DEBUG
-    # # save for debugging
-    # df_treat.to_csv(f"{save_dir}/debug_note_anchored_{config_name}.csv")
 
     # load notes file
     merged_notes = pd.read_parquet(f'{notes_data_path}')
@@ -211,10 +198,6 @@ def anchor_note_to_treatment(notes_data_path,
     else:
         raise Exception("Not implemented yet.")
 
-    # # DEBUG
-    # # save for debugging
-    # merged_notes.to_csv(f"{save_dir}/debug_merged_notes_{config_name}.csv")
-
     # filter the treatment-centered data frame
     df_treat = df_treat.loc[df_treat['mrn'].isin(merged_notes['mrn'].unique())].copy()
     # filter out records if treatment date is past the end date of the study period
@@ -251,10 +234,6 @@ def anchor_note_to_treatment(notes_data_path,
     target_cols = [col for col in keep_cols if col not in exclude_cols]
     target_cols = [col for col in target_cols if 'max' not in col and 'min' not in col]
     df_treat.loc[:, target_cols].fillna(value=-1, inplace=True)
-
-    # # DEBUG
-    # # save for debugging
-    # df_treat.to_csv(f"{save_dir}/debug_note_anchored_{config_name}.csv")
 
     df_treat[target_cols] = df_treat[target_cols].replace({'False': 0, 'True': 1})
     df_treat[target_cols] = df_treat[target_cols].astype(int)
@@ -306,8 +285,6 @@ if __name__ == "__main__":
     parser.add_argument("treatment_data_path", help = "file path of treatment data", type = str) # treatment data file path
     parser.add_argument("ed_visit_data_path", help = "file path of ED visit data", type = str) # ed visit data file path
     parser.add_argument("symptom_data_path", help = "file path of symptom data", type = str) # file path of symptom data
-    parser.add_argument("last_seen_data_path", help = "file path of last seen data", type = str) # last seen data file path
-    parser.add_argument("lab_values_data_path", help = "file path of lab values", type = str) # lab values data file path
     parser.add_argument("opis_data_path", help = "opis file path", type = str) # opis file path
     parser.add_argument("save_dir", help = "save directory", type = str) # save directory
     parser.add_argument("config_name", help = "configuration name", type = str) # configuration name
@@ -320,8 +297,6 @@ if __name__ == "__main__":
                              args.treatment_data_path, 
                              args.ed_visit_data_path,
                              args.symptom_data_path, 
-                             args.last_seen_data_path,
-                             args.lab_values_data_path,
                              args.opis_data_path,
                              args.save_dir, 
                              args.config_name, 
