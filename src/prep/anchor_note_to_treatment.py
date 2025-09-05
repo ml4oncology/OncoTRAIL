@@ -1,23 +1,23 @@
 import os
 import pandas as pd
 import argparse
-from ml_common.anchor import combine_feat_to_main_data
-from ml_common.engineer import (
+from make_clinical_dataset.epr.anchor import combine_feat_to_main_data
+from make_clinical_dataset.epr.engineer import (
     get_change_since_prev_session,
     get_missingness_features,
     collapse_rare_categories
 )
-from ml_common.filter import (
+from make_clinical_dataset.epr.filter import (
     drop_samples_with_no_targets, 
     drop_unused_drug_features, 
     drop_highly_missing_features,
     keep_only_one_per_week
 )
-from ml_common.constants import SYMP_COLS
+from make_clinical_dataset.shared.constants import SYMP_COLS
 
 from preduce.acu.label import get_event_labels
 from preduce.symp.label import (get_symptom_labels, convert_to_binary_symptom_labels)
-from ml_common.prep import fill_missing_data_heuristically
+from make_clinical_dataset.epr.prep import fill_missing_data_heuristically
 from preduce.filter import indicate_immediate_events
 # from preduce.prepare.prep import fill_missing_data
 

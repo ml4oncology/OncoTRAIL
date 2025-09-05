@@ -11,7 +11,8 @@ import random
 from llm_notes_classification.config import date_lower_limit, date_upper_limit
 
 # Import our custom modules
-from ml_common.prep import Splitter
+# from ml_common.prep import Splitter
+from make_clinical_dataset.epr.prep import Splitter
 from llm_notes_classification.finetune.decoder_finetuner import DecoderFineTuner
 from llm_notes_classification.finetune.encoder_finetuner import EncoderFineTuner
 

@@ -1,9 +1,8 @@
 import numpy as np
 import pandas as pd
-from ml_common.constants import (CANCER_CODE_MAP, 
-                                     UNIT_MAP)
-
-
+from ml_common.constants import CANCER_CODE_MAP
+from make_clinical_dataset.shared.constants import UNIT_MAP
+                            
 def clean_col_name(str_name):
     if str_name == 'num_prior_ED_visits_within_5_years':
         clean_name = 'number of prior ED visits within 5 years'
