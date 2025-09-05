@@ -143,7 +143,8 @@ def anchor_note_to_treatment(mode,
         # merge records of patient on the same day
         # take the maximum of the EPR dates
 
-        merged_notes['note'] = merged_notes['Observations.ProcName'] + ':\n' + merged_notes['clinical_notes']
+        if mode == 'train':
+            merged_notes['note'] = merged_notes['Observations.ProcName'] + ':\n' + merged_notes['clinical_notes']
         # merged_notes = merged_notes.groupby(['mrn','processed_date']).agg(
         #                 processed_note=('note', lambda x: '\n'.join(x)),
         #                 max_epr_date=('EPRDate', 'max')).reset_index()
