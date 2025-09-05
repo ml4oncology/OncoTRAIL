@@ -36,7 +36,8 @@ constants = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(constants)
 aliasDictionary = constants.aliasDictionary
 
-def anchor_note_to_treatment(notes_data_path, 
+def anchor_note_to_treatment(mode,
+                            notes_data_path, 
                             treatment_data_path, 
                             ed_visit_data_path,
                             symptom_data_path, 
@@ -99,33 +100,6 @@ def anchor_note_to_treatment(notes_data_path,
         targ_cols = [f'target_{symp}_{pt}pt_change' for symp in SYMP_COLS]
         df_treat = indicate_immediate_events(df_treat, targ_cols, date_cols)
 
-    ####################
-    # Targets now in
-    # treatment data
-    # frame
-    ####################
-
-    # # process death
-    # df_treat['target_death_in_365d'] =\
-    #       df_treat['date_of_death'] < df_treat['treatment_date'] + pd.Timedelta(days=365)
-    # df_treat['target_death_in_30d'] =\
-    #       df_treat['date_of_death'] < df_treat['treatment_date'] + pd.Timedelta(days=30)
-
-    # last_seen_date = pd.read_parquet(f'{last_seen_data_path}')
-    # df_treat['last_seen_date'] = df_treat['mrn'].map(last_seen_date['last_seen_date'])
-    # mask = df_treat['last_seen_date'] > df_treat['date_of_death']
-
-    # df_treat[['target_death_in_365d', 'target_death_in_30d']] =\
-    #       df_treat[['target_death_in_365d', 'target_death_in_30d']].astype(int)
-    # df_treat.loc[mask, ['target_death_in_365d', 'target_death_in_30d']] = -1
-    
-    # # add CTCAE targets
-    # df_lab = pd.read_parquet(f'{lab_values_data_path}')
-    # df_treat = get_ctcae_labels(df_treat,
-    #                             df_lab,
-    #                             'treatment_date',
-    #                             'obs_date'
-    #                             )
 
     # if first treatment only, select the first row for every mrn and treatment_date
     if 'firstTreatmentOnly-medOnc-ConsultLetterClinic' in config_name:
@@ -144,11 +118,25 @@ def anchor_note_to_treatment(notes_data_path,
                        'firstVisitOnly-medOnc-ConsultLetterClinic',
                        'firstTreatmentOnly-medOnc-ConsultLetterClinic']
 
+    if mode == 'inference':
+        # find the unique mrns when EPIC_FLAG is 1
+        mrns_epic = merged_notes.loc[merged_notes['EPIC_FLAG'] == 1]['mrn'].unique()
+        mrns_epr = merged_notes.loc[merged_notes['EPIC_FLAG'] == 0]['mrn'].unique()
+        # find mrns in mrns_epic but not in mrns_epr
+        mrns_to_keep = list(set(mrns_epic) - set(mrns_epr))
+        merged_notes = merged_notes.loc[merged_notes['mrn'].isin(mrns_to_keep) & (merged_notes['EPIC_FLAG'] == 1)].copy()
+        
+        # drop EPIC_FLAG, Cosigner columns
+        merged_notes.drop(columns=['EPIC_FLAG', 'Cosigner'], inplace=True)
+        procName = ['BMT Planning', 'CCRT Note', 'Code Doc', 'MEDICAL STUD', 'SubjObj', 'PROGRESS', 'CONSULT', 'H&P', 'Teleconsult']
+
+    else:
+        procName = ['Clinic Note', 'Letter', 'History & Physical Note', 'Consultation Note', 'Clinic Note (Non-dictated)']
+
     if any(x in config_name for x in config_list):
         # only consider notes written by a medical oncologist 
         # only consider consultation, letter, clinic notes
         medOncs = list(set(aliasDictionary.values()))
-        procName = ['Clinic Note', 'Letter', 'History & Physical Note', 'Consultation Note', 'Clinic Note (Non-dictated)']
         merged_notes = merged_notes.loc[(merged_notes['processed_physician_name'].isin(medOncs)) &\
                                        (merged_notes['Observations.ProcName'].isin(procName))].copy()
         
@@ -204,26 +192,29 @@ def anchor_note_to_treatment(notes_data_path,
     # note: there is no need to cap the data at the start date since the notes data set
     # only contains data starting from the start date. if no notes are anchored to treatment 
     # data, they will be dropped
-    df_treat = df_treat.loc[df_treat['treatment_date'] <= test_end_date].copy()
+
+    if mode == 'train':
+        df_treat = df_treat.loc[df_treat['treatment_date'] <= test_end_date].copy()
 
     # attach notes to treatment dataframe
     df_treat = combine_feat_to_main_data(
         main=df_treat, feat=merged_notes, main_date_col='treatment_date', feat_date_col='processed_date', 
         time_window=(-lookback_window,0)
         )
-    
-    df_treat['max_epr_date'] = pd.to_datetime(df_treat['max_epr_date'])
 
     # drop rows that don't have any note data
     df_treat = df_treat.loc[~df_treat.note.isna()]
+    
+    if mode == 'train':
+        df_treat['max_epr_date'] = pd.to_datetime(df_treat['max_epr_date'])
 
-    # remove entries in the data with wrong EPR dates
-    df_treat = df_treat.loc[(df_treat['max_epr_date'].dt.year >= 2005) & 
-                            (df_treat['max_epr_date'].dt.year <= 2022)]
+        # remove entries in the data with wrong EPR dates
+        df_treat = df_treat.loc[(df_treat['max_epr_date'].dt.year >= 2005) & 
+                                (df_treat['max_epr_date'].dt.year <= 2022)]
 
-    # remove records with potential leakage -- EPR date is after the treatment date
-    df_treat = df_treat.loc[pd.to_datetime(df_treat['treatment_date'], utc=True) > 
-                            pd.to_datetime(df_treat['max_epr_date'], utc=True)]
+        # remove records with potential leakage -- EPR date is after the treatment date
+        df_treat = df_treat.loc[pd.to_datetime(df_treat['treatment_date'], utc=True) > 
+                                pd.to_datetime(df_treat['max_epr_date'], utc=True)]
 
     cols = df_treat.columns
     # drop rows where all targets are unavailable
@@ -281,6 +272,7 @@ def anchor_note_to_treatment(notes_data_path,
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument("mode", help="mode: 'train' or 'inference'", type=str, choices=["train", "inference"])  # mode
     parser.add_argument("notes_data_path", help = "data file path", type = str) # notes data file path
     parser.add_argument("treatment_data_path", help = "file path of treatment data", type = str) # treatment data file path
     parser.add_argument("ed_visit_data_path", help = "file path of ED visit data", type = str) # ed visit data file path
@@ -293,7 +285,8 @@ if __name__ == "__main__":
     parser.add_argument("add_tabular_to_note", help = "add tabular to note?", type = int) # add tabular to note?
     args = parser.parse_args()
 
-    anchor_note_to_treatment(args.notes_data_path, 
+    anchor_note_to_treatment(args.mode,
+                             args.notes_data_path, 
                              args.treatment_data_path, 
                              args.ed_visit_data_path,
                              args.symptom_data_path, 
