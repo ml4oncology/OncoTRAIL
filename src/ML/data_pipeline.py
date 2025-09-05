@@ -29,6 +29,7 @@ class DataPreprocessor:
         self.splits = {}
         self.target_splits = {}
         self.mrn_splits = {}
+        self.var_names = None
         
     def prepare_data(self, df, embedding, target, test_start_date, split_config, 
                     data_type, model_name, target_name):
@@ -65,6 +66,8 @@ class DataPreprocessor:
         if data_type in ["notes-tabular", "tabular"]:
             self._prepare_tabular_features(model_name)
         
+        self.var_names = self._get_variable_names(data_type)
+
         return {
             'X_train': self.splits['train'],
             'Y_train': self.target_splits['train'],
@@ -74,7 +77,7 @@ class DataPreprocessor:
             'Y_valid': self.target_splits['valid'],
             'X_test': self.splits['test'],
             'Y_test': self.target_splits['test'],
-            'var_names': self._get_variable_names(data_type),
+            'var_names': self.var_names,
             'mrn_train': self.mrn_splits['train'],
             'mrn_eval': self.mrn_splits['eval'],
             'mrn_valid': self.mrn_splits['valid'],
@@ -99,7 +102,8 @@ class DataPreprocessor:
                 'nlp_vectorizer': self.nlp_vectorizer,
                 'nlp_vocab': self.nlp_vocab,
                 'nlp_scaler': self.nlp_scaler,
-                'unique_physician_names': self.unique_physician_names
+                'unique_physician_names': self.unique_physician_names,
+                'var_names': self.var_names
             }
             
             with open(artifact_file, 'wb') as f:
@@ -120,6 +124,7 @@ class DataPreprocessor:
         self.nlp_vocab = artifacts['nlp_vocab']
         self.nlp_scaler = artifacts['nlp_scaler']
         self.unique_physician_names = artifacts['unique_physician_names']
+        self.var_names = artifacts['var_names']
     
     def _generate_splits(self, df, test_start_date, split_config):
         """Generate train/eval/valid/test splits"""
@@ -380,6 +385,8 @@ class DataPreprocessor:
                 X = np.concatenate([X, phys], axis=1)
             
             # Process tabular data
+            # arrange the columns in df to be the same as training data
+            df = df[self.var_names]
             df_processed = self.tabular_prep.transform_data(df, data_name="test")
             drop_cols = ["mrn", "treatment_date", "stats_physician"]
             df_processed.drop(columns=drop_cols, inplace=True, errors='ignore')
