@@ -1,7 +1,7 @@
 import os
 import pandas as pd
 import argparse
-from make_clinical_dataset.epr.anchor import combine_feat_to_main_data
+from make_clinical_dataset.epr.combine import combine_meas_to_main_data
 from make_clinical_dataset.epr.engineer import (
     get_change_since_prev_session,
     get_missingness_features,
@@ -15,8 +15,8 @@ from make_clinical_dataset.epr.filter import (
 )
 from make_clinical_dataset.shared.constants import SYMP_COLS
 
-from preduce.acu.label import get_event_labels
-from preduce.symp.label import (get_symptom_labels, convert_to_binary_symptom_labels)
+# from preduce.acu.label import get_event_labels
+# from preduce.symp.label import (get_symptom_labels, convert_to_binary_symptom_labels)
 from make_clinical_dataset.epr.prep import fill_missing_data_heuristically
 from preduce.filter import indicate_immediate_events
 # from preduce.prepare.prep import fill_missing_data
@@ -38,9 +38,7 @@ aliasDictionary = constants.aliasDictionary
 
 def anchor_note_to_treatment(mode,
                             notes_data_path, 
-                            treatment_data_path, 
-                            ed_visit_data_path,
-                            symptom_data_path, 
+                            treatment_data_path,  
                             opis_data_path,
                             save_dir, config_name,
                             test_end_date, 
@@ -77,22 +75,22 @@ def anchor_note_to_treatment(mode,
     # consider all events
     # process ED_visit
     # load ed target data frame
-    df_target_ed = pd.read_parquet(f'{ed_visit_data_path}', engine='pyarrow', use_nullable_dtypes = True)
-    df_treat = get_event_labels(df_treat, df_target_ed, event_name='ED_visit', 
-                                extra_cols=['CTAS_score', 'CEDIS_complaint'])
+    # df_target_ed = pd.read_parquet(f'{ed_visit_data_path}', engine='pyarrow', use_nullable_dtypes = True)
+    # df_treat = get_event_labels(df_treat, df_target_ed, event_name='ED_visit', 
+    #                             extra_cols=['CTAS_score', 'CEDIS_complaint'])
 
     # exclude immediate events
     df_treat = indicate_immediate_events(df_treat, targ_cols=['target_ED_visit'], 
                                          date_cols=['target_ED_visit_date'])
 
     # process symptom targets
-    target_pt_increases = [1, 3]
+    # target_pt_increases = [1, 3]
     # load symp target data frame
-    df_target_symp = pd.read_parquet(f'{symptom_data_path}')
-    df_treat = get_symptom_labels(df_treat, df_target_symp)
-    for pt_increase in target_pt_increases:
-        scoring_map = {symp: pt_increase for symp in SYMP_COLS}
-        df_treat = convert_to_binary_symptom_labels(df_treat, scoring_map=scoring_map)
+    # df_target_symp = pd.read_parquet(f'{symptom_data_path}')
+    # df_treat = get_symptom_labels(df_treat, df_target_symp)
+    # for pt_increase in target_pt_increases:
+    #     scoring_map = {symp: pt_increase for symp in SYMP_COLS}
+    #     df_treat = convert_to_binary_symptom_labels(df_treat, scoring_map=scoring_map)
 
     # exclude immediate events
     date_cols = [f'target_{symp}_survey_date' for symp in SYMP_COLS]
@@ -198,7 +196,7 @@ def anchor_note_to_treatment(mode,
         df_treat = df_treat.loc[df_treat['treatment_date'] <= test_end_date].copy()
 
     # attach notes to treatment dataframe
-    df_treat = combine_feat_to_main_data(
+    df_treat = combine_meas_to_main_data(
         main=df_treat, feat=merged_notes, main_date_col='treatment_date', feat_date_col='processed_date', 
         time_window=(-lookback_window,0)
         )
@@ -232,7 +230,14 @@ def anchor_note_to_treatment(mode,
     df_treat = drop_samples_with_no_targets(df_treat, target_cols, missing_val=-1) 
 
     # drop drug features that were never used
-    df_treat = drop_unused_drug_features(df_treat)
+    if mode == 'train':
+        df_treat = drop_unused_drug_features(df_treat)
+
+    heuristic_cols = ["num_prior_ED_visits_within_5_years", "days_since_starting_treatment", "days_since_last_treatment", "days_since_prev_ED_visit"]
+    # if heuristic_cols are not in df_treat, add them with default value of None
+    for col in heuristic_cols:
+        if col not in df_treat.columns:
+            df_treat[col] = None
 
     # fill missing data that can be filled heuristically
     df_treat = fill_missing_data_heuristically(df_treat)
@@ -252,7 +257,8 @@ def anchor_note_to_treatment(mode,
     df_treat = get_missingness_features(df_treat)
 
     # collapse rare morphology and cancer sites into 'Other' category
-    df_treat = collapse_rare_categories(df_treat, catcols=['cancer_site', 'morphology'])
+    if mode == 'train':
+        df_treat = collapse_rare_categories(df_treat, catcols=['cancer_site', 'morphology'])
 
     # drop assessment_date column
     df_treat.drop('assessment_date', axis=1, inplace=True)
@@ -276,8 +282,6 @@ if __name__ == "__main__":
     parser.add_argument("mode", help="mode: 'train' or 'inference'", type=str, choices=["train", "inference"])  # mode
     parser.add_argument("notes_data_path", help = "data file path", type = str) # notes data file path
     parser.add_argument("treatment_data_path", help = "file path of treatment data", type = str) # treatment data file path
-    parser.add_argument("ed_visit_data_path", help = "file path of ED visit data", type = str) # ed visit data file path
-    parser.add_argument("symptom_data_path", help = "file path of symptom data", type = str) # file path of symptom data
     parser.add_argument("opis_data_path", help = "opis file path", type = str) # opis file path
     parser.add_argument("save_dir", help = "save directory", type = str) # save directory
     parser.add_argument("config_name", help = "configuration name", type = str) # configuration name
@@ -288,9 +292,7 @@ if __name__ == "__main__":
 
     anchor_note_to_treatment(args.mode,
                              args.notes_data_path, 
-                             args.treatment_data_path, 
-                             args.ed_visit_data_path,
-                             args.symptom_data_path, 
+                             args.treatment_data_path,
                              args.opis_data_path,
                              args.save_dir, 
                              args.config_name, 

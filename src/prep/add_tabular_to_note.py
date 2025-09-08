@@ -90,6 +90,19 @@ def gen_cols_to_add_to_note(clinical_cols_df_names, first_treatment):
     valid_numeric_cols = [col for col in numeric_cols
                            if col in clinical_cols_df_names]
     
+    # for demographic_cols, acute_care_use_cols, cancer_cols, symptoms_cols, treatment_cols
+    # only keep columns that are in clinical_cols_df_names
+    demographic_cols = [col for col in demographic_cols
+                        if col in clinical_cols_df_names]
+    acute_care_use_cols = [col for col in acute_care_use_cols
+                           if col in clinical_cols_df_names]
+    cancer_cols = [col for col in cancer_cols
+                   if col in clinical_cols_df_names]
+    symptoms_cols = [col for col in symptoms_cols
+                     if col in clinical_cols_df_names]
+    treatment_cols = [col for col in treatment_cols
+                      if col in clinical_cols_df_names]
+
     cols_tabular = (demographic_cols + 
                        acute_care_use_cols + 
                        cancer_cols + 
