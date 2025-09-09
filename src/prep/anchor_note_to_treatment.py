@@ -82,9 +82,8 @@ def anchor_note_to_treatment(mode,
     # exclude immediate events
     df_treat = indicate_immediate_events(df_treat, targ_cols=['target_ED_visit'], 
                                          date_cols=['target_ED_visit_date'])
-
+    
     # process symptom targets
-    # target_pt_increases = [1, 3]
     # load symp target data frame
     # df_target_symp = pd.read_parquet(f'{symptom_data_path}')
     # df_treat = get_symptom_labels(df_treat, df_target_symp)
@@ -93,6 +92,7 @@ def anchor_note_to_treatment(mode,
     #     df_treat = convert_to_binary_symptom_labels(df_treat, scoring_map=scoring_map)
 
     # exclude immediate events
+    target_pt_increases = [1, 3]
     date_cols = [f'target_{symp}_survey_date' for symp in SYMP_COLS]
     for pt in target_pt_increases:
         targ_cols = [f'target_{symp}_{pt}pt_change' for symp in SYMP_COLS]
@@ -118,15 +118,16 @@ def anchor_note_to_treatment(mode,
 
     if mode == 'inference':
         # find the unique mrns when EPIC_FLAG is 1
-        mrns_epic = merged_notes.loc[merged_notes['EPIC_FLAG'] == 1]['mrn'].unique()
-        mrns_epr = merged_notes.loc[merged_notes['EPIC_FLAG'] == 0]['mrn'].unique()
-        # find mrns in mrns_epic but not in mrns_epr
-        mrns_to_keep = list(set(mrns_epic) - set(mrns_epr))
-        merged_notes = merged_notes.loc[merged_notes['mrn'].isin(mrns_to_keep) & (merged_notes['EPIC_FLAG'] == 1)].copy()
-        
+        # do this outside
+        # mrns_epic = merged_notes.loc[merged_notes['EPIC_FLAG'] == 1]['mrn'].unique()
+        # mrns_epr = merged_notes.loc[merged_notes['EPIC_FLAG'] == 0]['mrn'].unique()
+        # # find mrns in mrns_epic but not in mrns_epr
+        # mrns_to_keep = list(set(mrns_epic) - set(mrns_epr))
+        # merged_notes = merged_notes.loc[merged_notes['mrn'].isin(mrns_to_keep) & (merged_notes['EPIC_FLAG'] == 1)].copy()
+
         # drop EPIC_FLAG, Cosigner columns
         merged_notes.drop(columns=['EPIC_FLAG', 'Cosigner'], inplace=True)
-        procName = ['BMT Planning', 'CCRT Note', 'Code Doc', 'MEDICAL STUD', 'SubjObj', 'PROGRESS', 'CONSULT', 'H&P', 'Teleconsult']
+        procName = ['PROGRESS', 'CONSULT', 'H&P', 'TELEPHONE EN', 'Research Not', 'A&P Note']
 
     else:
         procName = ['Clinic Note', 'Letter', 'History & Physical Note', 'Consultation Note', 'Clinic Note (Non-dictated)']
