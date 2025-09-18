@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 from ml_common.constants import CANCER_CODE_MAP
-from make_clinical_dataset.shared.constants import UNIT_MAP
+from make_clinical_dataset.shared.constants import UNIT_MAP, SYMP_COLS
                             
 def clean_col_name(str_name):
     if str_name == 'num_prior_ED_visits_within_5_years':
@@ -12,20 +12,30 @@ def clean_col_name(str_name):
         clean_name = str_name.replace('_',' ').replace('given ', 'planned of ')
     elif str_name == 'female':
         clean_name = 'sex assigned at birth'
+    elif str_name in SYMP_COLS and 'ecog' not in str_name:
+        clean_name = 'esas ' + str_name
     else:
         clean_name = str_name.replace('_',' ')
     
     return clean_name
 
-def gen_cols_to_add_to_note(clinical_cols_df_names, first_treatment):
+def gen_cols_to_add_to_note(clinical_cols_df_names, first_treatment, mode):
 
     acute_care_use_cols = ['num_prior_ED_visits_within_5_years', 
                            'days_since_prev_ED_visit']
     
-    cancer_cols = ([col for col in clinical_cols_df_names 
-                   if 'cancer_site' in col and 'other' not in col and 'missing' not in col] +
-                  [col for col in clinical_cols_df_names 
-                   if 'morphology' in col and 'other' not in col and 'missing' not in col]
+    if mode == "inference":
+        cancer_site_key = "primary_site_desc"
+        morphology_key = "morphology_desc"
+    else:
+        cancer_site_key = "cancer_site"
+        morphology_key = "morphology"
+
+    cancer_cols = (
+        [col for col in clinical_cols_df_names 
+        if cancer_site_key in col and 'other' not in col and 'missing' not in col] +
+        [col for col in clinical_cols_df_names 
+        if morphology_key in col and 'other' not in col and 'missing' not in col]
     )
 
     demographic_cols = ['female', 
@@ -61,15 +71,7 @@ def gen_cols_to_add_to_note(clinical_cols_df_names, first_treatment):
         'potassium_change'
     ]
 
-    symptoms_cols = ([col for col in clinical_cols_df_names
-                      if 'esas' in col and 'target' not in col and 'missing' not in col] + 
-                      ['patient_ecog', 'patient_ecog_change']
-    )
-    # arrange in alphabetical order
-    symptoms_cols = sorted(symptoms_cols)
-    # remove symptoms_cols that have 'constipation', 'vomiting', or 'diarrhea'
-    symptoms_cols = [col for col in symptoms_cols if col not in 
-                     ('esas_constipation', 'esas_diarrhea', 'esas_vomiting')]
+    symptoms_cols = SYMP_COLS
 
     if first_treatment == 1:
         # remove cols with 'change' in symptoms_cols
@@ -89,19 +91,6 @@ def gen_cols_to_add_to_note(clinical_cols_df_names, first_treatment):
     
     valid_numeric_cols = [col for col in numeric_cols
                            if col in clinical_cols_df_names]
-    
-    # for demographic_cols, acute_care_use_cols, cancer_cols, symptoms_cols, treatment_cols
-    # only keep columns that are in clinical_cols_df_names
-    demographic_cols = [col for col in demographic_cols
-                        if col in clinical_cols_df_names]
-    acute_care_use_cols = [col for col in acute_care_use_cols
-                           if col in clinical_cols_df_names]
-    cancer_cols = [col for col in cancer_cols
-                   if col in clinical_cols_df_names]
-    symptoms_cols = [col for col in symptoms_cols
-                     if col in clinical_cols_df_names]
-    treatment_cols = [col for col in treatment_cols
-                      if col in clinical_cols_df_names]
 
     cols_tabular = (demographic_cols + 
                        acute_care_use_cols + 
@@ -119,7 +108,9 @@ def gen_cols_to_add_to_note(clinical_cols_df_names, first_treatment):
 
     return cols_tabular, valid_numeric_cols, cols_dict
 
-def add_tabular_data_to_note(clinical_notes_df, opis_df, first_treatment):
+def add_tabular_data_to_note(clinical_notes_df, opis_df, first_treatment, mode):
+
+    original_df = clinical_notes_df.copy()
 
     # process the drug names here
     opis_df = opis_df.rename(columns={'Hosp_Chart':'mrn', 'Trt_Date':'treatment_date'})
@@ -134,9 +125,17 @@ def add_tabular_data_to_note(clinical_notes_df, opis_df, first_treatment):
     opis_df_filtered = (opis_df[opis_df.apply(lambda row: (row['mrn'], row['treatment_date'])
                                                in note_anchored_set, axis=1)]
                         )
-    opis_df_filtered['drug_and_dose'] = (opis_df_filtered['Drug_name'] + 
-                                         ' (' + opis_df_filtered['Dose_Given'].astype(str) + 'mg)'
-                                        )
+    if mode == "train":
+        opis_df_filtered['drug_and_dose'] = (opis_df_filtered['Drug_name'] + 
+                                            ' (' + opis_df_filtered['Dose_Given'].astype(str) + 'mg)'
+                                            )
+    else:
+        # filter opis_df_filtered so that given_dose_unit is only 'g' or 'mg'
+        opis_df_filtered = opis_df_filtered[opis_df_filtered['given_dose_unit'].isin(['g', 'mg'])]
+        opis_df_filtered['drug_and_dose'] = (opis_df_filtered['drug_name'] + 
+                                            ' (' + opis_df_filtered['given_dose'].astype(str) + ' ' + 
+                                            opis_df_filtered['given_dose_unit'] + ')'
+                                            )
     opis_filtered_drug_and_dose = (opis_df_filtered.groupby(['mrn', 'treatment_date'])
                                    .agg({'drug_and_dose': ', '.join}).reset_index()
                                   )
@@ -156,12 +155,16 @@ def add_tabular_data_to_note(clinical_notes_df, opis_df, first_treatment):
             if value not in reversed_dict:
                 reversed_dict[value] = key
 
-    cols_tabular, valid_numeric_cols, cols_dict = gen_cols_to_add_to_note(clinical_notes_df.columns, first_treatment)
+    cols_tabular, valid_numeric_cols, cols_dict = gen_cols_to_add_to_note(clinical_notes_df.columns, first_treatment, mode)
 
-    #clinical_notes_df[valid_numeric_cols] = clinical_notes_df[valid_numeric_cols].round(4)
     clinical_notes_df[valid_numeric_cols] = (clinical_notes_df[valid_numeric_cols]
                                              .applymap(lambda x: np.round(x, 4) if pd.notna(x) else x)
                                             )
+
+    # for age, height, and weight, round to 2 decimal places
+    clinical_notes_df[['age', 'height', 'weight']] = (clinical_notes_df[['age', 'height', 'weight']]
+                                                      .applymap(lambda x: np.round(x, 2) if pd.notna(x) else x)
+                                                      )
 
     valid_cols_tabular = [col for col in cols_tabular
                            if col in clinical_notes_df.columns]
@@ -190,7 +193,20 @@ def add_tabular_data_to_note(clinical_notes_df, opis_df, first_treatment):
             nan_rows_df = pd.DataFrame({'Column': unused_cols, 'Value': np.nan})
             # if nan, set value to not measured
             row_df_temp = pd.concat([row_df_temp, nan_rows_df], ignore_index=True)
+            row_df_temp['Value'] = np.where(
+                row_df_temp['Column'] == 'drug_and_dose',
+                'not available',
+                row_df_temp['Value']
+            )
             row_df_temp['Value'].fillna('not measured', inplace=True)
+
+            if mode == "inference":
+                cols_in_train_not_in_df = list(set(col_list) - set(row_df_temp['Column'].unique().tolist()))
+                # exclude any column in cols_in_train_not_in_df that starts with '%_'
+                cols_in_train_not_in_df = [col for col in cols_in_train_not_in_df if not col.startswith('%_')]
+                not_available_rows_df = pd.DataFrame({'Column': cols_in_train_not_in_df, 'Value': 'not available'})
+                row_df_temp = pd.concat([row_df_temp, not_available_rows_df], ignore_index=True)
+
             #row_df_temp = row_df_temp.dropna()
             if row_df_temp.shape[0] == 0: continue
             tabular_data_note = tabular_data_note + key + ':\n'
@@ -200,6 +216,8 @@ def add_tabular_data_to_note(clinical_notes_df, opis_df, first_treatment):
                        .map(reversed_dict)
                        .fillna(''))
                 row_df_temp.loc[row_df_temp['Value'] == 'not measured', 'Unit'] = ''
+                row_df_temp.loc[row_df_temp['Value'] == 'not available', 'Unit'] = ''
+
                 # get clean name
                 row_df_temp['clean_col_name'] = row_df_temp['Column'].apply(lambda x: clean_col_name(x))
                 # adjust sex assigned at birth
@@ -214,6 +232,7 @@ def add_tabular_data_to_note(clinical_notes_df, opis_df, first_treatment):
                     'Value'
                 ] *= 100
 
+                # drop % ideal dose if it is 0
                 row_df_temp = row_df_temp[~(
                     (row_df_temp['Column'].str.contains('%_ideal_dose')) &
                     (row_df_temp['Value'] == 0.0)
@@ -227,28 +246,34 @@ def add_tabular_data_to_note(clinical_notes_df, opis_df, first_treatment):
                 )
 
             else:
-                row_df_temp_TRUE = row_df_temp.loc[row_df_temp['Value'] == True].copy()
+                if mode == "inference":
 
-                row_df_temp_TRUE['code'] = (
-                    row_df_temp_TRUE['Column']
-                    .str.replace('cancer_site_', '')
-                    .str.replace('morphology_', '')
-                )
-                
-                row_df_temp_TRUE['mapped_code'] = row_df_temp_TRUE['code'].map(CANCER_CODE_MAP)
-
-                row_df_temp_TRUE['name'] = row_df_temp_TRUE['Column'].apply(
-                    lambda x: 'cancer site' if 'cancer_site' in x else 'morphology'
-                )
-                row_df_temp_TRUE = row_df_temp_TRUE.drop_duplicates(subset=['name','mapped_code'])
-
-                # combine to string
-                row_df_temp_TRUE['combined_string'] = (
-                    row_df_temp_TRUE['name'] + ': ' +
-                    row_df_temp_TRUE['mapped_code']
-                )
-
-                row_df_temp = row_df_temp_TRUE
+                    # For inference, just use the string values directly
+                    row_df_temp = row_df_temp.dropna(subset=['Value'])
+                    row_df_temp['name'] = row_df_temp['Column'].apply(
+                        lambda x: 'cancer site' if 'primary_site_desc' in x else 'morphology'
+                    )
+                    row_df_temp['combined_string'] = (
+                        row_df_temp['name'] + ': ' + row_df_temp['Value'].astype(str)
+                    )
+                else:
+                    # For train, extract code and map to cancer name
+                    row_df_temp_TRUE = row_df_temp.loc[row_df_temp['Value'] == True].copy()
+                    row_df_temp_TRUE['code'] = (
+                        row_df_temp_TRUE['Column']
+                        .str.replace('cancer_site_', '')
+                        .str.replace('morphology_', '')
+                    )
+                    row_df_temp_TRUE['mapped_code'] = row_df_temp_TRUE['code'].map(CANCER_CODE_MAP)
+                    row_df_temp_TRUE['name'] = row_df_temp_TRUE['Column'].apply(
+                        lambda x: 'cancer site' if 'cancer_site' in x else 'morphology'
+                    )
+                    row_df_temp_TRUE = row_df_temp_TRUE.drop_duplicates(subset=['name','mapped_code'])
+                    row_df_temp_TRUE['combined_string'] = (
+                        row_df_temp_TRUE['name'] + ': ' +
+                        row_df_temp_TRUE['mapped_code']
+                    )
+                    row_df_temp = row_df_temp_TRUE
             
             # Example output:
             # Demographic:
@@ -274,18 +299,22 @@ def add_tabular_data_to_note(clinical_notes_df, opis_df, first_treatment):
             tabular_data_note = tabular_data_note + merged_data
 
             # replace ' ed ' with 'emergency department'
-            tabular_data_note = tabular_data_note.replace(' ed ', 'emergency department')
+            tabular_data_note = tabular_data_note.replace(' ed ', ' emergency department ')
             
         sentencized_tabular_data.append(tabular_data_note)
 
     # To-do: fix regimen names
 
-    clinical_notes_df['sentencized_tabular_data'] = sentencized_tabular_data
-    clinical_notes_df['note'] = clinical_notes_df['note'] + '\n\n' + clinical_notes_df['sentencized_tabular_data']
-    clinical_notes_df.drop(['sentencized_tabular_data','drug_and_dose'], axis=1, inplace=True)
+    # clinical_notes_df['sentencized_tabular_data'] = sentencized_tabular_data
+    # clinical_notes_df['note'] = clinical_notes_df['note'] + '\n\n' + clinical_notes_df['sentencized_tabular_data']
+    # clinical_notes_df.drop(['sentencized_tabular_data','drug_and_dose'], axis=1, inplace=True)
+
+    original_df['sentencized_tabular_data'] = sentencized_tabular_data
+    original_df['note'] = original_df['note'] + '\n\n' + original_df['sentencized_tabular_data']
+    original_df.drop(['sentencized_tabular_data'], axis=1, inplace=True)
 
     # drop drug and dose
 
-    return clinical_notes_df
+    return original_df
 
 

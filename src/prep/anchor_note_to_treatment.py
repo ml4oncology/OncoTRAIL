@@ -1,12 +1,13 @@
 import os
 import pandas as pd
 import argparse
+import numpy as np
 from make_clinical_dataset.epr.combine import combine_meas_to_main_data
-from make_clinical_dataset.epr.combine import merge_closest_measurements
 from make_clinical_dataset.epr.engineer import (
     get_change_since_prev_session,
     get_missingness_features,
-    collapse_rare_categories
+    collapse_rare_categories,
+    get_visit_month_feature
 )
 from make_clinical_dataset.epr.filter import (
     drop_samples_with_no_targets, 
@@ -15,21 +16,13 @@ from make_clinical_dataset.epr.filter import (
     keep_only_one_per_week
 )
 from make_clinical_dataset.shared.constants import SYMP_COLS
-
-# from preduce.acu.label import get_event_labels
-# from preduce.symp.label import (get_symptom_labels, convert_to_binary_symptom_labels)
 from make_clinical_dataset.epr.prep import fill_missing_data_heuristically
-from preduce.filter import indicate_immediate_events
-# from preduce.prepare.prep import fill_missing_data
-
-from llm_notes_classification.prep.label import get_ctcae_labels
 from llm_notes_classification.prep.add_tabular_to_note import (
     add_tabular_data_to_note
 )
 
 # refactor this to also generate inference data
 # find mrns which have their first entry in EPIC for inference data
-# Question: can you just run this code as is using the patients with epic notes or are there notes that will be missing?
 
 import importlib.util
 spec = importlib.util.spec_from_file_location("phys_names", "/cluster/projects/gliugroup/2BLAST/data/info/phys_names.py")
@@ -48,11 +41,9 @@ def anchor_note_to_treatment(mode,
                             treatment_dates_path=None):
     """
         Anchor the note to treatment date depending on specified configuration.
-
+        mode: train or inference
         notes_data_path: file path of the notes data
         treatment_data_path: file path of the treatment data frame
-        ed_visit_data_path: data path of the ED visit data frame
-        symptom_data_path: data path of the symptom data frame
         opis_data_path: data path of the opis data frame
         save_dir: directory path where processed data frame will be saved
         config_name: configuration name for how to anchor note to treatment date
@@ -65,10 +56,8 @@ def anchor_note_to_treatment(mode,
 
     # load treatment-centered data frame
     df_treat = pd.read_parquet(f'{treatment_data_path}', engine='pyarrow', use_nullable_dtypes = True)
-    # drop the folowing columns: 'target_ED_note', 'target_ED_60d', 'target_ED_90d' from df_treat if they exist
-    cols_to_drop = ['target_ED_note', 'target_ED_60d', 'target_ED_90d']
     # drop these columns if they exist in df_treat
-    cols_to_drop = cols_to_drop + ['target_ED_note', 'primary_site_desc', 'drug_name', 'postal_code',
+    cols_to_drop = ['target_ED_note', 'target_ED_60d', 'target_ED_90d', 'drug_name', 'postal_code',
                     'target_hemoglobin_min', 'target_platelet_min', 'target_neutrophil_min',
                     'target_creatinine_max', 'target_alanine_aminotransferase_max',
                     'target_aspartate_aminotransferase_max', 'target_total_bilirubin_max']
@@ -83,47 +72,22 @@ def anchor_note_to_treatment(mode,
 
     df_treat['treatment_date'] = pd.to_datetime(df_treat['treatment_date'])
     df_treat['assessment_date'] = pd.to_datetime(df_treat['assessment_date'])
+
+    # compute visit month features if they don't exist
+    if not any(col in df_treat.columns for col in ['visit_month_sin', 'visit_month_cos']):
+        df_treat = get_visit_month_feature(df_treat)
+
     # keep only the first treatment session of a given week
     df_treat = keep_only_one_per_week(df_treat)
 
     # get the change in measurement since previous assessment
     df_treat = get_change_since_prev_session(df_treat)
-    
-    # consider all events
-    # process ED_visit
-    # load ed target data frame
-    # df_target_ed = pd.read_parquet(f'{ed_visit_data_path}', engine='pyarrow', use_nullable_dtypes = True)
-    # df_treat = get_event_labels(df_treat, df_target_ed, event_name='ED_visit', 
-    #                             extra_cols=['CTAS_score', 'CEDIS_complaint'])
 
     # if inference mode, load treatment dates data frame
     if mode == 'inference':
         assert treatment_dates_path is not None, "treatment_dates_path must be provided in inference mode"
         df_treat_dates = pd.read_parquet(f'{treatment_dates_path}', engine='pyarrow', use_nullable_dtypes = True)
         df_treat = df_treat.merge(df_treat_dates, on=['mrn','treatment_date', 'assessment_date'], how='inner')
-
-    # exclude immediate events
-    target_ED_date_col = 'target_ED_visit_date' if 'target_ED_visit_date' in df_treat.columns else 'target_ED_date'
-    df_treat = indicate_immediate_events(df_treat, targ_cols=['target_ED_visit'], 
-                                         date_cols=[target_ED_date_col])
-    
-    # process symptom targets
-    # load symp target data frame
-    # df_target_symp = pd.read_parquet(f'{symptom_data_path}')
-    # df_treat = get_symptom_labels(df_treat, df_target_symp)
-    # for pt_increase in target_pt_increases:
-    #     scoring_map = {symp: pt_increase for symp in SYMP_COLS}
-    #     df_treat = convert_to_binary_symptom_labels(df_treat, scoring_map=scoring_map)
-
-    # exclude immediate events
-    # TEMPORARY remove this
-
-    # target_pt_increases = [1, 3]
-    # date_cols = [f'target_{symp}_survey_date' for symp in SYMP_COLS]
-    # for pt in target_pt_increases:
-    #     targ_cols = [f'target_{symp}_{pt}pt_change' for symp in SYMP_COLS]
-    #     df_treat = indicate_immediate_events(df_treat, targ_cols, date_cols)
-
 
     # if first treatment only, select the first row for every mrn and treatment_date
     if 'firstTreatmentOnly-medOnc-ConsultLetterClinic' in config_name:
@@ -153,19 +117,20 @@ def anchor_note_to_treatment(mode,
 
         # drop EPIC_FLAG, Cosigner columns
         merged_notes.drop(columns=['EPIC_FLAG', 'Cosigner'], inplace=True)
-        procName = ['PROGRESS', 'CONSULT', 'H&P', 'TELEPHONE EN']
+        proc_name = ['PROGRESS', 'CONSULT', 'H&P', 'TELEPHONE EN']
         procedure_exclude = ['TELEPHONE EN']
 
     else:
-        procName = ['Clinic Note', 'Letter', 'History & Physical Note', 'Consultation Note', 'Clinic Note (Non-dictated)']
+        proc_name = ['Clinic Note', 'Letter', 'History & Physical Note', 
+                    'Consultation Note', 'Clinic Note (Non-dictated)']
         procedure_exclude = []
 
     if any(x in config_name for x in config_list):
         # only consider notes written by a medical oncologist 
         # only consider consultation, letter, clinic notes
-        medOncs = list(set(aliasDictionary.values()))
-        merged_notes = merged_notes.loc[(merged_notes['processed_physician_name'].isin(medOncs)) &\
-                                       (merged_notes['Observations.ProcName'].isin(procName))].copy()
+        med_oncs = list(set(aliasDictionary.values()))
+        merged_notes = merged_notes.loc[(merged_notes['processed_physician_name'].isin(med_oncs)) &\
+                                       (merged_notes['Observations.ProcName'].isin(proc_name))].copy()
         
         # merge records of patient on the same day
         # take the maximum of the EPR dates
@@ -175,10 +140,6 @@ def anchor_note_to_treatment(mode,
         elif mode == 'inference':
             merged_notes['note'] = merged_notes['clinical_notes']
 
-        # merged_notes = merged_notes.groupby(['mrn','processed_date']).agg(
-        #                 processed_note=('note', lambda x: '\n'.join(x)),
-        #                 max_epr_date=('EPRDate', 'max')).reset_index()
-        # add physician name and note type for statistics tracking
         merged_notes = merged_notes.groupby(['mrn','processed_date']).agg(
                         processed_note=('note', lambda x: '\n\n'.join(x)),
                         max_epr_date=('epr_date', 'max'),
@@ -194,15 +155,17 @@ def anchor_note_to_treatment(mode,
             # get the first note
             merged_notes.sort_values(by='processed_date', inplace=True)
             if procedure_exclude:  # only apply filter if list is not empty
-                filtered_notes = merged_notes[~merged_notes['Observations.ProcName'].isin(procedure_exclude)]
+                filtered_notes = merged_notes[~merged_notes['stats_note_type'].isin(procedure_exclude)]
             else:
                 filtered_notes = merged_notes.copy()
             first_note = filtered_notes.groupby(['mrn'])['note'].first(skipna=False).reset_index(name='first_note')
             # append the first note
             merged_notes = merged_notes.merge(first_note, on="mrn")
-            merged_notes['appended_note'] = merged_notes.apply(
-                lambda x: x['note'] if x['note'] == x['first_note'] else '\n\n'.join([x['first_note'], x['note']]),
-                axis=1,
+
+            merged_notes["appended_note"] = np.where(
+                merged_notes["note"] == merged_notes["first_note"],
+                merged_notes["note"],
+                merged_notes["first_note"] + "\n\n" + merged_notes["note"]
             )
             # retain only columns of interest
             merged_notes = merged_notes[[
@@ -229,9 +192,10 @@ def anchor_note_to_treatment(mode,
     # data, they will be dropped
 
     if mode == 'train':
+        test_end_date = pd.to_datetime(test_end_date)
         df_treat = df_treat.loc[df_treat['treatment_date'] <= test_end_date].copy()
 
-    df_treat["target_ED_visit"] = df_treat["target_ED_visit"].replace(-1, pd.NA).astype("boolean")
+    # df_treat["target_ED_visit"] = df_treat["target_ED_visit"].replace(-1, pd.NA).astype("boolean")
 
     merged_notes["stats_physician"] = merged_notes["stats_physician"].astype(str)
     merged_notes["stats_dictated_by"] = merged_notes["stats_dictated_by"].astype(str)
@@ -290,9 +254,9 @@ def anchor_note_to_treatment(mode,
     if add_tabular_to_note:
         opis_df = pd.read_parquet(f'{opis_data_path}')
         if 'firstTreatmentOnly' in config_name:
-            df_treat = add_tabular_data_to_note(df_treat, opis_df, 1)
+            df_treat = add_tabular_data_to_note(df_treat, opis_df, 1, mode)
         else:
-            df_treat = add_tabular_data_to_note(df_treat, opis_df, 0)
+            df_treat = add_tabular_data_to_note(df_treat, opis_df, 0, mode)
 
     # drop features with high missingness
     keep_cols = df_treat.columns[df_treat.columns.str.contains('target_')]
@@ -303,6 +267,8 @@ def anchor_note_to_treatment(mode,
 
     # collapse rare morphology and cancer sites into 'Other' category
     if mode == 'train':
+        cancer_site_morphology_cols = df_treat.columns[df_treat.columns.str.contains("cancer_site_|morphology_")]
+        df_treat[cancer_site_morphology_cols] = df_treat[cancer_site_morphology_cols] == 2
         df_treat = collapse_rare_categories(df_treat, catcols=['cancer_site', 'morphology'])
 
     # drop assessment_date column
@@ -317,10 +283,47 @@ def anchor_note_to_treatment(mode,
     # create a new column that serves as an index for each unique note
     df_treat['note_index'] = pd.factorize(df_treat['note'])[0]
 
-    if add_tabular_to_note:
-        df_treat[cols_no_target + target_cols].to_csv(f"{save_dir}/note_tabular_anchored_{config_name}.csv")
-    else:
-        df_treat[cols_no_target + target_cols].to_csv(f"{save_dir}/note_anchored_{config_name}.csv")
+    # rename esas columns
+    # if an element in SYMP_COLS appears as a substring in a column name in df_treat, replace it with esas_{symptom}
+    rename_map = {}
+    for col in df_treat.columns:
+        for symp in SYMP_COLS:
+            if symp in col:
+                new_col = col.replace(symp, f"esas_{symp}")
+                rename_map[col] = new_col
+                break  # stop after the first match if only one symp applies
+
+
+    df_treat = df_treat.rename(columns=rename_map)
+
+    # rename target_cols
+    new_target_cols = []
+    for col in target_cols:
+        renamed = col  # default: keep as-is
+        for symp in SYMP_COLS:
+            if symp in col:
+                renamed = col.replace(symp, f"esas_{symp}")
+                break  # stop after first match
+        new_target_cols.append(renamed)
+
+    target_cols = new_target_cols
+
+    # rename cols_no_target
+    new_cols_no_target = []
+    for col in cols_no_target:
+        renamed = col  # default: keep as-is
+        for symp in SYMP_COLS:
+            if symp in col:
+                renamed = col.replace(symp, f"esas_{symp}")
+                break  # stop after first match
+        new_cols_no_target.append(renamed)
+
+    cols_no_target = new_cols_no_target
+
+    suffix = "note_tabular" if add_tabular_to_note else "note"
+    outfile = f"{save_dir}/{suffix}_anchored_{config_name}.csv"
+
+    df_treat[cols_no_target + target_cols].to_csv(outfile, index=False)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
