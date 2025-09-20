@@ -386,9 +386,13 @@ class DataPreprocessor:
                 X = np.concatenate([X, phys], axis=1)
             
             # Process tabular data
+            # if a column in self.var_names is not in df, add a column of zeros to df
+            for col in self.var_names:
+                if col not in df.columns:
+                    df[col] = np.zeros(len(df))
             # arrange the columns in df to be the same as training data
             df = df[self.var_names]
-            df_processed = self.tabular_prep.transform_data(df, data_name="test")
+            df_processed = self.tabular_prep.transform_data(df, data_name="test", one_hot_encode=False)
             drop_cols = ["mrn", "treatment_date", "stats_physician"]
             df_processed.drop(columns=drop_cols, inplace=True, errors='ignore')
             X = np.concatenate([X, df_processed.to_numpy()], axis=1)

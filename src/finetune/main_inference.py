@@ -8,7 +8,7 @@ import torch
 import random
 
 # Import our custom modules
-from llm_notes_classification.finetune.main import set_seed
+from llm_notes_classification.finetune.main_train import set_seed
 from llm_notes_classification.finetune.encoder_finetuner import EncoderFineTuner
 
 logging.basicConfig(level=logging.INFO)
