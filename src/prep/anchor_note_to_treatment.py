@@ -206,7 +206,7 @@ def anchor_note_to_treatment(mode,
         main=df_treat, meas=merged_notes, main_date_col='treatment_date', meas_date_col='processed_date', 
         time_window=(-lookback_window,0), stats=['last']
         )
-
+    
     # df_treat = merge_closest_measurements(
     #     main=df_treat, meas=merged_notes, main_date_col='treatment_date', meas_date_col='processed_date',
     #     direction='backward', time_window=(-lookback_window,0), merge_individually=False, include_meas_date=True
@@ -285,40 +285,27 @@ def anchor_note_to_treatment(mode,
 
     # rename esas columns
     # if an element in SYMP_COLS appears as a substring in a column name in df_treat, replace it with esas_{symptom}
-    rename_map = {}
-    for col in df_treat.columns:
-        for symp in SYMP_COLS:
+    def rename_column(col: str, symp_cols: list[str]) -> str:
+        """Rename a single column according to SYMP_COLS rules."""
+        for symp in symp_cols:
             if symp in col:
-                new_col = col.replace(symp, f"esas_{symp}")
-                rename_map[col] = new_col
-                break  # stop after the first match if only one symp applies
+                if symp == "ecog":
+                    return col.replace(symp, "patient_ecog")
+                elif symp == "lack_of_appetite":
+                    return col.replace(symp, "esas_appetite")
+                else:
+                    return col.replace(symp, f"esas_{symp}")
+        return col  # no match → keep as-is
 
-
+    # Apply to df_treat
+    rename_map = {col: rename_column(col, SYMP_COLS) for col in df_treat.columns}
     df_treat = df_treat.rename(columns=rename_map)
 
-    # rename target_cols
-    new_target_cols = []
-    for col in target_cols:
-        renamed = col  # default: keep as-is
-        for symp in SYMP_COLS:
-            if symp in col:
-                renamed = col.replace(symp, f"esas_{symp}")
-                break  # stop after first match
-        new_target_cols.append(renamed)
+    # Apply to target_cols
+    target_cols = [rename_column(col, SYMP_COLS) for col in target_cols]
 
-    target_cols = new_target_cols
-
-    # rename cols_no_target
-    new_cols_no_target = []
-    for col in cols_no_target:
-        renamed = col  # default: keep as-is
-        for symp in SYMP_COLS:
-            if symp in col:
-                renamed = col.replace(symp, f"esas_{symp}")
-                break  # stop after first match
-        new_cols_no_target.append(renamed)
-
-    cols_no_target = new_cols_no_target
+    # Apply to cols_no_target
+    cols_no_target = [rename_column(col, SYMP_COLS) for col in cols_no_target]
 
     suffix = "note_tabular" if add_tabular_to_note else "note"
     outfile = f"{save_dir}/{suffix}_anchored_{config_name}.csv"
