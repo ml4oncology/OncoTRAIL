@@ -57,10 +57,10 @@ class VLLMRunner(BaseLLMRunner):
         """Override to add vLLM batch processing after collecting all messages."""
         super().run()  # This will populate the batch lists
         if self.messages_list:  # Only run if we have messages to process
-            asyncio.run(self.batch_generate_with_vllm())
+            self.batch_generate_with_vllm()
 
-    async def batch_generate_with_vllm(self):
-        """Generate responses using async vLLM with structured output only."""
+    def batch_generate_with_vllm(self):    
+        """Generate responses using vLLM with structured output only."""
         logger.info(f"Running vllm with {len(self.messages_list)} messages\n")
         
         # Determine response model based on return_val
@@ -71,35 +71,46 @@ class VLLMRunner(BaseLLMRunner):
         else:
             raise ValueError(f"Unsupported return_val: {self.return_val}. Must be 'proba' or 'prediction' for structured output.")
 
-        async_client = AsyncOpenAI(base_url=self.config.base_url, api_key="EMPTY", timeout=7200)
-        
+        logger.info(f"Base URL for OpenAI client: {self.config.base_url}")
+
+        client = OpenAI(base_url=self.config.base_url, api_key="EMPTY", timeout=7200)
+
         # Create repeated messages for num_samples
         repeated_messages = []
         for messages in self.messages_list:
             for _ in range(self.config.num_samples):
                 repeated_messages.append(messages)
-
-        async def get_response(chat):
-            return await async_client.beta.chat.completions.parse(
-                model=self.config.vllm_model_name,
-                messages=chat,
-                response_format=response_model,
-                max_tokens=self.max_tokens,
-                extra_body=self.config.extra_body,
-                **self.config.llm_params
-            )
         
-        # Execute all requests concurrently
+        # Define get_response function with error handling
+        def get_response_with_error_handling(chat):
+            try:
+                response = client.beta.chat.completions.parse(
+                    model=self.config.vllm_model_name,
+                    messages=chat,
+                    response_format=response_model,
+                    max_tokens=self.max_tokens, # This is crucial: adjust if needed
+                    extra_body=self.config.extra_body,
+                    **self.config.llm_params
+                )
+                return response
+            except Exception as e:
+                logger.error(f"An unexpected error occurred during LLM call: {e}. Returning a default error response.")
+                return None
+        
         logger.info(f"Sending {len(repeated_messages)} requests to vLLM server...")
-        batch_response = await asyncio.gather(*[get_response(chat) for chat in repeated_messages])
+        batch_response = [get_response_with_error_handling(chat) for chat in repeated_messages]
         
         # Process structured responses
-        outputs = [response.choices[0].message.content.strip() for response in batch_response]
+        outputs = [
+            response.choices[0].message.content.strip() if response is not None else None
+            for response in batch_response
+        ]
         for idx, mrn in enumerate(self.mrn_list):
             results = []
             out_samples = outputs[:self.config.num_samples]
             outputs = outputs[self.config.num_samples:]
             for raw in out_samples:
+                # Assuming self.utils.process_llm_output can handle the error_response_content
                 result = self.utils.process_llm_output(raw, self.return_val)
                 result[self.target_name_list[idx]] = self.target_val_list[idx]
                 results.append(result)

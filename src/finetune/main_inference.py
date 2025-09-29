@@ -22,7 +22,10 @@ def prepare_inference_data(notes_path, target_name):
         pd.DataFrame: Prepared dataset
     """
     # Load CSV file
-    notes_df = pd.read_csv(notes_path, index_col=0)
+    notes_df = pd.read_csv(notes_path, header=0)
+    if isinstance(notes_df.columns, pd.MultiIndex):
+        notes_df.columns = ["_".join(map(str, col)).strip() for col in notes_df.columns.values]
+
     notes_df = notes_df[['mrn', 'note', 'treatment_date', target_name]].copy()
     
     # Only keep notes where target value is not -1
