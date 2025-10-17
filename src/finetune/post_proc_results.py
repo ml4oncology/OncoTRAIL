@@ -347,7 +347,7 @@ def main(base_dir, save_dir, model_name, mode="train", path_to_best_train=None):
             try:
                 train_df = pd.read_csv(path_to_best_train)
                 # Select only the columns we need
-                train_subset = train_df[["target", "auc_test", "test_CI"]].copy()
+                train_subset = train_df[["target", "auc_train", "train_CI", "auc_test", "test_CI"]].copy()
                 # Merge with inference results
                 best_df = best_df.merge(train_subset, on="target", how="left")
                 logger.info(f"Successfully merged with training results from {path_to_best_train}")

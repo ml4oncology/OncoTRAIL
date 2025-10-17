@@ -51,7 +51,10 @@ def tabulate_results(directory, pattern, exclude=None, mode="train"):
 
         df = pd.read_csv(f, index_col=0)
         file_name = Path(f).stem
-        model_name = file_name.split("_")[0]
+        if file_name.startswith("model_"):
+            model_name = file_name.split("_")[1]
+        else:
+            model_name = file_name.split("_")[0]
 
         metric_type = 'logloss' if 'logloss' in file_name else 'AUROC'
         config_label = f'{model_name}-{metric_type}'
@@ -148,7 +151,7 @@ def summarize_best_result(pred_directory, model_directory, target_list, split_li
     if mode == "inference" and path_to_best_train:
         train_results_df = pd.read_csv(path_to_best_train)
         # Keep only relevant columns
-        train_results_df = train_results_df[['target', 'auc_test', 'test_CI']].copy()
+        train_results_df = train_results_df[['target', 'auc_train', 'train_CI', 'auc_test', 'test_CI']].copy()
 
     for note_config in note_list:
         all_best_results = []

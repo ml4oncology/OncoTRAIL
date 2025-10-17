@@ -37,16 +37,21 @@ def prepare_dataframe(df: pd.DataFrame, method_name: str, mode: str) -> pd.DataF
     df.columns = df.columns.str.lower()
     df['method'] = method_name
     
-    if mode == "train":
-        df = parse_ci_column(df, 'test_ci', 'test')
+    # Always parse train_ci, since we may need it even in inference mode
+    if 'train_ci' in df.columns:
         df = parse_ci_column(df, 'train_ci', 'train')
+    
+    if mode == "train":
+        if 'test_ci' in df.columns:
+            df = parse_ci_column(df, 'test_ci', 'test')
     elif mode == "inference":
-        df = parse_ci_column(df, 'test_ci', 'test')
-        df = parse_ci_column(df, 'inference_ci', 'inference')
+        if 'test_ci' in df.columns:
+            df = parse_ci_column(df, 'test_ci', 'test')
+        if 'inference_ci' in df.columns:
+            df = parse_ci_column(df, 'inference_ci', 'inference')
     
     df['color'] = df['target'].apply(get_color)
     return df
-
 
 def plot_train_vs_test(df: pd.DataFrame, ax: plt.Axes, label_map: Dict[str, str], min_val: float, max_val: float, mode: str) -> None:
     texts = []
@@ -62,6 +67,11 @@ def plot_train_vs_test(df: pd.DataFrame, ax: plt.Axes, label_map: Dict[str, str]
         x_ci_low, x_ci_high = 'test_CI_low', 'test_CI_high'
         y_ci_low, y_ci_high = 'inference_CI_low', 'inference_CI_high'
         x_label, y_label = 'Test AUC', 'Inference AUC'
+    elif mode == "train_inference":
+        x_col, y_col = 'auc_train', 'auc_inference'
+        x_ci_low, x_ci_high = 'train_CI_low', 'train_CI_high'
+        y_ci_low, y_ci_high = 'inference_CI_low', 'inference_CI_high'
+        x_label, y_label = 'Train AUC', 'Inference AUC'
     
     for _, row in df.iterrows():
         # Collect absolute difference
@@ -144,17 +154,26 @@ def get_axis_limits(dfs: List[pd.DataFrame], mode: str) -> Tuple[float, float]:
         elif mode == "inference":
             all_lows.extend(df[['inference_CI_low', 'test_CI_low']].min().values)
             all_highs.extend(df[['inference_CI_high', 'test_CI_high']].max().values)
+        elif mode == "train_inference":
+            all_lows.extend(df[['train_CI_low', 'inference_CI_low']].min().values)
+            all_highs.extend(df[['train_CI_high', 'inference_CI_high']].max().values)
     
     min_val = max(0, min(all_lows) - 0.05)
     max_val = min(1, max(all_highs) + 0.05)
     return min_val, max_val
 
-
-def plot_comparison_grid(method_dfs: Dict[str, pd.DataFrame], label_map: Dict[str, str], save_dir: str, mode: str) -> None:
+def plot_comparison_grid(method_dfs: Dict[str, pd.DataFrame], label_map: Dict[str, str], save_dir: str, mode: str, diag_mode: str = None) -> None:
+    """
+    diag_mode controls what to plot along the diagonal when mode == 'inference':
+    - None (default): plot auc_test vs auc_inference
+    - 'train_inference': plot auc_train vs auc_inference
+    """
     method_names = list(method_dfs.keys())
     n = len(method_names)
-    fig, axes = plt.subplots(n, n, figsize=(5 * n, 5 * n))
-    min_val, max_val = get_axis_limits(list(method_dfs.values()), mode)
+    fig, axes = plt.subplots(n, n, figsize=(5 * n, 5 * n), squeeze=False)
+    min_val, max_val = get_axis_limits(list(method_dfs.values()), diag_mode if diag_mode else mode)
+
+    logger.info(f"Axis limits: {min_val} to {max_val}")
 
     for i in range(n):
         logger.info(f"Plotting {method_names[i]}")
@@ -162,14 +181,20 @@ def plot_comparison_grid(method_dfs: Dict[str, pd.DataFrame], label_map: Dict[st
             logger.info(f"Plotting {method_names[j]}")
             ax = axes[i, j]
             if i == j:
-                mean_diff = plot_train_vs_test(method_dfs[method_names[i]], ax, label_map, min_val, max_val, mode)
-                ax.set_title(f"{method_names[i]}: Mean Abs. Diff = {mean_diff:.3f}", fontsize=12)
+                if mode == "train":
+                    mean_diff = plot_train_vs_test(method_dfs[method_names[i]], ax, label_map, min_val, max_val, mode)
+                    ax.set_title(f"{method_names[i]}: Mean Abs. Diff = {mean_diff:.3f}", fontsize=12)
+                elif mode == "inference":
+                    # If diag_mode == 'train_inference', use auc_train vs auc_inference
+                    if diag_mode == "train_inference":
+                        mean_diff = plot_train_vs_test(method_dfs[method_names[i]], ax, label_map, min_val, max_val, "train_inference")
+                        ax.set_title(f"{method_names[i]} (Train vs Inference): Mean Abs. Diff = {mean_diff:.3f}", fontsize=12)
+                    else:
+                        mean_diff = plot_train_vs_test(method_dfs[method_names[i]], ax, label_map, min_val, max_val, mode)
+                        ax.set_title(f"{method_names[i]} (Test vs Inference): Mean Abs. Diff = {mean_diff:.3f}", fontsize=12)
             else:
                 mean_diff = plot_test_vs_test(method_dfs[method_names[j]], method_dfs[method_names[i]], ax, label_map, min_val, max_val, mode)
                 ax.set_title(f"{method_names[j]} vs {method_names[i]}: Mean Abs. Diff = {mean_diff:.3f}", fontsize=12)
-
-            # ax.set_xlim(min_val, max_val)
-            # ax.set_ylim(min_val, max_val)
 
     legend_elements = [
         mpatches.Patch(color='#1b9e77', label='Lab'),
@@ -179,10 +204,16 @@ def plot_comparison_grid(method_dfs: Dict[str, pd.DataFrame], label_map: Dict[st
     fig.legend(handles=legend_elements, loc='upper center', ncol=3, fontsize=12, frameon=True)
 
     # Compose filename from method names
-    filename = "_".join(method_names) + ".png"
+    # Filename logic
+
+    filename = "_".join(method_names)
+    if mode == "inference" and diag_mode == "train_inference":
+        filename += "_train_inference.png"
+    else:
+        filename += f"_{mode}.png"
     output_path = os.path.join(save_dir, filename)
-    plt.savefig(output_path, bbox_inches='tight')
     plt.tight_layout()
+    plt.savefig(output_path, bbox_inches='tight', dpi=300)
     plt.show()
 
 def parse_method_csv_args(arg: str) -> Dict[str, str]:
@@ -216,6 +247,9 @@ def main():
 
     # Generate the plot
     plot_comparison_grid(method_dfs, target_dict_mapping, args.save_dir, args.mode)
+    if args.mode == "inference":
+        plot_comparison_grid(method_dfs, target_dict_mapping, args.save_dir, args.mode, diag_mode="train_inference")
+
     # need to edit for saving the plot
 
 if __name__ == "__main__":

@@ -183,7 +183,10 @@ def main_inference(
     if 'parquet.gzip' in notes_path:
         df = pd.read_parquet(notes_path)
     else:
-        df = pd.read_csv(notes_path, index_col=0)
+        df = pd.read_csv(notes_path, header=0)
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = ["_".join(map(str, col)).strip() for col in df.columns.values]
+
     df.reset_index(drop=True, inplace=True)
 
     # get indices of target != -1
