@@ -253,7 +253,7 @@ def generate_prompts(target_names, numeric_proba, save_dir, repeated_sampling):
                         "Prediction must be either 0 or 1. " +
                         """Example output: {"Reason": "<Your Reason>", "Prediction": 1}.""")
     
-    note_details_prompt = ("You are reviewing a de-identified clinical note below from the past 30 days " + 
+    note_details_prompt = ("You are reviewing a de-identified, text-formatted summary of clinical data from the past 30 days " + 
                            "for a patient receiving systemic cancer therapy on <TREATMENT DATE>. ")
     
     for target_name in list_of_targets:

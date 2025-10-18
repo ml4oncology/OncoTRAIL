@@ -251,12 +251,22 @@ def anchor_note_to_treatment(mode,
     # fill missing data that can be filled heuristically
     df_treat = fill_missing_data_heuristically(df_treat)
 
+    # collapse rare morphology and cancer sites into 'Other' category
+    if mode == 'train':
+        cancer_site_morphology_cols = df_treat.columns[df_treat.columns.str.contains("cancer_site_|morphology_")]
+        df_treat[cancer_site_morphology_cols] = df_treat[cancer_site_morphology_cols] == 2
+        df_treat = collapse_rare_categories(df_treat, catcols=['cancer_site', 'morphology'])
+
+    # create tabular data converted to note 
+    opis_df = pd.read_parquet(f'{opis_data_path}')
+    if 'firstTreatmentOnly' in config_name:
+        df_treat = add_tabular_data_to_note(df_treat, opis_df, 1, mode)
+    else:
+        df_treat = add_tabular_data_to_note(df_treat, opis_df, 0, mode)
     if add_tabular_to_note:
-        opis_df = pd.read_parquet(f'{opis_data_path}')
-        if 'firstTreatmentOnly' in config_name:
-            df_treat = add_tabular_data_to_note(df_treat, opis_df, 1, mode)
-        else:
-            df_treat = add_tabular_data_to_note(df_treat, opis_df, 0, mode)
+        df_treat['note'] = df_treat['note'] + '\n\n' + df_treat['sentencized_tabular_data']        
+    df_treat['original_note'] = df_treat['note']
+    df_treat['note'] = df_treat['sentencized_tabular_data']
 
     # drop features with high missingness
     keep_cols = df_treat.columns[df_treat.columns.str.contains('target_')]
@@ -264,12 +274,6 @@ def anchor_note_to_treatment(mode,
 
     # create missingness features
     df_treat = get_missingness_features(df_treat)
-
-    # collapse rare morphology and cancer sites into 'Other' category
-    if mode == 'train':
-        cancer_site_morphology_cols = df_treat.columns[df_treat.columns.str.contains("cancer_site_|morphology_")]
-        df_treat[cancer_site_morphology_cols] = df_treat[cancer_site_morphology_cols] == 2
-        df_treat = collapse_rare_categories(df_treat, catcols=['cancer_site', 'morphology'])
 
     # drop assessment_date column
     df_treat.drop('assessment_date', axis=1, inplace=True)

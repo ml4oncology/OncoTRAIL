@@ -171,6 +171,7 @@ def add_tabular_data_to_note(clinical_notes_df, opis_df, first_treatment, mode):
     df_reduced_cols = clinical_notes_df[valid_cols_tabular].copy()
 
     sentencized_tabular_data = []
+    
     for _, row in df_reduced_cols.iterrows():
         # create a dataframe with colum names as 1 column
         # and values as another column
@@ -310,10 +311,6 @@ def add_tabular_data_to_note(clinical_notes_df, opis_df, first_treatment, mode):
     # clinical_notes_df.drop(['sentencized_tabular_data','drug_and_dose'], axis=1, inplace=True)
 
     original_df['sentencized_tabular_data'] = sentencized_tabular_data
-    original_df['note'] = original_df['note'] + '\n\n' + original_df['sentencized_tabular_data']
-    original_df.drop(['sentencized_tabular_data'], axis=1, inplace=True)
-
-    # drop drug and dose
 
     return original_df
 
