@@ -49,7 +49,7 @@ class LocalLLMRunner(BaseLLMRunner):
 
         system_instructions, n_examples_added = self.prepare_system_instructions(target_name, treatment_date, note, mrn)
         logger.info(f"system instructions: {system_instructions}\n")
-
+        logger.info(f"system instructions: {note}\n")
         messages = [
             {"role": "system", "content": system_instructions},
             {"role": "user", "content": note},

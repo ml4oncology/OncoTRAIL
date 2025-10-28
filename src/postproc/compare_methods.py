@@ -196,6 +196,23 @@ def plot_comparison_grid(method_dfs: Dict[str, pd.DataFrame], label_map: Dict[st
                 mean_diff = plot_test_vs_test(method_dfs[method_names[j]], method_dfs[method_names[i]], ax, label_map, min_val, max_val, mode)
                 ax.set_title(f"{method_names[j]} vs {method_names[i]}: Mean Abs. Diff = {mean_diff:.3f}", fontsize=12)
 
+                # --- Simple save: redraw the same plot in a single-axis figure ---
+                fig_tmp, ax_tmp = plt.subplots(figsize=(4, 4))
+                plot_test_vs_test(
+                    method_dfs[method_names[j]],
+                    method_dfs[method_names[i]],
+                    ax_tmp,
+                    label_map,
+                    min_val,
+                    max_val,
+                    mode,
+                )
+                ax_tmp.set_title(f"{method_names[j]} vs {method_names[i]}: Mean Abs. Diff = {mean_diff:.3f}", fontsize=12)
+                fname = f"{method_names[j]}_{method_names[i]}_{mode}.png"
+                output_path = os.path.join(save_dir, fname)
+                fig_tmp.savefig(output_path, bbox_inches="tight")
+                plt.close(fig_tmp)
+
     legend_elements = [
         mpatches.Patch(color='#1b9e77', label='Lab'),
         mpatches.Patch(color='#7570b3', label='Symptom'),

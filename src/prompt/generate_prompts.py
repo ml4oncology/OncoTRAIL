@@ -219,7 +219,7 @@ def generate_proba(numeric_proba):
 
     return proba_prompt
 
-def generate_prompts(target_names, numeric_proba, save_dir, repeated_sampling):
+def generate_prompts(target_names, numeric_proba, save_dir, repeated_sampling, clinical_bench=0):
 
     # 0->23: non-simplified
     # 0->7: persona 1
@@ -252,10 +252,13 @@ def generate_prompts(target_names, numeric_proba, save_dir, repeated_sampling):
                         "Reason must be a very concise explanation of how you arrived at your prediction. " +
                         "Prediction must be either 0 or 1. " +
                         """Example output: {"Reason": "<Your Reason>", "Prediction": 1}.""")
-    
-    note_details_prompt = ("You are reviewing a de-identified, text-formatted summary of clinical data from the past 30 days " + 
+    if clinical_bench:
+        note_details_prompt = ("You are reviewing a de-identified, text-formatted summary of clinical data from the past 30 days " + 
                            "for a patient receiving systemic cancer therapy on <TREATMENT DATE>. ")
-    
+    else:
+        note_details_prompt = ("You are reviewing a de-identified clinical note below combining the initial consult and a recent note from the past 30 days " + 
+                           "for a patient receiving systemic cancer therapy on <TREATMENT DATE>. ")
+
     for target_name in list_of_targets:
         health_factors = generate_health_factors(target_name)
         health_prompt = ["", health_factors]
@@ -318,5 +321,6 @@ if __name__ == "__main__":
     )  # numeric value for probability?
     parser.add_argument("save_dir", help="save directory", type=str)  # save directory
     parser.add_argument("repeated_sampling", help="repeated sampling", type=int) # repeated sampling
+    parser.add_argument("--clinical_bench", help = "use clinical bench?", type = int, default=0) # use clinical bench?
     args = parser.parse_args()
-    generate_prompts(args.target_names, args.numeric_proba, args.save_dir, args.repeated_sampling)
+    generate_prompts(args.target_names, args.numeric_proba, args.save_dir, args.repeated_sampling, args.clinical_bench)

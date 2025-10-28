@@ -38,7 +38,8 @@ def anchor_note_to_treatment(mode,
                             test_end_date, 
                             lookback_window,
                             add_tabular_to_note,
-                            treatment_dates_path=None):
+                            treatment_dates_path=None,
+                            clinical_bench=0):
     """
         Anchor the note to treatment date depending on specified configuration.
         mode: train or inference
@@ -264,9 +265,10 @@ def anchor_note_to_treatment(mode,
     else:
         df_treat = add_tabular_data_to_note(df_treat, opis_df, 0, mode)
     if add_tabular_to_note:
-        df_treat['note'] = df_treat['note'] + '\n\n' + df_treat['sentencized_tabular_data']        
-    df_treat['original_note'] = df_treat['note']
-    df_treat['note'] = df_treat['sentencized_tabular_data']
+        df_treat['note'] = df_treat['note'] + '\n\n' + df_treat['sentencized_tabular_data']
+    if clinical_bench:        
+        df_treat['original_note'] = df_treat['note']
+        df_treat['note'] = df_treat['sentencized_tabular_data']
 
     # drop features with high missingness
     keep_cols = df_treat.columns[df_treat.columns.str.contains('target_')]
@@ -329,6 +331,7 @@ if __name__ == "__main__":
     parser.add_argument("add_tabular_to_note", help = "add tabular to note?", type = int) # add tabular to note?
     # optional argument
     parser.add_argument("--treatment_dates_path", help = "file path of treatment dates", type = str, default=None) # test end date
+    parser.add_argument("--clinical_bench", help = "use clinical bench?", type = int, default=0) # use clinical bench?
     args = parser.parse_args()
 
     anchor_note_to_treatment(args.mode,
@@ -340,4 +343,5 @@ if __name__ == "__main__":
                              args.test_end_date,
                              args.lookback_window,
                              args.add_tabular_to_note,
-                             args.treatment_dates_path)
+                             args.treatment_dates_path,
+                             args.clinical_bench)
