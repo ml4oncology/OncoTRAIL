@@ -88,7 +88,8 @@ def main_train(
         targ_cols = cols[cols.str.contains("target")].tolist()
         extra_cols = ["cohort", "split", "note", "note_index", 
                       "stats_note_type", "stats_dictated_by",
-                      "note_summary"] + cols[cols.str.contains("date")].tolist()
+                      "note_summary", "sentencized_tabular_data", "original_note"] +\
+                          cols[cols.str.contains("date")].tolist()
         extra_cols.remove("treatment_date")
         keep_cols = [col for col in cols if col not in extra_cols + targ_cols]
         df = df.loc[mask, keep_cols]
