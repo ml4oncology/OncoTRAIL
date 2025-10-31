@@ -130,15 +130,26 @@ def add_tabular_data_to_note(clinical_notes_df, opis_df, first_treatment, mode):
                                             ' (' + opis_df_filtered['Dose_Given'].astype(str) + 'mg)'
                                             )
     else:
-        # filter opis_df_filtered so that given_dose_unit is only 'g' or 'mg'
-        opis_df_filtered = opis_df_filtered[opis_df_filtered['given_dose_unit'].isin(['g', 'mg'])]
-        opis_df_filtered['drug_and_dose'] = (opis_df_filtered['drug_name'] + 
-                                            ' (' + opis_df_filtered['given_dose'].astype(str) + ' ' + 
-                                            opis_df_filtered['given_dose_unit'] + ')'
-                                            )
-    opis_filtered_drug_and_dose = (opis_df_filtered.groupby(['mrn', 'treatment_date'])
-                                   .agg({'drug_and_dose': ', '.join}).reset_index()
-                                  )
+        if 'given_dose_unit' in opis_df_filtered.columns:
+            # filter opis_df_filtered so that given_dose_unit is only 'g' or 'mg'
+            opis_df_filtered = opis_df_filtered[opis_df_filtered['given_dose_unit'].isin(['g', 'mg'])]
+            opis_df_filtered['drug_and_dose'] = (opis_df_filtered['drug_name'] + 
+                                                ' (' + opis_df_filtered['given_dose'].astype(str) + ' ' + 
+                                                opis_df_filtered['given_dose_unit'] + ')'
+                                                )
+        else:
+            opis_df_filtered['drug_and_dose'] = None
+    
+    if opis_df_filtered['drug_and_dose'].isnull().all():
+        opis_filtered_drug_and_dose = (
+            opis_df_filtered[['mrn', 'treatment_date', 'drug_and_dose']]
+            .drop_duplicates()
+            .reset_index(drop=True)
+        )
+    else:
+        opis_filtered_drug_and_dose = (opis_df_filtered.groupby(['mrn', 'treatment_date'])
+                                    .agg({'drug_and_dose': ', '.join}).reset_index()
+                                    )
     # merge opis_raw_filtered_drug_and_dose with clinical_notes
     clinical_notes_df = (pd.merge(clinical_notes_df, opis_filtered_drug_and_dose, 
                                   on=['mrn', 'treatment_date'], how='left')
@@ -222,9 +233,20 @@ def add_tabular_data_to_note(clinical_notes_df, opis_df, first_treatment, mode):
                 # get clean name
                 row_df_temp['clean_col_name'] = row_df_temp['Column'].apply(lambda x: clean_col_name(x))
                 # adjust sex assigned at birth
+                # row_df_temp['Value'] = np.where(
+                #     (row_df_temp['clean_col_name'] == 'sex assigned at birth'),
+                #     np.where(row_df_temp['Value'] == True, 'female', 'male'),
+                #     row_df_temp['Value']
+                # )
+
                 row_df_temp['Value'] = np.where(
-                    (row_df_temp['clean_col_name'] == 'sex assigned at birth'),
-                    np.where(row_df_temp['Value'] == True, 'female', 'male'),
+                    row_df_temp['clean_col_name'] == 'sex assigned at birth',
+                    np.where(
+                        row_df_temp['Value'] == 1, 'female',
+                        np.where(
+                            row_df_temp['Value'] == 0, 'male', 'not available'
+                        )
+                    ),
                     row_df_temp['Value']
                 )
                 

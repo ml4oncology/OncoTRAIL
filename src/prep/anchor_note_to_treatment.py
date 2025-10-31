@@ -57,6 +57,23 @@ def anchor_note_to_treatment(mode,
 
     # load treatment-centered data frame
     df_treat = pd.read_parquet(f'{treatment_data_path}', engine='pyarrow', use_nullable_dtypes = True)
+    # adjust sex column if mode is inference
+    if mode == 'inference':
+        # rename sex column to female
+        if 'sex' in df_treat.columns:
+            df_treat.rename(columns={'sex': 'female'}, inplace=True)
+        
+        # if the value of "female" column is "female", set to 1, 0 for male and -1 otherwise
+        df_treat['female'] = np.where(
+            df_treat['female'] == 'female', 1,
+            np.where(
+                df_treat['female'] == 'male', 0, -1
+            )
+        )
+    
+    # make the values of the intent column uppercase
+    df_treat['intent'] = df_treat['intent'].str.upper()
+
     # drop these columns if they exist in df_treat
     cols_to_drop = ['target_ED_note', 'target_ED_60d', 'target_ED_90d', 'drug_name', 'postal_code',
                     'target_hemoglobin_min', 'target_platelet_min', 'target_neutrophil_min',
@@ -217,7 +234,7 @@ def anchor_note_to_treatment(mode,
     df_treat.rename(columns=lambda x: x.replace('_LAST', '') if x.endswith('_LAST') else x, inplace=True)
 
     # drop rows that don't have any note data
-    df_treat = df_treat.loc[~df_treat.note.isna()]
+    df_treat = df_treat.loc[~df_treat['note'].isna()]
     
     if mode == 'train':
         df_treat['max_epr_date'] = pd.to_datetime(df_treat['max_epr_date'])
@@ -312,6 +329,9 @@ def anchor_note_to_treatment(mode,
 
     # Apply to cols_no_target
     cols_no_target = [rename_column(col, SYMP_COLS) for col in cols_no_target]
+
+    # Adjust the female column so that if -1, set to 0
+    df_treat['female'] = df_treat['female'].replace(-1, 0)
 
     suffix = "note_tabular" if add_tabular_to_note else "note"
     outfile = f"{save_dir}/{suffix}_anchored_{config_name}.csv"
