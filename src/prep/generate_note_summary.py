@@ -29,8 +29,6 @@ def generate_note_summary(cfg: dict):
     LLM_name = cfg["LLM_name"]
     save_dir = cfg["save_dir"]
 
-    print(f"{save_dir}")
-
     logger.info(f"{save_dir}")
 
     # create save folder
@@ -54,8 +52,8 @@ def generate_note_summary(cfg: dict):
 
     # load the clinical notes file
     clinical_notes_df = load_table(f"{data_dir}/{file_name}")
-    print(f"file loaded")
-    logger.info(f"{file_name}")
+
+    logger.info(f"loaded file {file_name}")
 
     for _, row in clinical_notes_df.iterrows():
 
@@ -80,7 +78,7 @@ def generate_note_summary(cfg: dict):
             Edmonton Symptom Assessment System score. The summary should be concise yet include any details that are important 
             for understanding the patient's current health status and potential risks.
         """
-        print(f"prompt instructions")
+
         messages = [
                 {"role": "system", "content": system_instructions},
                 {"role": "user", "content": note},
@@ -91,13 +89,13 @@ def generate_note_summary(cfg: dict):
         try:
             llm = Llama(model_path=LLM_path, n_gpu_layers=-1, main_gpu=0,
                 chat_format=chat_format, seed=42, n_ctx=8192, flash_attn=False)
-            print("load llama here")
+
             sequences = llm.create_chat_completion(messages=messages, 
                                     response_format=response_format, 
                                     max_tokens=1500)
-            print("generate sequence here")
+            logger.info("Generated LLM response.")
             llm = None
-            print("clear llama here")
+
             raw_string = sequences['choices'][0]['message']['content']
             start_idx = raw_string.find("{")
             end_idx = raw_string.find("}", start_idx)

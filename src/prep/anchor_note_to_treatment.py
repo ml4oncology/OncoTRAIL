@@ -320,15 +320,16 @@ def anchor_note_to_treatment(mode,
                     return col.replace(symp, f"esas_{symp}")
         return col  # no match → keep as-is
 
-    # Apply to df_treat
-    rename_map = {col: rename_column(col, SYMP_COLS) for col in df_treat.columns}
-    df_treat = df_treat.rename(columns=rename_map)
+    # # Apply to df_treat
+    # rename_map = {col: rename_column(col, SYMP_COLS) for col in df_treat.columns}
+    # df_treat = df_treat.rename(columns=rename_map)
 
     # Apply to target_cols
-    target_cols = [rename_column(col, SYMP_COLS) for col in target_cols]
+    target_cols_renamed = [rename_column(col, SYMP_COLS) for col in target_cols]
+    df_treat = df_treat.rename(columns=dict(zip(target_cols, target_cols_renamed)))
 
-    # Apply to cols_no_target
-    cols_no_target = [rename_column(col, SYMP_COLS) for col in cols_no_target]
+    # # Apply to cols_no_target
+    # cols_no_target = [rename_column(col, SYMP_COLS) for col in cols_no_target]
 
     # Adjust the female column so that if -1, set to 0
     df_treat['female'] = df_treat['female'].replace(-1, 0)
@@ -336,7 +337,7 @@ def anchor_note_to_treatment(mode,
     suffix = "note_tabular" if add_tabular_to_note else "note"
     outfile = f"{save_dir}/{suffix}_anchored_{config_name}.csv"
 
-    df_treat[cols_no_target + target_cols].to_csv(outfile, index=False)
+    df_treat[cols_no_target + target_cols_renamed].to_csv(outfile, index=False)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
