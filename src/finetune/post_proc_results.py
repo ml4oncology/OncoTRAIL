@@ -197,21 +197,20 @@ def get_best_configs(df, base_dir, model_name, mode="train"):
             try:
                 df = pd.read_csv(matching_files[0])
                 lower, upper = compute_AUC_CI(df)
-                return f'[{lower:.3f},{upper:.3f}]'
+                return f'[{lower:.3f},{upper:.3f}]', matching_files[0]
             except Exception as e:
                 logger.error(f"Failed to process {matching_files[0]}: {e}")
-                return None
+                return None, None
         else:
             logger.warning(f"Expected 1 file for {data_type}, found {len(matching_files)}: {matching_files}")
-            return None
+            return None, None
 
     # Compute CI and model paths
     if mode == "train":
         train_CI = []
-        test_CI = []
         saved_model_path = []
-    else:  # inference
-        test_CI = []
+    test_CI = []
+    path_to_predictions = []
 
     for _, row in best_results.iterrows():
         target = row["target"]
@@ -238,15 +237,16 @@ def get_best_configs(df, base_dir, model_name, mode="train"):
             saved_model_path.append(matching_dirs[0] if matching_dirs else None)
 
             # Process train and test CI files
-            train_ci = process_ci_file(target_path, "train", formatted_lr, epochs, gradientsteps, mode)
-            test_ci = process_ci_file(target_path, "test", formatted_lr, epochs, gradientsteps, mode)
+            train_ci, pattern_train = process_ci_file(target_path, "train", formatted_lr, epochs, gradientsteps, mode)
+            test_ci, pattern_test = process_ci_file(target_path, "test", formatted_lr, epochs, gradientsteps, mode)
             
             train_CI.append(train_ci)
             test_CI.append(test_ci)
         else:  # inference
             # Process only test CI files
-            test_ci = process_ci_file(target_path, "test", formatted_lr, epochs, gradientsteps, mode)
+            test_ci, pattern_test = process_ci_file(target_path, "test", formatted_lr, epochs, gradientsteps, mode)
             test_CI.append(test_ci)
+        path_to_predictions.append(pattern_test)
 
     # Add results to dataframe
     if mode == "train":
@@ -255,6 +255,8 @@ def get_best_configs(df, base_dir, model_name, mode="train"):
         best_results["saved_model_path"] = saved_model_path
     else:  # inference
         best_results["inference_CI"] = test_CI
+    
+    best_results['path_to_predictions'] = path_to_predictions
 
     return best_results
 

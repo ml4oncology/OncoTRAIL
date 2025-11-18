@@ -122,7 +122,7 @@ def generate_target_description(target_string,
                     f"experience grade {grade} and above creatinine increase {time_period}, {CTCAE_meaning} "
                     f"as creatinine increasing {CTCAE_constants[quantity][f'grade{grade}plus']} times above "
                     f"baseline or {CTCAE_constants[quantity][f'grade{grade}plus']} times above " 
-                    f" the upper limit of normal ({CTCAE_constants[quantity]['ULN']} umol/L)"
+                    f"the upper limit of normal ({CTCAE_constants[quantity]['ULN']} umol/L)"
                 )
             else:
                 target_prompt = f"experience acute kidney injury {time_period}"

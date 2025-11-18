@@ -53,6 +53,17 @@ def filter_stop_words(text):
 
   return filtered_report
 
+def normalize_medical_terms(text):
+    # Define domain-specific synonyms
+    replacements = {
+        'chemo': 'chemotherapy',
+    }
+
+    # Tokenize and replace if in mapping
+    tokens = text.split()
+    normalized_tokens = [replacements.get(tok, tok) for tok in tokens]
+    return ' '.join(normalized_tokens)
+
 def get_wordnet_pos(treebank_tag):
     if treebank_tag.startswith('J'):
         return wordnet.ADJ
@@ -75,10 +86,24 @@ def get_wordnet_pos(treebank_tag):
 #     ]
 #     return ' '.join(lemmatized_words)
 
+# def lemmatization_func(text):
+#     lemmatizer = WordNetLemmatizer()
+#     tokens = word_tokenize(text)
+#     lemmatized_words = [lemmatizer.lemmatize(word, wordnet.VERB) for word in tokens]
+#     return ' '.join(lemmatized_words)
+
 def lemmatization_func(text):
     lemmatizer = WordNetLemmatizer()
     tokens = word_tokenize(text)
-    lemmatized_words = [lemmatizer.lemmatize(word, wordnet.VERB) for word in tokens]
+
+    lemmatized_words = []
+    for word in tokens:
+        # Try noun lemma first (for plural reduction)
+        lemma = lemmatizer.lemmatize(word, wordnet.NOUN)
+        # Then try verb lemma to reduce past/present tense variants
+        lemma = lemmatizer.lemmatize(lemma, wordnet.VERB)
+        lemmatized_words.append(lemma)
+
     return ' '.join(lemmatized_words)
 
 def process_df(df, note_col):
@@ -87,6 +112,7 @@ def process_df(df, note_col):
     df[note_col] = df[note_col].apply(lambda x: re.sub(r'[^\w\s.]','', x)) 
     temp_stop_words = df[note_col].apply(lambda x: filter_stop_words(x))
     temp_lemma = temp_stop_words.apply(lemmatization_func)
+    temp_lemma = temp_lemma.apply(normalize_medical_terms)
     df[f'{note_col}_lemmatized_note'] = temp_lemma.apply(lambda x: filter_stop_words(x))
 
     return df.copy()
@@ -138,7 +164,11 @@ def calculate_pair_data(bow_df, df_notes, text_name_col, target_name_col, x_axis
   frequency = []
   for i in range(bow_df.shape[0]):
     word = bow_df['word'].iloc[i]
-    df_notes['word_in_note'] = df_notes[text_name_col].apply(lambda x: 1 if word in x else 0)
+    # pattern = r'\b' + re.escape(word) + r'\b'
+    # df_notes['word_in_note'] = df_notes[text_name_col].astype(str).str.contains(pattern, case=False, regex=True, na=False).astype(int)
+    df_notes['tokens'] = df_notes[text_name_col].astype(str).str.lower().str.findall(r"[a-zA-Z0-9']+")
+    word_lower = word.lower()
+    df_notes['word_in_note'] = df_notes['tokens'].apply(lambda toks: int(word_lower in toks))
     df_notes_word_present = df_notes[df_notes['word_in_note'] == 1].copy()
     df_notes_word_absent = df_notes[df_notes['word_in_note'] == 0].copy()
     n_metric_samples.append(min(df_notes_word_present.shape[0], df_notes_word_absent.shape[0]))
@@ -206,7 +236,7 @@ def process_data_for_volcano_plot(df_path, fname, target, note_type, n_gram_val,
 
     return df_bow_reason, df_proc
 
-def generate_popularity_plot(df, title):
+def generate_popularity_plot(df, title, note_type):
     # Filter to significant 1-grams
     df = df[df['p_adj'] < 0.05].copy()
     
@@ -242,7 +272,11 @@ def generate_popularity_plot(df, title):
     )
     
     ax.set_xlabel('Δ Average LLM risk prediction', fontsize=16)
-    ax.set_ylabel('Proportion of LLM responses with 1-gram', fontsize=16)
+    if note_type == 'note':
+       y_label_string = 'clinical notes'
+    elif note_type == 'Reason':
+       y_label_string = 'LLM responses'  
+    ax.set_ylabel(f'Proportion of {y_label_string} with 1-gram', fontsize=16)
     ax.set_title(title, fontsize=17)
     ax.grid(True)
 
@@ -269,4 +303,89 @@ def generate_popularity_plot(df, title):
     
     plt.tight_layout()
     plt.show()
+    return fig
+
+def plot_input_output_alignment(df, title):
+    """
+    Plot alignment between influential words from input (clinical notes)
+    and output (LLM reasoning), colored by frequency ratio.
+    
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Columns: ["word", "change_in_metric_input", "change_in_metric_output", "frequency_ratio"]
+    target : str
+        Name of the adverse event, used in the title.
+    """
+    
+    sns.set(style="white", context="talk")
+    fig, ax = plt.subplots(figsize=(8, 8))
+    
+    # ---- Normalize color scale around 1 ----
+    norm = plt.Normalize(vmin=0.5, vmax=2.0)
+    cmap = plt.get_cmap("coolwarm")  # diverging, colorblind-safe alternative: 'RdBu_r'
+    
+    # ---- Scatter plot ----
+    sc = ax.scatter(
+        df["change_in_metric_input"],
+        df["change_in_metric_output"],
+        c=df["frequency_ratio"],
+        cmap=cmap,
+        norm=norm,
+        s=120,
+        alpha=0.9,
+        edgecolor="k",
+        linewidth=0.4
+    )
+    
+    # ---- Add word labels ----
+    texts = []
+    for _, row in df.iterrows():
+        texts.append(
+            ax.text(
+                row["change_in_metric_input"],
+                row["change_in_metric_output"],
+                row["word"],
+                fontsize=9,
+                color="black"
+            )
+        )
+    
+    adjust_text(
+        texts,
+        ax=ax,
+        arrowprops=dict(arrowstyle='->', color='gray', lw=0.5),
+        expand_points=(1.2, 1.4),
+        expand_text=(1.2, 1.4),
+        force_points=0.5,
+        force_text=0.5,
+        lim=500,
+        only_move={'points': 'y', 'text': 'xy'}
+    )
+    
+    # ---- Reference lines ----
+    ax.axhline(0, color="gray", lw=1)
+    ax.axvline(0, color="gray", lw=1)
+    
+    # ---- Labels and title ----
+    ax.set_xlabel("Change in Predicted Risk (Input: Clinical Notes)")
+    ax.set_ylabel("Change in Predicted Risk (LLM Reasoning)")
+    ax.set_title(f"{title}", loc="left")
+    
+    # ---- Correlation ----
+    corr = df[["change_in_metric_input", "change_in_metric_output"]].corr().iloc[0, 1]
+    ax.text(0.05, 0.95, f"Pearson r = {corr:.2f}", transform=ax.transAxes, fontsize=11)
+    
+    # ---- Colorbar ----
+    cbar = plt.colorbar(sc, ax=ax, fraction=0.046, pad=0.04)
+    cbar.set_label("Frequency Ratio (Output / Input)")
+    cbar.set_ticks([0.5, 1.0, 2.0])
+    cbar.ax.axhline(1.0, color='k', lw=0.8)  # visual center
+    
+    # ---- Clean aesthetic ----
+    sns.despine(ax=ax)
+    ax.grid(False)
+    plt.tight_layout()
+    plt.show()
+
     return fig

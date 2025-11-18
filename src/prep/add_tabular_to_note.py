@@ -206,7 +206,7 @@ def add_tabular_data_to_note(clinical_notes_df, opis_df, first_treatment, mode):
             # if nan, set value to not measured
             row_df_temp = pd.concat([row_df_temp, nan_rows_df], ignore_index=True)
             row_df_temp['Value'] = np.where(
-                row_df_temp['Column'] == 'drug_and_dose',
+                (row_df_temp['Column'] == 'drug_and_dose') & (row_df_temp['Value'].isna()),
                 'not available',
                 row_df_temp['Value']
             )

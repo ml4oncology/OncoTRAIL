@@ -31,9 +31,10 @@ class DataPreprocessor:
         self.target_splits = {}
         self.mrn_splits = {}
         self.var_names = None
+        self.train_dataframe = None
         
-    def prepare_data(self, df, embedding, target, test_start_date, split_config, 
-                    data_type, model_name, target_name):
+    def prepare_data(self, df, embedding, target, end_devt_date, split_config, 
+                    data_type, model_name):
         """
         Main method to prepare and split data
         Returns: Dictionary with all necessary data and saves preprocessing artifacts
@@ -44,7 +45,7 @@ class DataPreprocessor:
             df = process_df(df, "note")
         
         # Generate splits
-        self._generate_splits(df, test_start_date, split_config)
+        self._generate_splits(df, end_devt_date, split_config)
         
         # Extract target values
         self._extract_targets(target, model_name)
@@ -127,12 +128,12 @@ class DataPreprocessor:
         self.unique_physician_names = artifacts['unique_physician_names']
         self.var_names = artifacts['var_names']
     
-    def _generate_splits(self, df, test_start_date, split_config):
+    def _generate_splits(self, df, end_devt_date, split_config):
         """Generate train/eval/valid/test splits"""
         splitter = Splitter()
         
         if split_config == "Temporal":
-            train_eval_data, valid_data, test_data = splitter.split_data(df, test_start_date)
+            train_eval_data, valid_data, test_data = splitter.split_data(df, end_devt_date)
         elif split_config == "Random":
             devt_cohort, test_data = splitter.random_split(df, test_size=0.35)
             train_eval_data, valid_data = splitter.random_split(devt_cohort, test_size=0.2)
@@ -286,9 +287,19 @@ class DataPreprocessor:
                 "valid": self.tabular_prep.transform_data(self.split_dfs["valid"], data_name="validation"),
                 "test": self.tabular_prep.transform_data(self.split_dfs["test"], data_name="test"),
             }
+        
+        # assert no nan values
+        # # need to add safeguard for nan values here
+        # data_frames["train"].to_csv("/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/LLM-notes-classification/tabular/all_columns_train_tabular_features_debug.csv", index=False)
+
         for k in data_frames:
             if data_frames[k] is not None:
                 data_frames[k].drop(columns=drop_cols, inplace=True)
+
+        self.train_dataframe = data_frames["train"]
+
+        # # save to csv
+        # data_frames["train"].to_csv("/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/LLM-notes-classification/tabular/train_tabular_features_debug.csv", index=False)
 
         for key in ["train", "eval", "valid", "test"]:
             if data_frames[key] is None:
@@ -313,7 +324,7 @@ class DataPreprocessor:
         if 'nlp' in data_type:
             return self.nlp_vocab
         else:
-            return self.split_dfs["train"].columns.to_list()
+            return self.train_dataframe.columns.to_list()
     
     def _find_unique_phys(self, df):
         """Find unique physician names"""
@@ -386,13 +397,18 @@ class DataPreprocessor:
                 X = np.concatenate([X, phys], axis=1)
             
             # Process tabular data
+            # df.to_csv("/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/LLM-notes-classification/tabular/missing_features_debug.csv", index=False)
+            # df.to_csv("/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/LLM-notes-classification/tabular/nan_cols_preprocess.csv", index=False)
+            valid_cols = [col for col in df.columns if col in self.var_names]
+            df = df[valid_cols]
+            df_processed = self.tabular_prep.transform_data(df, data_name="test", one_hot_encode=True)
             # if a column in self.var_names is not in df, add a column of zeros to df
             for col in self.var_names:
-                if col not in df.columns:
-                    df[col] = np.zeros(len(df))
+                if col not in df_processed.columns:
+                    df_processed[col] = np.zeros(len(df_processed))
             # arrange the columns in df to be the same as training data
-            df = df[self.var_names]
-            df_processed = self.tabular_prep.transform_data(df, data_name="test", one_hot_encode=False)
+            df_processed = df_processed[self.var_names]
+            # df_processed.to_csv("/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/LLM-notes-classification/tabular/nan_cols_postprocess.csv", index=False)
             drop_cols = ["mrn", "treatment_date", "stats_physician"]
             df_processed.drop(columns=drop_cols, inplace=True, errors='ignore')
             X = np.concatenate([X, df_processed.to_numpy()], axis=1)

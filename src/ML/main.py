@@ -5,7 +5,7 @@ from sklearn.metrics import average_precision_score, roc_auc_score, log_loss
 import sys
 import os
 import torch
-from llm_notes_classification.config import start_test_date, date_lower_limit, date_upper_limit
+from llm_notes_classification.config import date_lower_limit, date_upper_limit
 from llm_notes_classification.ML.data_pipeline import DataPreprocessor
 from llm_notes_classification.ML.training_pipeline import ModelTrainer
 from llm_notes_classification.ML.inference_pipeline import ModelInference
@@ -32,6 +32,7 @@ def main_train(
     setup_str,
     data_type,
     target_name,
+    end_devt_date
 ):
     """
     Main training pipeline
@@ -56,7 +57,23 @@ def main_train(
     if 'parquet.gzip' in notes_path:
         df = pd.read_parquet(notes_path)
     else:
-        df = pd.read_csv(notes_path, index_col=0)    
+        # Robust CSV loading: prefer reading without an index; if the file contains
+        # a saved index it will show up as "Unnamed: 0" so read again with index_col=0.
+        try:
+            df_noidx = pd.read_csv(notes_path, header=0)
+        except Exception:
+            # fallback: try reading with index_col=0
+            df = pd.read_csv(notes_path, index_col=0)
+        else:
+            if 'Unnamed: 0' in df_noidx.columns:
+                df = pd.read_csv(notes_path, index_col=0)
+            else:
+                df = df_noidx
+
+        # If reading produced MultiIndex columns, flatten them to single-level names
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = ["_".join(map(str, col)).strip() for col in df.columns.values]
+
     df.reset_index(drop=True, inplace=True)
 
     # Get target mask
@@ -103,8 +120,8 @@ def main_train(
     # Data preprocessing and splitting
     preprocessor = DataPreprocessor()
     data_splits = preprocessor.prepare_data(
-        df, embedding, target, start_test_date, split_config, 
-        data_type, model_name, target_name
+        df, embedding, target, end_devt_date, split_config, 
+        data_type, model_name
     )
     
     # Save preprocessing artifacts
@@ -269,6 +286,7 @@ if __name__ == "__main__":
     parser.add_argument("--setup_str", help="set up string", type=str)
     parser.add_argument("--data_type", help="data type", type=str)
     parser.add_argument("--target_name", help="name of target", type=str)
+    parser.add_argument("--end_devt_date", help="end date of development", type=str)
 
     # Inference-specific arguments
     parser.add_argument("--model_file", help="filepath of machine learning model", type=str)
@@ -287,6 +305,7 @@ if __name__ == "__main__":
             args.setup_str,
             args.data_type,
             args.target_name,
+            args.end_devt_date
         )
     elif args.mode == "inference":
         main_inference(

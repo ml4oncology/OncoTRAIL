@@ -6,6 +6,9 @@ from scipy.stats import wilcoxon, ranksums
 from scipy.stats import gaussian_kde
 import os
 import pandas as pd
+import glob
+import argparse
+import ast
 
 def generate_mixed_violin_plot(aggregate_statistics_df, col_name, jitter, 
                                xtick_labels=None, plot_title="Violin Plot",
@@ -291,13 +294,13 @@ def few_shot_mapping(val):
 quantization_map = {"IQ2": 1, "IQ3": 2, "IQ4": 3, "Q4": 4, "Q6": 5, "Q8": 6}
 
 # Main function
-def load_aggregate_statistics(results_dir_parent, target_list_master, stage):
+def load_aggregate_statistics(results_dir_parent, target_list_master, stage, save_string):
     stage_columns = {
-        "stage1": ['Target', 'AUC', 'n_samples', 'mean_proba', 'LLM_name', 'prompt_num', 'tabular', 'n_few_shot'],
+        "stage1": ['Target', 'AUC', 'n_samples', 'mean_proba', 'CI', 'LLM_name', 'prompt_num', 'tabular', 'n_few_shot', 'target_type', 'task_phrase', 'cot', 'persona'],
         "stage2": ['Target', 'AUC', 'n_samples', 'mean_proba', 'CI', 'n_few_shot_added_mean', 'LLM_name', 'n_params', 'quantization_level', 'quant_ranking', 'n_few_shot', 'target_type'],
         "stage3": ['Target', 'AUC', 'n_samples', 'mean_proba', 'CI', 'n_few_shot_added_mean', 'LLM_name', 'temp', 'top_p', 'min_p', 'top_k', 'n_few_shot', 'target_type'],
         "train": ['Target', 'AUC', 'n_samples', 'mean_proba', 'CI'],
-        "test": ['Target', 'AUC', 'n_samples', 'mean_proba', 'CI'],
+        "test": ['Target', 'AUC', 'n_samples', 'mean_proba', 'CI', 'path_to_predictions'],
     }
 
     assert stage in stage_columns, f"Invalid stage: {stage}. Must be one of {list(stage_columns.keys())}"
@@ -306,6 +309,7 @@ def load_aggregate_statistics(results_dir_parent, target_list_master, stage):
     aggregate_statistics = []
 
     for target in target_list_master:
+        print(f"Processing target: {target}")
         target_results_dir = os.path.join(results_dir_parent, target)
         if not os.path.exists(target_results_dir):
             continue
@@ -351,6 +355,11 @@ def load_aggregate_statistics(results_dir_parent, target_list_master, stage):
                 stats_df["n_params"] = np.nan
                 stats_df["quantization_level"] = np.nan
                 stats_df["quant_ranking"] = np.nan
+            
+            # get summary file path
+            target_name = target.replace("_", "-")
+            matching_files = glob.glob(os.path.join(full_path, f"summary_{target_name}_*.csv"))
+            stats_df['path_to_predictions'] = matching_files[0]
 
             aggregate_statistics.append(stats_df)
 
@@ -366,4 +375,18 @@ def load_aggregate_statistics(results_dir_parent, target_list_master, stage):
     if 'Target' in aggregate_statistics_df.columns:
         aggregate_statistics_df['target_type'] = aggregate_statistics_df['Target'].apply(target_category)
 
-    return aggregate_statistics_df[cols_to_keep]
+    # return aggregate_statistics_df[cols_to_keep]
+    aggregate_statistics_df[cols_to_keep].to_csv(f"{results_dir_parent}/aggregate_statistics_{save_string}.csv", index=False)
+
+if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser(description="Aggregate statistics from results directory")
+
+    parser.add_argument("results_dir", type=str, help='results directory') # results directory
+    parser.add_argument("target_list", type=str, help="List of target names. E.g., \"['target1', 'target2']\"")
+    parser.add_argument("stage", type=str, help="Stage: 'stage1', 'stage2', 'stage3', 'train', 'test'")
+    parser.add_argument("save_string", type=str, help="Save string")
+    args = parser.parse_args()
+    target_list = ast.literal_eval(args.target_list)
+
+    load_aggregate_statistics(args.results_dir, target_list, args.stage, args.save_string)

@@ -42,13 +42,14 @@ def launch(cfg):
             slurm_gpus_per_node=1, # Each node should use 1 GPU
             gres="gpu:1",              # Request 1 GPU
             slurm_additional_parameters={
-                "account": "gliugroup_gpu",
+                "account": "grantgroup_gpu",
             }
         )
         if cfg['gpu_constraint'] == 1:
             executor.update_parameters(constraint="gpu32g")
-        from llm_notes_classification.prompt.local_runner import LocalLLMRunner 
+        
         def run_llm_prompt(cfg: dict):
+            from llm_notes_classification.prompt.local_runner import LocalLLMRunner 
             runner = LocalLLMRunner(cfg)
             runner.run()
     else:
@@ -59,8 +60,9 @@ def launch(cfg):
             mem_gb=cfg['memory'], # Each job gets 4GB of memory
             timeout_min=cfg['n_hours'] * 60, # Limit the job running time to 2 days
         )
-        from llm_notes_classification.prompt.vllm_runner import VLLMRunner
+        
         def run_llm_prompt(cfg: dict):
+            from llm_notes_classification.prompt.vllm_runner import VLLMRunner
             runner = VLLMRunner(cfg)
             runner.run()
 
