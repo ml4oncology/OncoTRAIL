@@ -210,7 +210,8 @@ def get_best_configs(df, base_dir, model_name, mode="train"):
         train_CI = []
         saved_model_path = []
     test_CI = []
-    path_to_predictions = []
+    path_to_predictions_train = []
+    path_to_predictions_test = []
 
     for _, row in best_results.iterrows():
         target = row["target"]
@@ -246,7 +247,9 @@ def get_best_configs(df, base_dir, model_name, mode="train"):
             # Process only test CI files
             test_ci, pattern_test = process_ci_file(target_path, "test", formatted_lr, epochs, gradientsteps, mode)
             test_CI.append(test_ci)
-        path_to_predictions.append(pattern_test)
+            pattern_train = None
+        path_to_predictions_train.append(pattern_train)
+        path_to_predictions_test.append(pattern_test)
 
     # Add results to dataframe
     if mode == "train":
@@ -256,7 +259,8 @@ def get_best_configs(df, base_dir, model_name, mode="train"):
     else:  # inference
         best_results["inference_CI"] = test_CI
     
-    best_results['path_to_predictions'] = path_to_predictions
+    best_results['path_to_predictions_train'] = path_to_predictions_train
+    best_results['path_to_predictions_test'] = path_to_predictions_test
 
     return best_results
 

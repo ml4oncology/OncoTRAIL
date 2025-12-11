@@ -17,10 +17,6 @@ def launch(cfg):
     - https://github.com/facebookincubator/submitit/blob/main/docs/examples.md
     """
 
-    # few shot examples not implemented yet
-    # if cfg['n_few_shot'] != 0:
-    #     raise NotImplementedError("few shot examples not implemented yet")
-
     save_dir = cfg['save_dir']
 
     # Initialize the executor, which is the submission interface
@@ -28,71 +24,22 @@ def launch(cfg):
     os.makedirs(log_file_save, exist_ok=True)
     executor = submitit.AutoExecutor(folder=log_file_save)
 
-    # edit this depending on use_vllm value
-
-    # Specify the Slurm parameters
-    # TODO: put this in another config file
-    if cfg['use_vllm'] == 0:
-        executor.update_parameters(  
-            # slurm_account="gliugroup_gpu",      
-            slurm_partition="gpu",
-            nodes=1, # Each job in the job array gets one node
-            mem_gb=cfg['memory'], # Each job gets 4GB of memory
-            timeout_min=cfg['n_hours'] * 60, # Limit the job running time to 2 days
-            slurm_gpus_per_node=1, # Each node should use 1 GPU
-            gres="gpu:1",              # Request 1 GPU
-            slurm_additional_parameters={
-                "account": "grantgroup_gpu",
-            }
-        )
-        if cfg['gpu_constraint'] == 1:
-            executor.update_parameters(constraint="gpu32g")
-        
-        def run_llm_prompt(cfg: dict):
-            from llm_notes_classification.prompt.local_runner import LocalLLMRunner 
-            runner = LocalLLMRunner(cfg)
-            runner.run()
-    else:
-        executor.update_parameters(  
-            # slurm_account="gliugroup_gpu",      
-            slurm_partition="all",
-            nodes=1, # Each job in the job array gets one node
-            mem_gb=cfg['memory'], # Each job gets 4GB of memory
-            timeout_min=cfg['n_hours'] * 60, # Limit the job running time to 2 days
-        )
-        
-        def run_llm_prompt(cfg: dict):
-            from llm_notes_classification.prompt.vllm_runner import VLLMRunner
-            runner = VLLMRunner(cfg)
-            runner.run()
-
     # load parameters for splitting dataframe
     n_partitions = cfg['n_partitions']
     data_dir = cfg['data_dir']
     df_name = cfg['file_name']
-    
-    # read dataframe
-    # df = load_table(f'{data_dir}/{df_name}')
 
-    if '.parquet.gzip' in df_name:
-        file_name_no_ext = os.path.splitext(df_name)[0]
+    file_name_no_ext = os.path.splitext(df_name)[0]
+    if '.parquet.gzip' in df_name:       
         file_name_no_ext = os.path.splitext(file_name_no_ext)[0]
-    else:
-        file_name_no_ext = os.path.splitext(df_name)[0]
-
+ 
     # create save_dir
     param_string = f"{file_name_no_ext}_{cfg['LLM_name']}_{cfg['quant_level']}_{cfg['start_date']}_{cfg['end_date']}"
     param_string = f"{param_string}_{cfg['random_sampling']}_{cfg['n_few_shot']}_{cfg['numeric_proba']}"
     param_string = f"{param_string}_{cfg['prompt_num']}_{cfg['top_k']}_{cfg['min_p']}_{cfg['top_p']}"
     param_string = f"{param_string}_{cfg['temperature']}"
     save_dir = f"{save_dir}/{param_string}"
-    # data_dir = f"{data_dir}/{param_string}/data_partitions/"
     data_dir = f"{data_dir}/data_partitions/{file_name_no_ext}"
-
-    os.makedirs(f"{data_dir}", exist_ok=True)
-
-    # list of targets
-    # list_of_targets = cfg['target_names'].split(",")
 
     if cfg['n_few_shot'] != 0:
         # create a new key
@@ -102,24 +49,106 @@ def launch(cfg):
     cfg.pop('data_dir')
     cfg.pop('save_dir')
 
-    cfgs = []
-
     data_path_partitions = f'{data_dir}/randomsampling{cfg["random_sampling"]}_{cfg["start_date"]}_{cfg["end_date"]}'
-    os.makedirs(data_path_partitions, exist_ok=True)
+    # check if data_path_partitions exists if not error
+    if not os.path.exists(data_path_partitions):
+        raise ValueError(f"Data path partitions {data_path_partitions} does not exist")
 
-    # for partition_id, idxs in enumerate(partition_list):
-    for partition_id in range(n_partitions):
+    # edit this depending on use_vllm value
 
-        cfgs.append(dict(data_dir=f'{data_path_partitions}', 
-                         file_name=f'{partition_id}_{df_name}',
-                         save_dir=save_dir, **cfg))
+    # Specify the Slurm parameters
+    # TODO: put this in another config file
+    if cfg['use_vllm'] == 0 or cfg['vllm_mode'] == 'online':
+        if cfg['use_vllm'] == 0:
 
-    # Submit your function and inputs as a job array
-    # jobs = executor.map_array(prompt_llm, cfgs)
-    jobs = executor.map_array(run_llm_prompt, cfgs)
+            executor.update_parameters(  
+                    # slurm_account="gliugroup_gpu",      
+                    slurm_partition="gpu",
+                    nodes=1, # Each job in the job array gets one node
+                    mem_gb=cfg['memory'], # Each job gets 4GB of memory
+                    timeout_min=cfg['n_hours'] * 60, # Limit the job running time to 2 days
+                    slurm_gpus_per_node=1, # Each node should use 1 GPU
+                    gres="gpu:1",              # Request 1 GPU
+                    slurm_additional_parameters={
+                        "account": "grantgroup_gpu",
+                    }
+                )
+            
+            if cfg['llama_cpp_mode'] == 'sequential':
+                
+                if cfg['gpu_constraint'] == 1:
+                    executor.update_parameters(constraint="gpu32g")
+                
+                def run_llm_prompt(cfg: dict):
+                    from llm_notes_classification.prompt.local_runner_sequential import LocalLLMRunnerSequential 
+                    runner = LocalLLMRunnerSequential(cfg)
+                    runner.run()
+            else:
+                
+                executor.update_parameters(
+                    mem_gb=64,
+                    slurm_additional_parameters={
+                        "account": "grantgroup_gpu",
+                        "nodelist": "node159",
+                    }
+                )
 
-    # Monitor jobs to keep track of completed jobs
-    submitit.helpers.monitor_jobs(jobs)
+                def run_llm_prompt(cfg: dict):
+                    from llm_notes_classification.prompt.local_runner_parallel import LocalLLMRunnerParallel 
+                    runner = LocalLLMRunnerParallel(cfg)
+                    runner.run()
+
+        else:
+            executor.update_parameters(  
+                # slurm_account="gliugroup_gpu",      
+                slurm_partition="all",
+                nodes=1, # Each job in the job array gets one node
+                mem_gb=cfg['memory'], # Each job gets 4GB of memory
+                timeout_min=cfg['n_hours'] * 60, # Limit the job running time to 2 days
+            )
+            
+            def run_llm_prompt(cfg: dict):
+                from llm_notes_classification.prompt.vllm_runner_online import VLLMRunnerOnline
+                runner = VLLMRunnerOnline(cfg)
+                runner.run()
+
+        cfgs = []
+
+        # for partition_id, idxs in enumerate(partition_list):
+        for partition_id in range(n_partitions):
+
+            cfgs.append(dict(data_dir=f'{data_path_partitions}', 
+                            file_name=f'{partition_id}_{df_name}',
+                            save_dir=save_dir, **cfg))
+
+        # Submit your function and inputs as a job array
+        # jobs = executor.map_array(prompt_llm, cfgs)
+        jobs = executor.map_array(run_llm_prompt, cfgs)
+
+        # Monitor jobs to keep track of completed jobs
+        submitit.helpers.monitor_jobs(jobs)
+
+    else:
+        
+        # in data_path_partitions, merge all *_{df_name}.csv into one dataframe
+        df = pd.DataFrame()
+        for partition_id in range(n_partitions):
+            df_partition = pd.read_csv(f'{data_path_partitions}/{partition_id}_{df_name}')
+            df = pd.concat([df, df_partition], ignore_index=True)
+        
+        df = df.reset_index(drop=True)
+
+        # if {data_path_partitions}/merged_{df_name} exists, skip saving
+        if not os.path.exists(f'{data_path_partitions}/merged_{df_name}'):
+            df.to_csv(f'{data_path_partitions}/merged_{df_name}', index=False)
+
+        cfg['data_dir'] = data_path_partitions
+        cfg['file_name'] = f'merged_{df_name}'
+        cfg['save_dir'] = save_dir
+
+        from llm_notes_classification.prompt.vllm_runner_offline import VLLMRunnerOffline
+        runner = VLLMRunnerOffline(cfg)
+        runner.run()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -150,11 +179,17 @@ if __name__ == "__main__":
     parser.add_argument("memory", help="memory of each node", type=int)  # memory of each node
     parser.add_argument("gpu_constraint", help="gpu constraint", type=int)  # constraint on gpu
 
+    # New llama_cpp-related arguments
+    parser.add_argument("--llama_cpp_mode", type=str, choices=["sequential", "parallel"], default="sequential", 
+                        help="llama cpp mode: sequential or parallel (default: sequential)")
+
     # New vLLM-related arguments
     parser.add_argument("use_vllm", type=int, choices=[0, 1], help="whether to use vLLM (0 or 1)")
     parser.add_argument("--base_url", type=str, default=None, help="base URL for vLLM server")
     parser.add_argument("--vllm_model_name", type=str, default=None, help="model name on vLLM server")
-
+    parser.add_argument("--vllm_mode", type=str, choices=["online", "offline"], default="online", 
+                        help="vLLM mode: 'online' for server API or 'offline' for local inference (default: online)")
+    
     # New shapley-related arguments
     parser.add_argument("add_tabularML_prediction", type=int, choices=[0, 1, 2, 3], help="whether to add shapley (1), linear regression coefficient (2), or (3) tabular prediction or not (0)")
     parser.add_argument("--shapley_path", type=str, default=None, help="path for shapley coefficients")
@@ -163,9 +198,10 @@ if __name__ == "__main__":
     cfg = vars(parser.parse_args())
 
     if cfg["use_vllm"] == 1:
-        if cfg["base_url"] is None or cfg["vllm_model_name"] is None:
-            print("Error: --base_url and --vllm_model_name must be provided when use_vllm is 1.")
-            sys.exit(1)
+        if cfg["vllm_mode"] == "online":
+            if cfg["base_url"] is None or cfg["vllm_model_name"] is None:
+                print("Error: --base_url and --vllm_model_name must be provided when use_vllm is 1.")
+                sys.exit(1)
 
     if cfg["add_tabularML_prediction"] > 0 and cfg["shapley_path"] is None:
         print("Error: --shapley_path must be provided when add_tabularML_prediction is 1 or 2.")

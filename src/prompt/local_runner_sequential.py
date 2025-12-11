@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 torch.cuda.empty_cache()
 
 
-class LocalLLMRunner(BaseLLMRunner):
+class LocalLLMRunnerSequential(BaseLLMRunner):
     """GPU-required runner for local llama-cpp inference."""
     
     def __init__(self, cfg: dict):

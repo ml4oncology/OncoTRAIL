@@ -1,4 +1,5 @@
 import os
+import re
 import ast
 import json
 import pandas as pd
@@ -156,9 +157,25 @@ class PromptingUtils:
     @staticmethod
     def process_llm_output(raw_string, return_val):
         try:
+            # Extract substring between first '{' and last '}'
             start_idx = raw_string.find("{")
-            end_idx = raw_string.find("}", start_idx)
-            result = ast.literal_eval(raw_string[start_idx: end_idx + 1])
+            end_idx = raw_string.rfind("}")
+            json_like = raw_string[start_idx: end_idx + 1]
+
+            # Try literal_eval first
+            try:
+                result = ast.literal_eval(json_like)
+            except Exception:
+                # Fallback: cleanup and try json.loads
+                cleaned = json_like.replace("\n", " ")
+
+                # Fix unescaped quotes inside string values:
+                # e.g., he is "95% better" → he is \"95% better\"
+                cleaned = re.sub(r'(?<!\\)"(\d+%?[^"]*?)"(?!\s*:)', r'\"\1\"', cleaned)
+
+                result = json.loads(cleaned)
+
+            # ----- Your original post-processing -----
             if return_val == 'proba':
                 result["Probability"] = result.get("Probability", None)
                 if result["Probability"] and result["Probability"] > 1:
@@ -166,20 +183,24 @@ class PromptingUtils:
             else:
                 result["Prediction"] = result.get("Prediction", None)
                 if result["Prediction"] is not None and result["Prediction"] not in (0, 1):
-                    result["Prediction"] = 0 if abs(result["Prediction"] - 0) < abs(result["Prediction"] - 1) else 1
+                    result["Prediction"] = (
+                        0 if abs(result["Prediction"] - 0) <
+                        abs(result["Prediction"] - 1) else 1
+                    )
+
             result["Reason"] = result.get("Reason", None)
             result["Raw"] = raw_string
+
         except Exception:
-            result = {
-                "Reason": None,
-                "Raw": raw_string,
-            }
+            # Original fallback preserved
+            result = {"Reason": None, "Raw": raw_string}
             if return_val == 'proba':
                 result["Probability"] = None
             else:
                 result["Prediction"] = None
-        return result
 
+        return result
+    
     @staticmethod
     def alternate_rows(df, target_col):
         # Interleave the rows so that the target values alternate between 0 and 1

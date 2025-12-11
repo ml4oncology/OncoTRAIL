@@ -75,7 +75,7 @@ def compute_fairness_metrics(notes_df_path, method_dfs, target_name,
         elif method == 'finetune':
             # load summary dataframe from finetuning
             target_name = target_name.replace("-", "_")
-            finetuning_results_dir = method_df[method_df['target'] == target_name]['path_to_predictions'].values[0]
+            finetuning_results_dir = method_df[method_df['target'] == target_name]['path_to_predictions_test'].values[0]
             df_predictions = pd.read_csv(finetuning_results_dir, header=0)
             df_predictions['Probability'] = np.stack(df_predictions["prob"].apply(lambda x: np.fromstring(x.strip("[]"), sep=' ')).values)[:,1]
             # apply thresholding

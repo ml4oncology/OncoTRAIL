@@ -1,8 +1,8 @@
 import os
 import pandas as pd
 import logging
-import asyncio
-from openai import OpenAI, AsyncOpenAI
+from vllm import LLM, SamplingParams
+from vllm.sampling_params import GuidedDecodingParams
 from llm_notes_classification.prompt.base_runner import BaseLLMRunner
 from pydantic import BaseModel
 
@@ -16,7 +16,7 @@ class ResponsePrediction(BaseModel):
     Reason: str
     Prediction: int
 
-class VLLMRunner(BaseLLMRunner):
+class VLLMRunnerOffline(BaseLLMRunner):
     """CPU-compatible runner for vLLM inference."""
     
     def __init__(self, cfg: dict):
@@ -70,41 +70,36 @@ class VLLMRunner(BaseLLMRunner):
             response_model = ResponsePrediction
         else:
             raise ValueError(f"Unsupported return_val: {self.return_val}. Must be 'proba' or 'prediction' for structured output.")
+        
+        llm = LLM(model=self.config.LLM_path, tokenizer=self.config.tokenizer_path)
 
-        logger.info(f"Base URL for OpenAI client: {self.config.base_url}")
-
-        client = OpenAI(base_url=self.config.base_url, api_key="EMPTY", timeout=7200)
+        json_schema = response_model.model_json_schema()
 
         # Create repeated messages for num_samples
         repeated_messages = []
         for messages in self.messages_list:
             for _ in range(self.config.num_samples):
                 repeated_messages.append(messages)
-        
-        # Define get_response function with error handling
-        def get_response_with_error_handling(chat):
-            try:
-                response = client.beta.chat.completions.parse(
-                    model=self.config.vllm_model_name,
-                    messages=chat,
-                    response_format=response_model,
-                    max_tokens=self.max_tokens, # This is crucial: adjust if needed
-                    extra_body=self.config.extra_body,
-                    **self.config.llm_params
-                )
-                return response
-            except Exception as e:
-                logger.error(f"An unexpected error occurred during LLM call: {e}. Returning a default error response.")
-                return None
-        
-        logger.info(f"Sending {len(repeated_messages)} requests to vLLM server...")
-        batch_response = [get_response_with_error_handling(chat) for chat in repeated_messages]
+
+        guided = GuidedDecodingParams(json_schema=json_schema)
+
+        sampling_params = SamplingParams(
+            max_tokens=self.max_tokens,
+            guided_decoding=guided,
+            **self.config.llm_params,
+            **self.config.extra_body
+        )
+
+        logger.info(f"Sending {len(repeated_messages)} requests to vLLM...")
+
+        batch_response = llm.chat(repeated_messages, sampling_params)
         
         # Process structured responses
         outputs = [
-            response.choices[0].message.content.strip() if response is not None else None
+            response.outputs[0].text if response is not None else None
             for response in batch_response
         ]
+
         for idx, mrn in enumerate(self.mrn_list):
             results = []
             out_samples = outputs[:self.config.num_samples]
