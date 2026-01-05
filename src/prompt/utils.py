@@ -296,7 +296,7 @@ def few_shot_mapping(val):
 quantization_map = {"IQ2": 1, "IQ3": 2, "IQ4": 3, "Q4": 4, "Q6": 5, "Q8": 6}
 
 # Main function
-def load_aggregate_statistics(results_dir_parent, target_list_master, stage, save_string):
+def load_aggregate_statistics(results_dir_parent, target_list_master, stage, save_string, save_dir):
     stage_columns = {
         "stage1": ['Target', 'AUC', 'n_samples', 'mean_proba', 'CI', 'LLM_name', 'prompt_num', 'tabular', 'n_few_shot', 'target_type', 'task_phrase', 'cot', 'persona'],
         "stage2": ['Target', 'AUC', 'n_samples', 'mean_proba', 'CI', 'n_few_shot_added_mean', 'LLM_name', 'n_params', 'quantization_level', 'quant_ranking', 'n_few_shot', 'target_type'],
@@ -380,37 +380,78 @@ def load_aggregate_statistics(results_dir_parent, target_list_master, stage, sav
         aggregate_statistics_df['target_type'] = aggregate_statistics_df['Target'].apply(target_category)
 
     # return aggregate_statistics_df[cols_to_keep]
-    aggregate_statistics_df[cols_to_keep].to_csv(f"{results_dir_parent}/aggregate_statistics_{save_string}.csv", index=False)
+    aggregate_statistics_df[cols_to_keep].to_csv(f"{save_dir}/aggregate_statistics_{save_string}.csv", index=False)
 
-def concatenate_train_test(results_dir_train, results_dir_test, save_dir):
+def concatenate_train_test_inference(
+    results_dir_train,
+    results_dir_test,
+    results_dir_inference,
+    save_dir
+):
     train_file = os.path.join(results_dir_train, "aggregate_statistics_train.csv")
     test_file = os.path.join(results_dir_test, "aggregate_statistics_test.csv")
-
-    if not os.path.exists(train_file) or not os.path.exists(test_file):
-        logger.error("Train or test aggregate statistics file does not exist.")
-        return
-
-    train_df = pd.read_csv(train_file)
-    test_df = pd.read_csv(test_file)
-
-    concatenated_df = pd.merge(
-        train_df,
-        test_df,
-        on=['Target'],
-        suffixes=('_train', '_test')
+    inference_file = os.path.join(
+        results_dir_inference, "aggregate_statistics_inference.csv"
     )
 
-    # rename columns
-    concatenated_df = concatenated_df.rename(columns={
-        'Target': 'target',
-        'AUC_test': 'auc_test', 
-        'AUC_train': 'auc_train', 
-        'CI_test': 'test_ci', 
-        'CI_train': 'train_ci'
+    # -------------------------
+    # Existence check
+    # -------------------------
+    missing_files = [
+        f for f in [train_file, test_file, inference_file] if not os.path.exists(f)
+    ]
+    if missing_files:
+        logger.error(f"Missing aggregate statistics files: {missing_files}")
+        return
+
+    # -------------------------
+    # Read CSVs
+    # -------------------------
+    train_df = pd.read_csv(train_file)
+    test_df = pd.read_csv(test_file)
+    inference_df = pd.read_csv(inference_file)
+
+    # -------------------------
+    # Merge train + test
+    # -------------------------
+    merged_df = pd.merge(
+        train_df,
+        test_df,
+        on="Target",
+        suffixes=("_train", "_test")
+    )
+
+    # -------------------------
+    # Merge inference
+    # -------------------------
+    merged_df = pd.merge(
+        merged_df,
+        inference_df,
+        on="Target",
+        suffixes=("", "_inference")
+    )
+
+    # -------------------------
+    # Rename columns
+    # -------------------------
+    merged_df = merged_df.rename(columns={
+        "Target": "target",
+        "AUC_train": "auc_train",
+        "CI_train": "train_ci",
+        "AUC_test": "auc_test",
+        "CI_test": "test_ci",
+        "AUC": "auc_inference",
+        "CI": "inference_ci",
     })
 
+    # -------------------------
+    # Save
+    # -------------------------
     os.makedirs(save_dir, exist_ok=True)
-    concatenated_df.to_csv(os.path.join(save_dir, "prompting_results_train_vs_test.csv"), index=False)
+    merged_df.to_csv(
+        os.path.join(save_dir, "prompting_results_train_test_inference.csv"),
+        index=False
+    )
 
 if __name__ == "__main__":
 
@@ -423,11 +464,13 @@ if __name__ == "__main__":
     agg.add_argument("target_list", type=str)
     agg.add_argument("stage", type=str)
     agg.add_argument("save_string", type=str)
+    agg.add_argument("save_dir", type=str)
 
     # --- Mode 2: concatenate train and test results ---
-    concat = subparsers.add_parser("concatenate", help="Train vs Test")
+    concat = subparsers.add_parser("concatenate", help="Train vs Test vs Inference")
     concat.add_argument("results_dir_train", type=str)
     concat.add_argument("results_dir_test", type=str)
+    concat.add_argument("results_dir_inference", type=str)
     concat.add_argument("save_dir", type=str)
 
     args = parser.parse_args()
@@ -438,12 +481,14 @@ if __name__ == "__main__":
             args.results_dir,
             target_list,
             args.stage,
-            args.save_string
+            args.save_string,
+            args.save_dir
         )
 
     elif args.mode == "concatenate":
-        concatenate_train_test(
+        concatenate_train_test_inference(
             args.results_dir_train, 
             args.results_dir_test, 
+            args.results_dir_inference,
             args.save_dir
         )

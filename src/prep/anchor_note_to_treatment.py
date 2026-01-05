@@ -15,7 +15,7 @@ from make_clinical_dataset.epr.filter import (
     drop_highly_missing_features,
     keep_only_one_per_week
 )
-from make_clinical_dataset.shared.constants import SYMP_COLS
+from make_clinical_dataset.shared.constants import SYMP_COLS, LAB_CHANGE_COLS, LAB_COLS, SYMP_CHANGE_COLS
 from make_clinical_dataset.epr.prep import fill_missing_data_heuristically
 from llm_notes_classification.prep.add_tabular_to_note import (
     add_tabular_data_to_note
@@ -39,6 +39,7 @@ def anchor_note_to_treatment(mode,
                             lookback_window,
                             add_tabular_to_note,
                             treatment_dates_path=None,
+                            train_test_anchored_df_path=None,
                             clinical_bench=0):
     """
         Anchor the note to treatment date depending on specified configuration.
@@ -52,6 +53,8 @@ def anchor_note_to_treatment(mode,
         lookback_window: lookback window for the notes to be anchored to treatment date
         add_tabular_to_note: whether to add tabular data to the note
         treatment_dates_path: file path of the treatment dates data frame (only needed for inference mode)
+        train_test_anchored_df_path: file path of the train/test anchored data frame (only needed for inference mode)
+        clinical_bench: whether to use clinical bench method
     """
     os.makedirs(save_dir, exist_ok=True)
 
@@ -70,6 +73,39 @@ def anchor_note_to_treatment(mode,
                 df_treat['female'] == 'male', 0, -1
             )
         )
+
+        # read train_test_anchored_df
+        df_train_test_anchored = pd.read_csv(f'{train_test_anchored_df_path}')
+        # get all columns that start with cancer_site
+        cancer_site_cols = [col for col in df_train_test_anchored.columns if col.startswith('cancer_site')]
+
+        # adjust df_treat so that it will have columns "cancer_site_CXX"
+
+        # Get unique values from primary_site_code
+        unique_sites = df_treat['primary_site_code'].unique()
+
+        # Create a column for each unique site with prefix "cancer_site_"
+        for site in unique_sites:
+            col_name = f'cancer_site_{site}'
+            df_treat[col_name] = (df_treat['primary_site_code'] == site).astype(int)
+
+        # Get all cancer_site columns that were just created
+        all_cancer_cols = [col for col in df_treat.columns if col.startswith('cancer_site_')]
+
+        # Identify columns NOT in cancer_site_cols (excluding cancer_site_other if it exists)
+        other_cols = [col for col in all_cancer_cols if col not in cancer_site_cols]
+
+        # Set cancer_site_other to 1 if any of the "other" columns have value 1
+        df_treat['cancer_site_other'] = df_treat[other_cols].max(axis=1)
+
+        # Get all columns that don't start with cancer_site_
+        non_cancer_cols = [col for col in df_treat.columns if not col.startswith('cancer_site_')]
+
+        # Combine with the cancer_site_cols we want to keep, plus cancer_site_other
+        cols_to_keep = list(set(non_cancer_cols + cancer_site_cols + ['cancer_site_other']))
+
+        # Filter dataframe to keep only these columns
+        df_treat = df_treat[cols_to_keep]
     
     # make the values of the intent column uppercase
     df_treat['intent'] = df_treat['intent'].str.upper()
@@ -78,7 +114,12 @@ def anchor_note_to_treatment(mode,
     cols_to_drop = ['target_ED_note', 'target_ED_60d', 'target_ED_90d', 'drug_name', 'postal_code',
                     'target_hemoglobin_min', 'target_platelet_min', 'target_neutrophil_min',
                     'target_creatinine_max', 'target_alanine_aminotransferase_max',
-                    'target_aspartate_aminotransferase_max', 'target_total_bilirubin_max']
+                    'target_aspartate_aminotransferase_max', 'target_total_bilirubin_max',
+                    'target_H_note', 'target_ED_CTAS_score', 'target_H_length_of_stay', 
+                    'target_H_30d', 'target_H_60d', 'target_H_90d', 'target_ED2H', 'prev_ED_visit_note',
+                    'prev_hospitalization_note', 'postalcode', 'religion', 'preferred_language', 'prev_hospitalization_length_of_stay',
+                    'days_since_prev_hospitalization', 'cisplatin', 'eGFR']
+    
     df_treat = df_treat.drop(columns=cols_to_drop, errors='ignore')
 
     df_treat.rename(columns={'target_ED_30d': 'target_ED_visit'}, inplace=True)
@@ -337,6 +378,19 @@ def anchor_note_to_treatment(mode,
     suffix = "note_tabular" if add_tabular_to_note else "note"
     outfile = f"{save_dir}/{suffix}_anchored_{config_name}.csv"
 
+    # make sure treatment_date and assessment_date don't have time
+    df_treat['treatment_date'] = df_treat['treatment_date'].dt.date
+
+    # find columns with "date" in df_treat
+    date_cols = [col for col in df_treat.columns if 'date' in col.lower()]
+    # find columns with "target" in df_treat
+    target_cols = [col for col in df_treat.columns if 'target' in col.lower()]
+    cols_to_exclude = date_cols + target_cols + LAB_CHANGE_COLS + SYMP_CHANGE_COLS + LAB_COLS + SYMP_COLS
+    cols_with_nan = [col for col in df_treat.columns if col not in cols_to_exclude and df_treat[col].isna().sum() > 0]
+
+    # drop rows with nan in cols_with_nan
+    df_treat.dropna(subset=cols_with_nan, inplace=True)
+
     df_treat[cols_no_target + target_cols_renamed].to_csv(outfile, index=False)
 
 if __name__ == "__main__":
@@ -351,7 +405,8 @@ if __name__ == "__main__":
     parser.add_argument("lookback_window", help = "lookback window for notes to be anchored", type = int) # lookback window
     parser.add_argument("add_tabular_to_note", help = "add tabular to note?", type = int) # add tabular to note?
     # optional argument
-    parser.add_argument("--treatment_dates_path", help = "file path of treatment dates", type = str, default=None) # test end date
+    parser.add_argument("--treatment_dates_path", help = "file path of treatment dates", type = str, default=None) # dataframe for treatment dates
+    parser.add_argument("--train_test_anchored_df_path", help = "train and test anchored dataframe path", type = str, default=None) # train/test anchored dataframe path
     parser.add_argument("--clinical_bench", help = "use clinical bench?", type = int, default=0) # use clinical bench?
     args = parser.parse_args()
 
@@ -365,4 +420,5 @@ if __name__ == "__main__":
                              args.lookback_window,
                              args.add_tabular_to_note,
                              args.treatment_dates_path,
+                             args.train_test_anchored_df_path,
                              args.clinical_bench)

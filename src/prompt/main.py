@@ -43,7 +43,10 @@ def launch(cfg):
 
     if cfg['n_few_shot'] != 0:
         # create a new key
-        cfg['few_shot_dir'] = data_dir
+        if cfg['mode'] == "train":
+            cfg['few_shot_dir'] = data_dir
+        elif cfg['mode'] == "inference":
+            cfg['few_shot_dir'] = cfg['few_shot_train_dir']
 
     cfg.pop('file_name')
     cfg.pop('data_dir')
@@ -70,7 +73,7 @@ def launch(cfg):
                     slurm_gpus_per_node=1, # Each node should use 1 GPU
                     gres="gpu:1",              # Request 1 GPU
                     slurm_additional_parameters={
-                        "account": "grantgroup_gpu",
+                        "account": "gliugroup_gpu",
                     }
                 )
             
@@ -178,6 +181,10 @@ if __name__ == "__main__":
     parser.add_argument("n_hours", help="number of hours", type=int)  # number of hours
     parser.add_argument("memory", help="memory of each node", type=int)  # memory of each node
     parser.add_argument("gpu_constraint", help="gpu constraint", type=int)  # constraint on gpu
+
+    # Mode arguments
+    parser.add_argument("--mode", type=str, choices=["train", "inference"], default="train", help="mode: train or inference (default: train)")
+    parser.add_argument("--few_shot_train_dir", type=str, help="directory for few shot examples from the training set")
 
     # New llama_cpp-related arguments
     parser.add_argument("--llama_cpp_mode", type=str, choices=["sequential", "parallel"], default="sequential", 

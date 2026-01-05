@@ -5,6 +5,8 @@ end_devt_date = "2015-12-31"
 date_lower_limit = "2008-01-01"
 date_upper_limit = "2019-12-31"
 few_shot_date = "2016-01-01"
+inference_start_date = "2022-01-01"
+inference_end_date = "2024-12-31"
 
 # bayesopt_param = {
 #     'LR': {'init_points': 2, 'n_iter': 5},

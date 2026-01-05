@@ -25,13 +25,15 @@ def main_train(
     notes_path,
     embedding_path,
     results_dir,
+    date_lower_limit,
+    date_upper_limit,
+    data_type,
+    target_name,
     model_dir,
     split_config,
     hyperparam_eval,
     model_name,
     setup_str,
-    data_type,
-    target_name,
     end_devt_date
 ):
     """
@@ -73,6 +75,9 @@ def main_train(
         # If reading produced MultiIndex columns, flatten them to single-level names
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = ["_".join(map(str, col)).strip() for col in df.columns.values]
+
+    # restrict date range
+    df = df[(df['treatment_date'] >= date_lower_limit) & (df['treatment_date'] <= date_upper_limit)].copy()
 
     df.reset_index(drop=True, inplace=True)
 
@@ -189,10 +194,12 @@ def main_inference(
     notes_path,
     embedding_path,
     results_dir,
+    date_lower_limit,
+    date_upper_limit,
+    data_type,
+    target_name,
     model_file,
     preprocessing_file,
-    data_type,
-    target_name=None
 ):
     """
     Main inference pipeline
@@ -204,6 +211,9 @@ def main_inference(
         df = pd.read_csv(notes_path, header=0)
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = ["_".join(map(str, col)).strip() for col in df.columns.values]
+
+    # restrict date range
+    df = df[(df['treatment_date'] >= date_lower_limit) & (df['treatment_date'] <= date_upper_limit)].copy()
 
     df.reset_index(drop=True, inplace=True)
 
@@ -277,15 +287,17 @@ if __name__ == "__main__":
     parser.add_argument("notes_path", help="path of notes", type=str)
     parser.add_argument("embedding_path", help="path of embedding", type=str)
     parser.add_argument("results_dir", help="results directory", type=str)
-    
+    parser.add_argument("date_lower_limit", help="date lower limit", type=str)
+    parser.add_argument("date_upper_limit", help="date upper limit", type=str)
+    parser.add_argument("data_type", help="data type", type=str)
+    parser.add_argument("target_name", help="name of target", type=str)
+
     # Training-specific arguments
     parser.add_argument("--model_dir", help="model directory", type=str)
     parser.add_argument("--split_config", help="configuration of train-valid-test split", type=str)
     parser.add_argument("--hyperparam_eval", help="function for hyperparameter evaluation", type=str)
     parser.add_argument("--model_name", help="model name", type=str)
     parser.add_argument("--setup_str", help="set up string", type=str)
-    parser.add_argument("--data_type", help="data type", type=str)
-    parser.add_argument("--target_name", help="name of target", type=str)
     parser.add_argument("--end_devt_date", help="end date of development", type=str)
 
     # Inference-specific arguments
@@ -298,13 +310,15 @@ if __name__ == "__main__":
             args.notes_path,
             args.embedding_path,
             args.results_dir,
+            args.date_lower_limit,
+            args.date_upper_limit,
+            args.data_type,
+            args.target_name,
             args.model_dir,
             args.split_config,
             args.hyperparam_eval,
             args.model_name,
             args.setup_str,
-            args.data_type,
-            args.target_name,
             args.end_devt_date
         )
     elif args.mode == "inference":
@@ -312,8 +326,10 @@ if __name__ == "__main__":
             args.notes_path,
             args.embedding_path,
             args.results_dir,
-            args.model_file,
-            args.preprocessing_file,
+            args.date_lower_limit,
+            args.date_upper_limit,
             args.data_type,
             args.target_name,
+            args.model_file,
+            args.preprocessing_file
         )

@@ -1,4 +1,6 @@
 import os
+os.environ['UNSLOTH_DISABLE_RL_PATCHING'] = '1'
+
 import math
 import logging
 import pandas as pd
