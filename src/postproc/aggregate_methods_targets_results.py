@@ -6,7 +6,7 @@ import os
 import argparse
 
 # --------------------------------------------------------
-# Helpers to load predictions AND labels for each method
+# Helpers to load predictions AND labels
 # --------------------------------------------------------
 
 def load_npz_predictions_with_labels(path):
@@ -29,14 +29,22 @@ def load_npz_predictions_with_labels(path):
     }
 
 
-def load_finetune_csv_with_labels(path):
+def load_npz_inference_predictions_with_labels(path):
     """
-    Finetune CSV contains:
-        prob (as "[p0 p1]"), mrn, label
+    Load inference .npz containing:
+        mrn_test, test_pred, Y_test
     """
-    df = pd.read_csv(path)
+    data = np.load(path, allow_pickle=True)
 
-    # Convert "[p0 p1]" to numpy array
+    return {
+        "mrn_inference":  data["mrn_test"].ravel(),
+        "pred_inference": data["test_pred"].ravel(),
+        "y_inference":    data["Y_test"].ravel(),
+    }
+
+
+def load_finetune_csv_with_labels(path):
+    df = pd.read_csv(path)
     probs_np = np.stack(df["prob"].apply(lambda x: np.fromstring(x.strip("[]"), sep=' ')).values)
     pos_prob = probs_np[:, 1]
 
@@ -48,12 +56,7 @@ def load_finetune_csv_with_labels(path):
 
 
 def load_prompting_csv_with_labels(path, target_name):
-    """
-    Prompting CSV:
-        mrn, Probability, <target_name>  (label column)
-    """
     df = pd.read_csv(path)
-
     return {
         "mrn": df["mrn"].values,
         "pred": df["Probability"].values,
@@ -62,65 +65,70 @@ def load_prompting_csv_with_labels(path, target_name):
 
 
 # --------------------------------------------------------
-# Build a unified dictionary of raw predictions + labels
+# Load all raw predictions
 # --------------------------------------------------------
 
 def load_all_raw_predictions(
-    df_prompting,
-    df_tabular,
-    df_nlptfidf,
-    df_nlpcount,
-    df_finetune
+    df_prompting_tt, df_prompting_inf,
+    df_tabular_tt, df_tabular_inf,
+    df_nlptfidf_tt, df_nlptfidf_inf,
+    df_nlpcount_tt, df_nlpcount_inf,
+    df_finetune_tt, df_finetune_inf
 ):
-    """
-    Return:
-        predictions[(method, target)] = dict(
-            mrn_train, pred_train, y_train,
-            mrn_test,  pred_test,  y_test
-        )
-    """
+
     predictions = {}
 
     # ---- prompting ----
-    for _, row in df_prompting.iterrows():
+    for _, row in df_prompting_tt.iterrows():
         target = row["target"]
 
-        # Train CSV
         tr = load_prompting_csv_with_labels(row["path_to_predictions_train"], target)
-        # Test CSV
         te = load_prompting_csv_with_labels(row["path_to_predictions_test"], target)
+
+        inf_row = df_prompting_inf[df_prompting_inf["target"] == target].iloc[0]
+        inf = load_prompting_csv_with_labels(
+            inf_row["path_to_predictions_inference"], target
+        )
 
         predictions[("prompting", target)] = {
             "mrn_train": tr["mrn"], "pred_train": tr["pred"], "y_train": tr["y"],
-            "mrn_test":  te["mrn"], "pred_test": te["pred"], "y_test": te["y"],
+            "mrn_test":  te["mrn"], "pred_test":  te["pred"], "y_test":  te["y"],
+            "mrn_inference":  inf["mrn"], "pred_inference": inf["pred"], "y_inference": inf["y"],
         }
 
-    # ---- tabular / nlp-tfidf / nlp-count ----
+    # ---- tabular / nlp ----
     method_dfs = [
-        ("tabular", df_tabular),
-        ("nlp-tfidf", df_nlptfidf),
-        ("nlp-count", df_nlpcount),
+        ("tabular", df_tabular_tt, df_tabular_inf),
+        ("nlp-tfidf", df_nlptfidf_tt, df_nlptfidf_inf),
+        ("nlp-count", df_nlpcount_tt, df_nlpcount_inf),
     ]
-    for method, df_m in method_dfs:
-        for _, row in df_m.iterrows():
-            target = row["target"]
-            d = load_npz_predictions_with_labels(row["pred_file_name"])
 
-            predictions[(method, target)] = {
-                "mrn_train": d["mrn_train"], "pred_train": d["pred_train"], "y_train": d["y_train"],
-                "mrn_test":  d["mrn_test"],  "pred_test": d["pred_test"],  "y_test":  d["y_test"],
-            }
+    for method, df_tt, df_inf in method_dfs:
+        for _, row in df_tt.iterrows():
+            target = row["target"]
+
+            d_tt = load_npz_predictions_with_labels(row["pred_file_name"])
+            inf_row = df_inf[df_inf["target"] == target].iloc[0]
+            d_inf = load_npz_inference_predictions_with_labels(inf_row["pred_file_name"])
+
+            predictions[(method, target)] = {**d_tt, **d_inf}
 
     # ---- finetune ----
-    for _, row in df_finetune.iterrows():
+    for _, row in df_finetune_tt.iterrows():
         target = row["target"]
 
         tr = load_finetune_csv_with_labels(row["path_to_predictions_train"])
         te = load_finetune_csv_with_labels(row["path_to_predictions_test"])
 
-        predictions[("finetune", target)] = {
+        inf_row = df_finetune_inf[df_finetune_inf["target"] == target].iloc[0]
+        inf = load_finetune_csv_with_labels(
+            inf_row["path_to_predictions_test"]
+        ) # just the name, this is really inference
+
+        predictions[( "finetune", target)] = {
             "mrn_train": tr["mrn"], "pred_train": tr["pred"], "y_train": tr["y"],
-            "mrn_test":  te["mrn"], "pred_test": te["pred"], "y_test": te["y"],
+            "mrn_test":  te["mrn"], "pred_test":  te["pred"], "y_test":  te["y"],
+            "mrn_inference":  inf["mrn"], "pred_inference": inf["pred"], "y_inference": inf["y"],
         }
 
     return predictions
@@ -138,122 +146,100 @@ def safe_auc(y_true, y_score):
 
 
 def bootstrap_aucs(pred_dict_by_method, n_boot=1000, base_seed=12345):
-    """
-    pred_dict_by_method:
-        method → {
-            mrn_train, pred_train, y_train,
-            mrn_test,  pred_test,  y_test
-        }
-    Ensures the SAME test bootstrap indices are used across all methods.
-    Uses deterministic seeds for full reproducibility.
-    """
 
     results = []
 
-    # ----------------------------------------------------
-    # Compute shared test MRNs across all methods
-    # ----------------------------------------------------
-    all_test_sets = [
-        set(pred_dict_by_method[m]["mrn_test"])
-        for m in pred_dict_by_method
-    ]
-    shared_test_mrns = sorted(set.intersection(*all_test_sets))
+    # ---- shared TEST ----
+    shared_test_mrns = sorted(set.intersection(*[
+        set(v["mrn_test"]) for v in pred_dict_by_method.values()
+    ]))
     shared_test_mrns = np.array(shared_test_mrns)
 
-    # Build a unified test label vector (MRN → label)
-    first_method = next(iter(pred_dict_by_method.keys()))
-    ref = pred_dict_by_method[first_method]
+    ref = next(iter(pred_dict_by_method.values()))
     y_test_map = dict(zip(ref["mrn_test"], ref["y_test"]))
-    y_test_aligned = np.array([y_test_map[mrn] for mrn in shared_test_mrns])
+    y_test = np.array([y_test_map[m] for m in shared_test_mrns])
 
-    # Build aligned test prediction vectors per method
-    aligned_test_preds = {}
-    for method, info in pred_dict_by_method.items():
-        pred_map = dict(zip(info["mrn_test"], info["pred_test"]))
-        aligned_test_preds[method] = np.array(
-            [pred_map[mrn] for mrn in shared_test_mrns]
-        )
+    test_preds = {
+        m: np.array([dict(zip(v["mrn_test"], v["pred_test"]))[mrn]
+                     for mrn in shared_test_mrns])
+        for m, v in pred_dict_by_method.items()
+    }
 
-    N_test = len(shared_test_mrns)
+    # ---- shared INFERENCE ----
+    shared_inf_mrns = sorted(set.intersection(*[
+        set(v["mrn_inference"]) for v in pred_dict_by_method.values()
+    ]))
+    shared_inf_mrns = np.array(shared_inf_mrns)
 
-    # ----------------------------------------------------
-    # BOOTSTRAP — outer loop over iterations
-    # ----------------------------------------------------
+    y_inf_map = dict(zip(ref["mrn_inference"], ref["y_inference"]))
+    y_inf = np.array([y_inf_map[m] for m in shared_inf_mrns])
+
+    inf_preds = {
+        m: np.array([dict(zip(v["mrn_inference"], v["pred_inference"]))[mrn]
+                     for mrn in shared_inf_mrns])
+        for m, v in pred_dict_by_method.items()
+    }
+
     for b in range(n_boot):
-
-        # --- Deterministic RNG for this iteration ---
         rng = np.random.default_rng(base_seed + b)
 
-        # ------- SHARED TEST INDICES FOR THIS ITERATION -------
-        idx_test = rng.choice(N_test, N_test, replace=True)
+        idx_test = rng.choice(len(y_test), len(y_test), replace=True)
+        idx_inf = rng.choice(len(y_inf), len(y_inf), replace=True)
 
-        # Each method gets its own train bootstrap,
-        # but all share the SAME idx_test.
         for method, info in pred_dict_by_method.items():
 
-            # Train bootstrap (method-specific, but deterministic)
-            n_train = len(info["mrn_train"])
-            idx_train = rng.choice(n_train, n_train, replace=True)
+            idx_train = rng.choice(len(info["y_train"]), len(info["y_train"]), replace=True)
 
             auc_train = safe_auc(info["y_train"][idx_train],
                                  info["pred_train"][idx_train])
 
-            # Test bootstrap (shared across methods)
-            auc_test = safe_auc(y_test_aligned[idx_test],
-                                aligned_test_preds[method][idx_test])
+            auc_test = safe_auc(y_test[idx_test],
+                                test_preds[method][idx_test])
 
-            results.append({
-                "method": method,
-                "split": "train",
-                "boot_id": b,
-                "auc": auc_train,
-            })
-            results.append({
-                "method": method,
-                "split": "test",
-                "boot_id": b,
-                "auc": auc_test,
-            })
-            results.append({
-                "method": method,
-                "split": "test_minus_train",
-                "boot_id": b,
-                "auc": auc_test - auc_train,
-            })
+            auc_inf = safe_auc(y_inf[idx_inf],
+                               inf_preds[method][idx_inf])
+
+            results.extend([
+                {"method": method, "split": "train", "boot_id": b, "auc": auc_train},
+                {"method": method, "split": "test", "boot_id": b, "auc": auc_test},
+                {"method": method, "split": "inference", "boot_id": b, "auc": auc_inf},
+                {"method": method, "split": "test_minus_train", "boot_id": b, "auc": auc_test - auc_train},
+                {"method": method, "split": "inference_minus_train", "boot_id": b, "auc": auc_inf - auc_train},
+                {"method": method, "split": "inference_minus_test", "boot_id": b, "auc": auc_inf - auc_test},
+            ])
 
     return pd.DataFrame(results)
 
 
 # --------------------------------------------------------
-# High-level wrapper for Option A tidy format
+# High-level wrapper
 # --------------------------------------------------------
 
 def build_tidy_bootstrap_dataframe(
-    df_prompting,
-    df_tabular,
-    df_nlptfidf,
-    df_nlpcount,
-    df_finetune,
+    df_prompting_tt, df_prompting_inf,
+    df_tabular_tt, df_tabular_inf,
+    df_nlptfidf_tt, df_nlptfidf_inf,
+    df_nlpcount_tt, df_nlpcount_inf,
+    df_finetune_tt, df_finetune_inf,
     save_dir,
     n_boot=1000
 ):
-    predictions_all = load_all_raw_predictions(
-        df_prompting,
-        df_tabular,
-        df_nlptfidf,
-        df_nlpcount,
-        df_finetune
+
+    preds = load_all_raw_predictions(
+        df_prompting_tt, df_prompting_inf,
+        df_tabular_tt, df_tabular_inf,
+        df_nlptfidf_tt, df_nlptfidf_inf,
+        df_nlpcount_tt, df_nlpcount_inf,
+        df_finetune_tt, df_finetune_inf
     )
 
     all_rows = []
-    targets = sorted({t for (_, t) in predictions_all.keys()})
+    targets = sorted({t for (_, t) in preds.keys()})
 
     for target in tqdm(targets):
-        print(f"Processing target: {target}")
         pred_dict = {
-            method: predictions_all[(method, target)]
-            for (method, t) in predictions_all
-            if t == target
+            method: preds[(method, target)]
+            for (method, t) in preds if t == target
         }
 
         df_boot = bootstrap_aucs(pred_dict, n_boot=n_boot)
@@ -261,33 +247,44 @@ def build_tidy_bootstrap_dataframe(
         all_rows.append(df_boot)
 
     pd.concat(all_rows, ignore_index=True).to_csv(
-        os.path.join(save_dir, "aggregate_bootstrap_results.csv"), index=False
+        os.path.join(save_dir, "aggregate_bootstrap_results.csv"),
+        index=False
     )
 
+
+# --------------------------------------------------------
+# CLI
+# --------------------------------------------------------
+
 if __name__ == "__main__":
+
     parser = argparse.ArgumentParser()
-    parser.add_argument("prompting_path", type=str, help="Path to prompting predictions CSV")
-    parser.add_argument("tabular_path", type=str, help="Path to tabular predictions NPZ")
-    parser.add_argument("nlptfidf_path", type=str, help="Path to nlp-tfidf predictions NPZ")
-    parser.add_argument("nlpcount_path", type=str, help="Path to nlp-count predictions NPZ")
-    parser.add_argument("finetune_path", type=str, help="Path to finetune predictions CSV")
-    parser.add_argument("save_dir", type=str, help="Directory to save the aggregated results")
+
+    parser.add_argument("prompting_tt")
+    parser.add_argument("prompting_inf")
+    parser.add_argument("tabular_tt")
+    parser.add_argument("tabular_inf")
+    parser.add_argument("nlptfidf_tt")
+    parser.add_argument("nlptfidf_inf")
+    parser.add_argument("nlpcount_tt")
+    parser.add_argument("nlpcount_inf")
+    parser.add_argument("finetune_tt")
+    parser.add_argument("finetune_inf")
+    parser.add_argument("save_dir")
+
     args = parser.parse_args()
 
-    # Load dataframes
-    df_prompting = pd.read_csv(args.prompting_path)
-    df_tabular = pd.read_csv(args.tabular_path)
-    df_nlptfidf = pd.read_csv(args.nlptfidf_path)
-    df_nlpcount = pd.read_csv(args.nlpcount_path)
-    df_finetune = pd.read_csv(args.finetune_path)
-    df_finetune['target'] = df_finetune['target'].str.replace('_', '-')
-
     build_tidy_bootstrap_dataframe(
-        df_prompting,
-        df_tabular,
-        df_nlptfidf,
-        df_nlpcount,
-        df_finetune,
+        pd.read_csv(args.prompting_tt),
+        pd.read_csv(args.prompting_inf),
+        pd.read_csv(args.tabular_tt),
+        pd.read_csv(args.tabular_inf),
+        pd.read_csv(args.nlptfidf_tt),
+        pd.read_csv(args.nlptfidf_inf),
+        pd.read_csv(args.nlpcount_tt),
+        pd.read_csv(args.nlpcount_inf),
+        pd.read_csv(args.finetune_tt),
+        pd.read_csv(args.finetune_inf),
         args.save_dir,
         n_boot=1000
     )

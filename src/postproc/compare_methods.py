@@ -77,10 +77,23 @@ def plot_train_vs_test(df: pd.DataFrame, ax: plt.Axes, label_map: Dict[str, str]
         # Collect absolute difference
         diffs.append(abs(row[x_col] - row[y_col]))
 
+        # Calculate error bar values and ensure they're positive
+        x_err_low = abs(row[x_col] - row[x_ci_low])
+        x_err_high = abs(row[x_ci_high] - row[x_col])
+        y_err_low = abs(row[y_col] - row[y_ci_low])
+        y_err_high = abs(row[y_ci_high] - row[y_col])
+
+        # Handle edge case where CI bounds exceed [0, 1] due to numerical error
+        # Clamp the actual error bar extent to valid range
+        x_err_low = min(x_err_low, row[x_col])  # Can't go below 0
+        x_err_high = min(x_err_high, 1 - row[x_col])  # Can't go above 1
+        y_err_low = min(y_err_low, row[y_col])  # Can't go below 0
+        y_err_high = min(y_err_high, 1 - row[y_col])  # Can't go above 1
+
         ax.errorbar(
             row[x_col], row[y_col],
-            xerr=[[row[x_col] - row[x_ci_low]], [row[x_ci_high] - row[x_col]]],
-            yerr=[[row[y_col] - row[y_ci_low]], [row[y_ci_high] - row[y_col]]],
+            xerr=[[x_err_low], [x_err_high]],
+            yerr=[[y_err_low], [y_err_high]],
             fmt='o', color=row['color'], alpha=0.3
         )
         ax.scatter(row[x_col], row[y_col], color=row['color'], edgecolors='black')
@@ -120,10 +133,23 @@ def plot_test_vs_test(df1: pd.DataFrame, df2: pd.DataFrame, ax: plt.Axes, label_
         # Collect absolute difference
         diffs.append(abs(row[x_col] - row[y_col]))
 
+        # Calculate error bar values and ensure they're positive
+        x_err_low = abs(row[x_col] - row[x_ci_low])
+        x_err_high = abs(row[x_ci_high] - row[x_col])
+        y_err_low = abs(row[y_col] - row[y_ci_low])
+        y_err_high = abs(row[y_ci_high] - row[y_col])
+
+        # Handle edge case where CI bounds exceed [0, 1] due to numerical error
+        # Clamp the actual error bar extent to valid range
+        x_err_low = min(x_err_low, row[x_col])  # Can't go below 0
+        x_err_high = min(x_err_high, 1 - row[x_col])  # Can't go above 1
+        y_err_low = min(y_err_low, row[y_col])  # Can't go below 0
+        y_err_high = min(y_err_high, 1 - row[y_col])  # Can't go above 1
+
         ax.errorbar(
             row[x_col], row[y_col],
-            xerr=[[row[x_col] - row[x_ci_low]], [row[x_ci_high] - row[x_col]]],
-            yerr=[[row[y_col] - row[y_ci_low]], [row[y_ci_high] - row[y_col]]],
+            xerr=[[x_err_low], [x_err_high]],
+            yerr=[[y_err_low], [y_err_high]],
             fmt='o', color=row['color_1'], alpha=0.3
         )
         ax.scatter(row[x_col], row[y_col], color=row['color_1'], edgecolors='black')

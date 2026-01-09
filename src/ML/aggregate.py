@@ -204,6 +204,7 @@ def summarize_best_result(pred_directory, model_directory, target_list, split_li
             saved_model_file_names) = [], [], [], [], [], []
         else:  # mode == "inference"
             CI_vals_test = []
+            pred_file_names = []
 
         for _, row in summary.iterrows():
             setup = row['training-setup']
@@ -235,9 +236,9 @@ def summarize_best_result(pred_directory, model_directory, target_list, split_li
             
             CI_vals_test.append(f'[{low_test:.3f},{high_test:.3f}]')
 
-            if mode == "train":
-                pred_file_names.append(npz_path)
+            pred_file_names.append(npz_path)
 
+            if mode == "train":
                 # load model file names
                 if 'LR' in model_name:
                     model_coef_name = f'model_{model_name}_{note_config}_{split}_{metric}_{data_type}_{target}_coefficients.npz'
@@ -263,7 +264,8 @@ def summarize_best_result(pred_directory, model_directory, target_list, split_li
             summary['saved_model_path'] = saved_model_file_names
         else:  # mode == "inference"
             summary['inference_CI'] = CI_vals_test
-            
+            summary['pred_file_name'] = pred_file_names
+
             # Merge with training results if available
             if train_results_df is not None:
                 summary = summary.merge(train_results_df, on='target', how='left')

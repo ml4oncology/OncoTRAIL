@@ -442,6 +442,7 @@ def concatenate_train_test_inference(
         "CI_test": "test_ci",
         "AUC": "auc_inference",
         "CI": "inference_ci",
+        "path_to_predictions": 'path_to_predictions_inference'
     })
 
     # -------------------------
