@@ -15,7 +15,7 @@ from ml_common.util import load_table
 from llama_cpp import Llama
 import logging
 logging.basicConfig(
-    level=logging.INFO         # Log level (you can adjust it to INFO, DEBUG, etc.)
+    level=logging.INFO
 )
 logger = logging.getLogger(__name__)
 

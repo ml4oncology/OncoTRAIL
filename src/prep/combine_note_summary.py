@@ -5,7 +5,7 @@ import glob
 import os
 logger = logging.getLogger(__name__)
 logging.basicConfig(
-    level=logging.INFO         # Log level (you can adjust it to INFO, DEBUG, etc.)
+    level=logging.INFO
 )
 
 def combine_prompt_results(results_dir, notes_df_path):
@@ -34,18 +34,12 @@ def combine_prompt_results(results_dir, notes_df_path):
     notes_df = pd.read_csv(notes_df_path, index_col=0)
     notes_df["treatment_date"] = pd.to_datetime(notes_df["treatment_date"]).dt.date
 
-    # # debug: print number of rows of notes_df
-    # logger.info(f"Number of rows in notes_df: {len(notes_df)}")
-
     # if 'note_summary' is a column in notes_df, drop it
     if 'note_summary' in notes_df.columns:
         notes_df = notes_df.drop('note_summary', axis=1)
 
     # rename 'Summary' column in concat_df to 'note_summary'
     concat_df = concat_df.rename(columns={'Summary': 'note_summary'})
-
-    # # debug: print number of rows of concat_df
-    # logger.info(f"Number of rows in concat_df: {len(concat_df)}")
 
     # merge concat_df and notes_df on 'mrn' and 'treatment_date'
     df = pd.merge(concat_df[['mrn', 'treatment_date', 'note_summary']], notes_df, on=['mrn', 'treatment_date'])

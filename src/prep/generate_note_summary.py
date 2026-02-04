@@ -12,7 +12,7 @@ from datetime import datetime
 from ml_common.util import load_table
 import logging
 logging.basicConfig(
-    level=logging.INFO,         # Log level (you can adjust it to INFO, DEBUG, etc.)
+    level=logging.INFO,
     stream=sys.stdout 
 )
 logger = logging.getLogger(__name__)
@@ -133,7 +133,6 @@ def launch(cfg):
     executor = submitit.AutoExecutor(folder=f"log_files/{datetime.now().replace(microsecond=0)}")
 
     # Specify the Slurm parameters
-    # TODO: put this in another config file
     executor.update_parameters(  
         # slurm_account="gliugroup_gpu",      
         slurm_partition="gpu",
