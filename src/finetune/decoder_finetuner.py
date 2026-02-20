@@ -1,6 +1,7 @@
 import os
 os.environ['UNSLOTH_DISABLE_RL_PATCHING'] = '1'
 
+from unsloth import FastLanguageModel
 import math
 import logging
 import pandas as pd
@@ -10,7 +11,6 @@ import torch.nn.functional as F
 from tqdm import tqdm
 import datasets
 from trl import SFTTrainer, SFTConfig
-from unsloth import FastLanguageModel
 from transformers import TrainerCallback, AutoTokenizer, DataCollatorForLanguageModeling
 from sklearn.metrics import roc_auc_score, log_loss
 from threading import Thread
