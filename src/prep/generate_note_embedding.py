@@ -25,9 +25,12 @@ torch.cuda.empty_cache()
 
 def get_prompt(llm_name):
     target_prompt = "die within the next year"
+    # construct prompt with shorter lines for readability
     base_prompt = (
-        "You are a highly experienced and extremely competent medical oncologist from the world-renowned Princess Margaret Cancer Centre in Toronto, Ontario. "
-        + "Your task is to predict the probability that a patient undergoing systemic therapy for cancer will "
+        "You are a highly experienced and extremely competent medical oncologist "
+        "from the world-renowned Princess Margaret Cancer Centre in Toronto, Ontario. "
+        "Your task is to predict the probability that a patient undergoing systemic "
+        "therapy for cancer will "
         + target_prompt
         + " based on the clinical note below. "
     )
