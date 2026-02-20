@@ -288,18 +288,11 @@ class DataPreprocessor:
                 "test": self.tabular_prep.transform_data(self.split_dfs["test"], data_name="test"),
             }
         
-        # assert no nan values
-        # # need to add safeguard for nan values here
-        # data_frames["train"].to_csv("/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/LLM-notes-classification/tabular/all_columns_train_tabular_features_debug.csv", index=False)
-
         for k in data_frames:
             if data_frames[k] is not None:
                 data_frames[k].drop(columns=drop_cols, inplace=True)
 
         self.train_dataframe = data_frames["train"]
-
-        # # save to csv
-        # data_frames["train"].to_csv("/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/LLM-notes-classification/tabular/train_tabular_features_debug.csv", index=False)
 
         for key in ["train", "eval", "valid", "test"]:
             if data_frames[key] is None:
@@ -397,8 +390,6 @@ class DataPreprocessor:
                 X = np.concatenate([X, phys], axis=1)
             
             # Process tabular data
-            # df.to_csv("/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/LLM-notes-classification/tabular/missing_features_debug.csv", index=False)
-            # df.to_csv("/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/LLM-notes-classification/tabular/nan_cols_preprocess.csv", index=False)
             valid_cols = [col for col in df.columns if col in self.var_names]
             df = df[valid_cols]
             df_processed = self.tabular_prep.transform_data(df, data_name="test", one_hot_encode=True)
@@ -408,7 +399,6 @@ class DataPreprocessor:
                     df_processed[col] = np.zeros(len(df_processed))
             # arrange the columns in df to be the same as training data
             df_processed = df_processed[self.var_names]
-            # df_processed.to_csv("/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/LLM-notes-classification/tabular/nan_cols_postprocess.csv", index=False)
             drop_cols = ["mrn", "treatment_date", "stats_physician"]
             df_processed.drop(columns=drop_cols, inplace=True, errors='ignore')
             X = np.concatenate([X, df_processed.to_numpy()], axis=1)

@@ -119,10 +119,9 @@ def plot_ngram(max_ngram, shapley_path, log_reg_path, shapley, save_dir):
         if shapley == 1:
             df_to_plot = load_shapley_df(prediction_path)
         else:
-            # prediction_path = df_shapley_all_results[df_shapley_all_results['target'] == target_name.replace('_', '-')]['pred_file_name'].values[0]
-            # doesn't matter because we just need to get the column names
-            # it does matter. you should use LR model, not other ML model because under LR, the train set also includes the evaluation set
-            # which may affect 
+            # should use LR model here, not other ML model because under LR, 
+            # the train set also includes the evaluation set
+            # which may affect the columns being dropped (missingness criteria)
             log_reg_path = row['model_file_name']
             df_to_plot = load_logistic_df(prediction_path, log_reg_path)
 

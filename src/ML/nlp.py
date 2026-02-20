@@ -1,5 +1,3 @@
-# install environment
-
 import re
 import nltk
 import numpy as np
