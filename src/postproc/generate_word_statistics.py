@@ -14,13 +14,12 @@ def find_summary_csv(
     target,
     note_type,
     save_dir,
-    n_targets,
     path_to_anchored_notes=None
 ):
 
     out_csv = os.path.join(
         save_dir,
-        f"word_stats_all_{note_type}_{target.replace('_','-')}.csv"
+        f"word_stats_all_{note_type}_{target.replace('_','-')}_before_pval_adjustment.csv"
     )
 
     # if os.path.exists(out_csv):
@@ -72,15 +71,10 @@ def find_summary_csv(
         1,
         'average',
         'predictions',
-        'BY',
         df_anchored_notes
     )
 
-    # debug. save df_bow before filtering
-    debug_csv = out_csv.replace(".csv", "_before_filtering.csv")
-    df_bow.to_csv(debug_csv, index=False)
-
-    df_bow = df_bow.loc[df_bow['p_adj'] < 0.05 / n_targets].copy()
+    # df_bow = df_bow.loc[df_bow['p_adj'] < 0.05 / n_targets].copy()
     df_bow.to_csv(out_csv, index=False)
 
 
@@ -90,7 +84,6 @@ if __name__ == "__main__":
     parser.add_argument("target", type=str)
     parser.add_argument("note_type", type=str)
     parser.add_argument("save_dir", type=str)
-    parser.add_argument("n_targets", type=int)
     parser.add_argument(
         "--path_to_anchored_notes",
         type=str,
@@ -105,6 +98,5 @@ if __name__ == "__main__":
         args.target,
         args.note_type,
         args.save_dir,
-        args.n_targets,
         args.path_to_anchored_notes
     )

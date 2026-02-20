@@ -1,6 +1,7 @@
 import argparse
 import logging
 import os
+os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
 import pandas as pd
 import numpy as np
 from datetime import datetime
