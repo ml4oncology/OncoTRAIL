@@ -13,7 +13,7 @@ from llm_notes_classification.config import date_lower_limit, date_upper_limit
 # Import our custom modules
 # from ml_common.prep import Splitter
 from make_clinical_dataset.epr.prep import Splitter
-from llm_notes_classification.finetune.decoder_finetuner import DecoderFineTuner
+# from llm_notes_classification.finetune.decoder_finetuner import DecoderFineTuner
 from llm_notes_classification.finetune.encoder_finetuner import EncoderFineTuner
 
 logging.basicConfig(level=logging.INFO)
@@ -141,14 +141,16 @@ def main(
     
     # Initialize the appropriate fine-tuner
     if model_type.lower() == 'decoder':
-        finetuner = DecoderFineTuner(
-            LLM_path=LLM_path,
-            target_name=target_name,
-            results_dir=results_dir,
-            param_string=param_string,
-            max_seq_length=8192,
-            num_classes=2
-        )
+        # finetuner = DecoderFineTuner(
+        #     LLM_path=LLM_path,
+        #     target_name=target_name,
+        #     results_dir=results_dir,
+        #     param_string=param_string,
+        #     max_seq_length=8192,
+        #     num_classes=2
+        # )
+        logger.error("Decoder inference is not implemented yet.")
+        raise NotImplementedError("Decoder training is not implemented yet.")
     elif model_type.lower() == 'encoder':
         finetuner = EncoderFineTuner(
             LLM_path=LLM_path,
