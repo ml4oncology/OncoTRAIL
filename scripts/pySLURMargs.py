@@ -39,6 +39,7 @@ run_time = sys.argv[5]
 specific_node = None
 extra_strings = ''
 group_name = 'grantgroup_gpu'  # Default
+gpu_type = None                # NEW
 arg_start = 6
 
 # Check for specific node
@@ -56,6 +57,11 @@ if len(sys.argv) > arg_start and sys.argv[arg_start].startswith("group="):
     group_name = sys.argv[arg_start][len("group="):]
     arg_start += 1
 
+# Check for GPU type
+if len(sys.argv) > arg_start and sys.argv[arg_start].startswith("gpu_type="):
+    gpu_type = sys.argv[arg_start][len("gpu_type="):]
+    arg_start += 1
+
 # Remaining args are the command to run
 mcmd = sys.argv[arg_start:]
 
@@ -71,15 +77,6 @@ try:
 except:
     pass
 
-ADDSLURM = ''
-if(host == 'voyager'):
-    # change home to master
-    pwd = '/master' + pwd
-    ADDSLURM += '#SBATCH --cpus-per-task=2\n'
-    ADDSLURM += 'export OMP_NUM_THREADS=2\n'
-if(host == 'mac-login-amd'):
-    ADDSLURM += '#SBATCH --partition=bdz'
-
 fp = open(fname, 'w')
 fp.write('#!/bin/bash\n\n')
 fp.write('#SBATCH -o ' + pwd + '/log_files/log_' + ffname + '.txt\n')
@@ -92,16 +89,15 @@ fp.write('#SBATCH --time=' + run_time + '\n')
 if int(n_GPU) > 0:
     fp.write('#SBATCH --partition=gpu\n')
     fp.write('#SBATCH --account=' + group_name + '\n')
-    fp.write('#SBATCH --gres=gpu:'+ n_GPU +'\n')
-    # fp.write('#SBATCH --gres=gpu:1' +'\n')
-    # fp.write('#SBATCH --gpus=p100:'+ n_GPU +'\n')
-    
-    # fp.write('#SBATCH -C "gpu32g"' +'\n')
+
+    if gpu_type:
+        fp.write(f'#SBATCH --gres=gpu:{gpu_type}:{n_GPU}\n')
+    else:
+        fp.write(f'#SBATCH --gres=gpu:{n_GPU}\n')
 else:
     fp.write('#SBATCH -p all'+'\n')
 if specific_node:
     fp.write(f'#SBATCH --nodelist={specific_node}\n')
-fp.write(ADDSLURM)
 fp.write('\n')
 
 fp.write('module load python3\n')

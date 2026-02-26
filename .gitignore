@@ -2,6 +2,7 @@
 **/__pycache__
 **/._*
 .DS_store
+.DS_Store
 data/
 results/
 models/
@@ -9,5 +10,9 @@ notebooks/archive
 notebooks/external-examples
 debug
 src/debug
+src/archive
 scripts/debug
 src/finetune/unsloth_compiled_cache
+*.log
+archive/
+*.egg-info

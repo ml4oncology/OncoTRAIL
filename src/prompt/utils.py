@@ -127,6 +127,38 @@ def generate_mixed_violin_plot(aggregate_statistics_df, col_name, jitter,
             mean_b = aggregate_statistics_df[aggregate_statistics_df[col_name] == b]['AUC'].mean()
         print(f"Significant: Mean difference between {a} and {b}: {mean_a - mean_b:.3f}")
 
+        # FEATURE 1: Print mean differences stratified by target type
+        for tt in target_types:
+            if use_paired_test:
+                # Create pivot table for this target type
+                pivot_df_tt = aggregate_statistics_df[
+                    aggregate_statistics_df['target_type'] == tt
+                ].pivot_table(
+                    index=grouping_cols,
+                    columns=col_name,
+                    values='AUC',
+                    aggfunc='first'
+                ).dropna()
+                
+                if a in pivot_df_tt.columns and b in pivot_df_tt.columns:
+                    mean_a_tt = pivot_df_tt[a].mean()
+                    mean_b_tt = pivot_df_tt[b].mean()
+                    print(f"  {tt.capitalize()}: Mean difference = {mean_a_tt - mean_b_tt:.3f}")
+            else:
+                auc_a_tt = aggregate_statistics_df[
+                    (aggregate_statistics_df[col_name] == a) & 
+                    (aggregate_statistics_df['target_type'] == tt)
+                ]['AUC']
+                auc_b_tt = aggregate_statistics_df[
+                    (aggregate_statistics_df[col_name] == b) & 
+                    (aggregate_statistics_df['target_type'] == tt)
+                ]['AUC']
+                
+                if len(auc_a_tt) > 0 and len(auc_b_tt) > 0:
+                    mean_a_tt = auc_a_tt.mean()
+                    mean_b_tt = auc_b_tt.mean()
+                    print(f"  {tt.capitalize()}: Mean difference = {mean_a_tt - mean_b_tt:.3f}")
+
     # Create plot
     fig, ax = plt.subplots(figsize=(len(ys)*2.5, 6))
     ax.grid(True, axis='y', linestyle='--', alpha=0.4)
@@ -251,6 +283,395 @@ def generate_mixed_violin_plot(aggregate_statistics_df, col_name, jitter,
         fontsize=12
     )
 
+    plt.tight_layout()
+    plt.show()
+
+    # FEATURE 2: Create delta AUC plot for paired test with exactly 2 conditions
+    if use_paired_test and len(ys) == 2:
+        print("\n" + "="*50)
+        print("Creating Delta AUC Plot")
+        print("="*50)
+        
+        # Calculate delta AUC
+        baseline, comparison = sorted(ys)
+        delta_col_name = f"Delta_AUC_{comparison}_vs_{baseline}"
+        
+        # Create a new dataframe with delta AUCs
+        delta_df_list = []
+        for idx, row in pivot_df.iterrows():
+            delta_auc = row[comparison] - row[baseline]
+            
+            # Get the original row to extract target_type
+            # We need to find matching rows in the original dataframe
+            filter_dict = {k: v for k, v in zip(grouping_cols, idx if isinstance(idx, tuple) else [idx])}
+            matching_rows = aggregate_statistics_df.copy()
+            for key, val in filter_dict.items():
+                matching_rows = matching_rows[matching_rows[key] == val]
+            
+            # Get target_type from matching rows (should be consistent)
+            if not matching_rows.empty:
+                target_type = matching_rows.iloc[0]['target_type']
+                delta_df_list.append({
+                    'delta_AUC': delta_auc,
+                    'target_type': target_type,
+                    'comparison': f"{comparison} vs {baseline}"
+                })
+        
+        delta_df = pd.DataFrame(delta_df_list)
+        
+        # Create delta plot
+        fig_delta, ax_delta = plt.subplots(figsize=(4, 6))
+        ax_delta.grid(True, axis='y', linestyle='--', alpha=0.4)
+        ax_delta.axhline(y=0, color='red', linestyle='--', linewidth=1, alpha=0.5)
+        
+        x_center = 0
+        
+        # Left half: KDE of delta AUC for all target_types
+        delta_all = delta_df['delta_AUC']
+        kde_delta = gaussian_kde(delta_all)
+        delta_vals = np.linspace(delta_all.min() - 0.05, delta_all.max() + 0.05, 200)
+        densities_delta = kde_delta(delta_vals)
+        densities_delta = densities_delta / densities_delta.max() * violin_width
+        
+        ax_delta.fill_betweenx(
+            delta_vals,
+            x_center - densities_delta,
+            x_center,
+            facecolor=base_color,
+            alpha=0.6
+        )
+        
+        # Add box plot elements
+        q1_delta, q2_delta, q3_delta = np.percentile(delta_all, [25, 50, 75])
+        iqr_delta = q3_delta - q1_delta
+        lw_delta = max(q1_delta - 1.5 * iqr_delta, delta_all.min())
+        uw_delta = min(q3_delta + 1.5 * iqr_delta, delta_all.max())
+        
+        # Whiskers
+        ax_delta.vlines(x_center - 0.1, lw_delta, uw_delta, color='gray', linestyle='dashed', linewidth=0.5)
+        # IQR box
+        ax_delta.vlines(x_center - 0.1, q1_delta, q3_delta, color='black', linewidth=1)
+        # Median line
+        ax_delta.hlines(q2_delta, x_center - 0.12, x_center - 0.08, color='black', linewidth=1.5)
+        
+        # Right half: either KDE or jittered points by target type
+        if jitter == 0:
+            # KDE plots for each target type
+            for tt in target_types:
+                delta_tt = delta_df[delta_df['target_type'] == tt]['delta_AUC']
+                
+                if len(delta_tt) < 2:
+                    continue
+                
+                kde_tt_delta = gaussian_kde(delta_tt)
+                densities_tt_delta = kde_tt_delta(delta_vals)
+                densities_tt_delta = densities_tt_delta / densities_tt_delta.max() * violin_width / len(target_types)
+                
+                ax_delta.fill_betweenx(
+                    delta_vals,
+                    x_center,
+                    x_center + densities_tt_delta,
+                    facecolor=target_type_colors[tt],
+                    alpha=0.8,
+                    label=tt
+                )
+        else:
+            # Jittered scatter points
+            jitter_scale = 0.04
+            for tt in target_types:
+                delta_tt = delta_df[delta_df['target_type'] == tt]['delta_AUC']
+                
+                if delta_tt.empty:
+                    continue
+                
+                x_vals_delta = np.random.normal(loc=x_center + 0.1, scale=jitter_scale, size=len(delta_tt))
+                ax_delta.scatter(
+                    x_vals_delta, delta_tt,
+                    alpha=0.7, color=target_type_colors[tt],
+                    edgecolor='black', linewidth=0.3, s=20,
+                    label=tt
+                )
+        
+        # Format axes
+        ax_delta.set_xticks([0])
+        delta_xlabel = xtick_labels[1] if xtick_labels and len(xtick_labels) >= 2 else comparison
+        ax_delta.set_xticklabels([f"{delta_xlabel}\nvs {xtick_labels[0] if xtick_labels else baseline}"], fontsize=14)
+        ax_delta.set_ylabel('Delta AUC', fontsize=18)
+        ax_delta.set_title(f"Delta AUC: {plot_title}", fontsize=18)
+        
+        # Add legend
+        handles_delta, labels_delta = ax_delta.get_legend_handles_labels()
+        if 'all' not in labels_delta:
+            handles_delta = [all_patch] + handles_delta
+            labels_delta = ['all'] + labels_delta
+        labels_delta = [label.capitalize() for label in labels_delta]
+        
+        ax_delta.legend(
+            handles_delta, labels_delta,
+            loc='upper left',
+            bbox_to_anchor=(1.02, 1),
+            borderaxespad=0,
+            fontsize=12
+        )
+        
+        plt.tight_layout()
+        plt.show()
+        
+        # Print delta statistics
+        print(f"\nDelta AUC Statistics ({comparison} - {baseline}):")
+        print(f"Overall mean delta: {delta_all.mean():.3f}")
+        print(f"Overall median delta: {delta_all.median():.3f}")
+        for tt in target_types:
+            delta_tt = delta_df[delta_df['target_type'] == tt]['delta_AUC']
+            if len(delta_tt) > 0:
+                print(f"{tt.capitalize()} mean delta: {delta_tt.mean():.3f}")
+
+    return fig
+
+def generate_multi_delta_violin_plot(aggregate_statistics_df, comparisons, jitter,
+                                     plot_title="Delta AUC Comparison",
+                                     base_cols=None):
+    """
+    Generate a multi-panel delta violin plot comparing multiple paired design configurations.
+    
+    Parameters:
+    -----------
+    aggregate_statistics_df : pd.DataFrame
+        DataFrame containing the data to plot
+    comparisons : list of dict
+        List of comparison specifications. Each dict should contain:
+        - 'col_name': str - column name to group by
+        - 'labels': list - [baseline_label, comparison_label] for x-axis
+        - 'title': str - title for this comparison column
+    jitter : int
+        If 0, show KDE plots on right side; if non-zero, show jittered scatter points
+    plot_title : str
+        Overall title for the plot
+    base_cols : list
+        All columns that could be used for grouping
+    
+    Returns:
+    --------
+    matplotlib.figure.Figure
+        The generated plot figure
+    
+    Example:
+    --------
+    comparisons = [
+        {'col_name': 'persona', 'labels': ['ai-model', 'med-onc'], 'title': 'Persona'},
+        {'col_name': 'cot', 'labels': ['cot', 'no-cot'], 'title': 'CoT'},
+        {'col_name': 'task_phrase', 'labels': ['non-simplified', 'simplified'], 'title': 'Task Phrase'},
+        {'col_name': 'tabular', 'labels': ['note', 'note-tabular'], 'title': 'Note Type'}
+    ]
+    fig = generate_multi_delta_violin_plot(agg_df_train, comparisons, 0, 
+                                           "Delta AUC Across Design Configurations", 
+                                           base_cols)
+    """
+    
+    # Parameters
+    base_color = '#666666'
+    target_type_colors = {
+        'clinic': '#d95f02',
+        'lab': '#1b9e77',
+        'symptom': '#7570b3',
+    }
+    violin_width = 0.4
+    all_patch = mpatches.Patch(color=base_color, label='all')
+    
+    target_types = aggregate_statistics_df['target_type'].unique()
+    
+    # Collect all delta AUC data for each comparison
+    all_delta_data = []
+    
+    for comp_idx, comp in enumerate(comparisons):
+        col_name = comp['col_name']
+        baseline, comparison = comp['labels']
+        comp_title = comp['title']
+        
+        # Create grouping columns by excluding col_name from base_cols
+        grouping_cols = [col for col in base_cols if col != col_name]
+        
+        # Create pivot table for paired testing
+        pivot_df = aggregate_statistics_df.pivot_table(
+            index=grouping_cols,
+            columns=col_name,
+            values='AUC',
+            aggfunc='first'
+        )
+        pivot_df = pivot_df.dropna()
+        
+        # Calculate delta AUC and collect data
+        for idx, row in pivot_df.iterrows():
+            delta_auc = row[comparison] - row[baseline]
+            
+            # Get the original row to extract target_type
+            filter_dict = {k: v for k, v in zip(grouping_cols, idx if isinstance(idx, tuple) else [idx])}
+            matching_rows = aggregate_statistics_df.copy()
+            for key, val in filter_dict.items():
+                matching_rows = matching_rows[matching_rows[key] == val]
+            
+            # Get target_type from matching rows
+            if not matching_rows.empty:
+                target_type = matching_rows.iloc[0]['target_type']
+                all_delta_data.append({
+                    'delta_AUC': delta_auc,
+                    'target_type': target_type,
+                    'comparison_idx': comp_idx,
+                    'comparison_name': comp_title,
+                    'comparison_label': f"{comparison}\nvs\n{baseline}"
+                })
+        
+        # Perform Wilcoxon test and print statistics
+        try:
+            stat, p = wilcoxon(pivot_df[comparison], pivot_df[baseline], alternative='two-sided')
+        except ValueError:
+            p = 1.0
+        
+        delta_vals = pivot_df[comparison] - pivot_df[baseline]
+        print(f"\n{comp_title} ({comparison} vs {baseline}):")
+        print(f"  Mean delta AUC: {delta_vals.mean():.3f}")
+        print(f"  Median delta AUC: {delta_vals.median():.3f}")
+        print(f"  Wilcoxon p-value: {p:.3g}")
+        
+        # Print stratified statistics
+        for tt in target_types:
+            pivot_df_tt = aggregate_statistics_df[
+                aggregate_statistics_df['target_type'] == tt
+            ].pivot_table(
+                index=grouping_cols,
+                columns=col_name,
+                values='AUC',
+                aggfunc='first'
+            ).dropna()
+            
+            if comparison in pivot_df_tt.columns and baseline in pivot_df_tt.columns:
+                delta_tt = pivot_df_tt[comparison] - pivot_df_tt[baseline]
+                print(f"  {tt.capitalize()} mean delta: {delta_tt.mean():.3f}")
+    
+    delta_df = pd.DataFrame(all_delta_data)
+    
+    # Create the plot
+    n_comparisons = len(comparisons)
+    fig, ax = plt.subplots(figsize=(n_comparisons * 2.5, 6))
+    ax.grid(True, axis='y', linestyle='--', alpha=0.4)
+    ax.axhline(y=0, color='red', linestyle='--', linewidth=1, alpha=0.5, zorder=1)
+    
+    # Plot each comparison
+    for i in range(n_comparisons):
+        x_center = i
+        
+        # Get delta data for this comparison
+        delta_comp = delta_df[delta_df['comparison_idx'] == i]['delta_AUC']
+        
+        # Determine y-axis range for KDE
+        all_deltas = delta_df['delta_AUC']
+        y_min = all_deltas.min() - 0.05
+        y_max = all_deltas.max() + 0.05
+        delta_vals = np.linspace(y_min, y_max, 200)
+        
+        # Left half: KDE of delta AUC for all target_types
+        kde_delta = gaussian_kde(delta_comp)
+        densities_delta = kde_delta(delta_vals)
+        densities_delta = densities_delta / densities_delta.max() * violin_width
+        
+        ax.fill_betweenx(
+            delta_vals,
+            x_center - densities_delta,
+            x_center,
+            facecolor=base_color,
+            alpha=0.6,
+            zorder=2
+        )
+        
+        # Add box plot elements
+        q1_delta, q2_delta, q3_delta = np.percentile(delta_comp, [25, 50, 75])
+        iqr_delta = q3_delta - q1_delta
+        lw_delta = max(q1_delta - 1.5 * iqr_delta, delta_comp.min())
+        uw_delta = min(q3_delta + 1.5 * iqr_delta, delta_comp.max())
+        
+        # Whiskers
+        ax.vlines(x_center - 0.1, lw_delta, uw_delta, color='gray', linestyle='dashed', linewidth=0.5, zorder=3)
+        # IQR box
+        ax.vlines(x_center - 0.1, q1_delta, q3_delta, color='black', linewidth=1, zorder=3)
+        # Median line
+        ax.hlines(q2_delta, x_center - 0.12, x_center - 0.08, color='black', linewidth=1.5, zorder=3)
+        
+        # Right half: either KDE or jittered points by target type
+        if jitter == 0:
+            # KDE plots for each target type
+            for tt in target_types:
+                delta_tt = delta_df[
+                    (delta_df['comparison_idx'] == i) & 
+                    (delta_df['target_type'] == tt)
+                ]['delta_AUC']
+                
+                if len(delta_tt) < 2:
+                    continue
+                
+                kde_tt_delta = gaussian_kde(delta_tt)
+                densities_tt_delta = kde_tt_delta(delta_vals)
+                densities_tt_delta = densities_tt_delta / densities_tt_delta.max() * violin_width / len(target_types)
+                
+                ax.fill_betweenx(
+                    delta_vals,
+                    x_center,
+                    x_center + densities_tt_delta,
+                    facecolor=target_type_colors[tt],
+                    alpha=0.8,
+                    label=tt if i == 0 else None,
+                    zorder=2
+                )
+        else:
+            # Jittered scatter points
+            jitter_scale = 0.04
+            for tt in target_types:
+                delta_tt = delta_df[
+                    (delta_df['comparison_idx'] == i) & 
+                    (delta_df['target_type'] == tt)
+                ]['delta_AUC']
+                
+                if delta_tt.empty:
+                    continue
+                
+                x_vals_delta = np.random.normal(loc=x_center + 0.1, scale=jitter_scale, size=len(delta_tt))
+                ax.scatter(
+                    x_vals_delta, delta_tt,
+                    alpha=0.7, color=target_type_colors[tt],
+                    edgecolor='black', linewidth=0.3, s=20,
+                    label=tt if i == 0 else None,
+                    zorder=3
+                )
+    
+    # Format axes
+    ax.set_xticks(range(n_comparisons))
+    ax.set_xticklabels([comp['title'] for comp in comparisons], fontsize=14)
+    ax.set_ylabel('Δ AUC', fontsize=18)
+    ax.set_title(plot_title, fontsize=18)
+    
+    # Add legend
+    # Legend location guide:
+    # - 'upper left' -> upper left corner inside plot
+    # - 'upper right' -> upper right corner inside plot
+    # - 'lower left' -> lower left corner inside plot
+    # - 'lower right' -> lower right corner inside plot
+    # - 'center left' -> middle left inside plot
+    # - 'center right' -> middle right inside plot
+    # - 'upper center' -> top center inside plot
+    # - 'lower center' -> bottom center inside plot
+    # - 'center' -> dead center inside plot
+    handles_delta, labels_delta = ax.get_legend_handles_labels()
+    if 'all' not in labels_delta:
+        handles_delta = [all_patch] + handles_delta
+        labels_delta = ['all'] + labels_delta
+    labels_delta = [label.capitalize() for label in labels_delta]
+    
+    ax.legend(
+        handles_delta, labels_delta,
+        loc='upper left',  # Change this to move legend (see guide above)
+        fontsize=12,
+        framealpha=0.9  # Semi-transparent background
+    )
+    
     plt.tight_layout()
     plt.show()
 
