@@ -10,8 +10,8 @@ authors = [
     { name = "Wayne Uy", email = "wayneisaac.uy@uhn.ca" },
 ]
 dependencies = [
-    "ml_common @ git+https://github.com/ml4oncology/ml-common.git@v2.0.0",
-    "make_clinical_dataset @ git+https://github.com/ml4oncology/make-clinical-dataset.git@v2.0.0",
+    "ml_common @ git+https://github.com/ml4oncology/ml-common.git@v2.0.1",
+    "make_clinical_dataset @ git+https://github.com/ml4oncology/make-clinical-dataset.git@v2.0.1",
     "preduce @ git+https://github.com/ml4oncology/preduce.git",
 ]
 
