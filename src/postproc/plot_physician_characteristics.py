@@ -14,7 +14,7 @@ import os
 import glob
 sys.path.insert(1, "/cluster/projects/gliugroup/2BLAST/data/info/")
 from phys_names import aliasDictionary, fellow_alias
-from llm_notes_classification.constants import df_physician_char_EPR, df_physician_char_EPIC, target_dict_mapping
+from oncotrail.constants import df_physician_char_EPR, df_physician_char_EPIC, target_dict_mapping
 
 sns.set(style="whitegrid")
 

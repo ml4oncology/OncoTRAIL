@@ -5,8 +5,8 @@ import os
 import numpy as np
 # from ml_common.util import load_table
 import pandas as pd
-# from llm_notes_classification.prompt.helper import prompt_llm
-# from llm_notes_classification.prompt.run_prompting import LLMPromptRunner
+# from oncotrail.prompt.helper import prompt_llm
+# from oncotrail.prompt.run_prompting import LLMPromptRunner
 import sys
 
 def launch(cfg):
@@ -83,7 +83,7 @@ def launch(cfg):
                     executor.update_parameters(constraint="gpu32g")
                 
                 def run_llm_prompt(cfg: dict):
-                    from llm_notes_classification.prompt.local_runner_sequential import LocalLLMRunnerSequential 
+                    from oncotrail.prompt.local_runner_sequential import LocalLLMRunnerSequential 
                     runner = LocalLLMRunnerSequential(cfg)
                     runner.run()
             else:
@@ -97,7 +97,7 @@ def launch(cfg):
                 )
 
                 def run_llm_prompt(cfg: dict):
-                    from llm_notes_classification.prompt.local_runner_parallel import LocalLLMRunnerParallel 
+                    from oncotrail.prompt.local_runner_parallel import LocalLLMRunnerParallel 
                     runner = LocalLLMRunnerParallel(cfg)
                     runner.run()
 
@@ -111,7 +111,7 @@ def launch(cfg):
             )
             
             def run_llm_prompt(cfg: dict):
-                from llm_notes_classification.prompt.vllm_runner_online import VLLMRunnerOnline
+                from oncotrail.prompt.vllm_runner_online import VLLMRunnerOnline
                 runner = VLLMRunnerOnline(cfg)
                 runner.run()
 
@@ -149,7 +149,7 @@ def launch(cfg):
         cfg['file_name'] = f'merged_{df_name}'
         cfg['save_dir'] = save_dir
 
-        from llm_notes_classification.prompt.vllm_runner_offline import VLLMRunnerOffline
+        from oncotrail.prompt.vllm_runner_offline import VLLMRunnerOffline
         runner = VLLMRunnerOffline(cfg)
         runner.run()
 

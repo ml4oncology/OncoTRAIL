@@ -10,7 +10,7 @@ import argparse
 import logging
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 logger = logging.getLogger(__name__)
-from llm_notes_classification.constants import target_dict_mapping
+from oncotrail.constants import target_dict_mapping
 
 def plot_results(results_path, save_dir):
     """

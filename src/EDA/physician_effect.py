@@ -15,9 +15,9 @@ import pickle
 from statsmodels.tools.sm_exceptions import ConvergenceWarning
 import bambi as bmb
 import arviz as az
-from llm_notes_classification.constants import df_physician_char_EPR as df_physician_char_global
-from llm_notes_classification.constants import CANCER_COARSE_SITE_MAP as COARSE_SITE_MAP
-from llm_notes_classification.constants import CANCER_HIERARCHY as HIERARCHY
+from oncotrail.constants import df_physician_char_EPR as df_physician_char_global
+from oncotrail.constants import CANCER_COARSE_SITE_MAP as COARSE_SITE_MAP
+from oncotrail.constants import CANCER_HIERARCHY as HIERARCHY
 
 # Create a dictionary where the key is the coarse group and the value is its rank (lower rank means higher priority)
 HIERARCHY_RANK = {site: rank for rank, site in enumerate(HIERARCHY)}

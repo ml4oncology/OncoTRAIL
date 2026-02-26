@@ -1,7 +1,7 @@
 import json
 import re
 import argparse
-from llm_notes_classification.prep.constants import (
+from oncotrail.prep.constants import (
     CTCAE_constants)
 import logging
 logger = logging.getLogger(__name__)

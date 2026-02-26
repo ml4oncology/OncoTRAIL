@@ -9,7 +9,7 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 import random
-from llm_notes_classification.constants import target_dict_mapping
+from oncotrail.constants import target_dict_mapping
 from sklearn.metrics import roc_auc_score
 
 # Setup logger

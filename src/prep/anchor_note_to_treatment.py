@@ -33,7 +33,7 @@ from make_clinical_dataset.shared.constants import (
     SYMP_CHANGE_COLS
 )
 from make_clinical_dataset.epr.prep import fill_missing_data_heuristically
-from llm_notes_classification.prep.add_tabular_to_note import add_tabular_data_to_note
+from oncotrail.prep.add_tabular_to_note import add_tabular_data_to_note
 import logging
 logging.basicConfig(
     level=logging.INFO

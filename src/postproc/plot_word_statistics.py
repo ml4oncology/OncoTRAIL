@@ -2,12 +2,12 @@ import pandas as pd
 import argparse
 import ast
 import os
-from llm_notes_classification.postproc.word_analyzer_utils import (
+from oncotrail.postproc.word_analyzer_utils import (
     generate_popularity_plot,
     plot_input_output_alignment,
     adjust_p_values
 )
-from llm_notes_classification.constants import target_dict_mapping
+from oncotrail.constants import target_dict_mapping
 
 
 def plot_word_statistics(data_dir, save_dir, target_list):

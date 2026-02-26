@@ -7,7 +7,7 @@ import seaborn as sns
 from typing import Dict, List, Tuple
 import argparse
 import os
-from llm_notes_classification.constants import target_dict_mapping
+from oncotrail.constants import target_dict_mapping
 
 import logging
 import sys

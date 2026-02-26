@@ -9,13 +9,13 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import roc_auc_score
 import torch
 import random
-from llm_notes_classification.config import date_lower_limit, date_upper_limit
+from oncotrail.config import date_lower_limit, date_upper_limit
 
 # Import our custom modules
 # from ml_common.prep import Splitter
 from make_clinical_dataset.epr.prep import Splitter
-# from llm_notes_classification.finetune.decoder_finetuner import DecoderFineTuner
-from llm_notes_classification.finetune.encoder_finetuner import EncoderFineTuner
+# from oncotrail.finetune.decoder_finetuner import DecoderFineTuner
+from oncotrail.finetune.encoder_finetuner import EncoderFineTuner
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

@@ -4,7 +4,7 @@ from sklearn.metrics import roc_auc_score
 from tqdm import tqdm
 import os
 import argparse
-from llm_notes_classification.constants import cancer_novelty_map
+from oncotrail.constants import cancer_novelty_map
 
 # --------------------------------------------------------
 # Helpers to load predictions AND labels

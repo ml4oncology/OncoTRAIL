@@ -11,7 +11,7 @@ import sys
 import itertools
 from pathlib import Path
 from autogluon.tabular import TabularPredictor
-from llm_notes_classification.finetune.post_proc_results import format_lr
+from oncotrail.finetune.post_proc_results import format_lr
 
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 logger = logging.getLogger(__name__)

@@ -19,7 +19,7 @@ import psutil
 import time
 import gc
 from typing import Dict, List, Union, Any
-from llm_notes_classification.prompt.generate_prompts import generate_target_description
+from oncotrail.prompt.generate_prompts import generate_target_description
 
 # Suppress unsloth warnings
 from unsloth import tokenizer_utils

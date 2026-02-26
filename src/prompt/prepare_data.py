@@ -5,7 +5,7 @@ import os
 import numpy as np
 from ml_common.util import load_table
 import pandas as pd
-from llm_notes_classification.config import date_lower_limit, date_upper_limit
+from oncotrail.config import date_lower_limit, date_upper_limit
 
 def prepare_data(cfg):
     """Use submitit to launch jobs in the SLURM cluster

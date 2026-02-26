@@ -4,7 +4,7 @@ import torch
 import logging
 from llama_cpp import Llama
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from llm_notes_classification.prompt.base_runner import BaseLLMRunner
+from oncotrail.prompt.base_runner import BaseLLMRunner
 
 logger = logging.getLogger(__name__)
 

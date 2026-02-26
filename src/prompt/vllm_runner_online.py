@@ -3,7 +3,7 @@ import pandas as pd
 import logging
 import asyncio
 from openai import OpenAI, AsyncOpenAI
-from llm_notes_classification.prompt.base_runner import BaseLLMRunner
+from oncotrail.prompt.base_runner import BaseLLMRunner
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)

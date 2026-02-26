@@ -38,7 +38,7 @@ class ModelInference:
         
         # Load preprocessing artifacts
         try:
-            from llm_notes_classification.ML.data_pipeline import DataPreprocessor  # Import here to avoid circular imports
+            from oncotrail.ML.data_pipeline import DataPreprocessor  # Import here to avoid circular imports
             self.preprocessor = DataPreprocessor()
             self.preprocessor.load_preprocessing_artifacts(self.preprocessing_file)
             logger.info("Preprocessing artifacts loaded successfully")

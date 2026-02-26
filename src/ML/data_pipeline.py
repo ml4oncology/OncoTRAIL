@@ -8,7 +8,7 @@ import os
 from sklearn.preprocessing import StandardScaler
 # from ml_common.prep import Splitter, PrepData
 from make_clinical_dataset.epr.prep import Splitter, PrepData
-from llm_notes_classification.ML.nlp import (process_df, 
+from oncotrail.ML.nlp import (process_df, 
                                              extract_top_ngrams,
                                              build_tfidf_matrix,
                                              build_count_matrix)

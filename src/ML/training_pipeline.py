@@ -7,7 +7,7 @@ import numpy as np
 import torch
 import logging
 from ml_common.util import save_pickle
-from llm_notes_classification.config import (
+from oncotrail.config import (
     bayesopt_param,
     model_static_param,
     model_tuning_param,

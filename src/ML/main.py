@@ -5,10 +5,10 @@ from sklearn.metrics import average_precision_score, roc_auc_score, log_loss
 import sys
 import os
 import torch
-from llm_notes_classification.config import date_lower_limit, date_upper_limit
-from llm_notes_classification.ML.data_pipeline import DataPreprocessor
-from llm_notes_classification.ML.training_pipeline import ModelTrainer
-from llm_notes_classification.ML.inference_pipeline import ModelInference
+from oncotrail.config import date_lower_limit, date_upper_limit
+from oncotrail.ML.data_pipeline import DataPreprocessor
+from oncotrail.ML.training_pipeline import ModelTrainer
+from oncotrail.ML.inference_pipeline import ModelInference
 import logging
 
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)

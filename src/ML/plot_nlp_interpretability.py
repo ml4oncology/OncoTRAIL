@@ -3,8 +3,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import argparse
 import os
-from llm_notes_classification.prompt.base_runner import load_shapley_df, load_logistic_df
-from llm_notes_classification.constants import target_dict_mapping
+from oncotrail.prompt.base_runner import load_shapley_df, load_logistic_df
+from oncotrail.constants import target_dict_mapping
 
 
 def plot_coef_heatmap_with_labels(

@@ -3,9 +3,9 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "llm_notes_classification"
+name = "oncotrail"
 description = "Predict undesirable cancer events using clinical notes"
-version = "0.1.0"
+version = "1.0.0"
 authors = [
     { name = "Wayne Uy", email = "wayneisaac.uy@uhn.ca" },
 ]
@@ -16,4 +16,4 @@ dependencies = [
 ]
 
 [tool.setuptools]
-package-dir = {"llm_notes_classification" = "src"}
+package-dir = {"oncotrail" = "src"}

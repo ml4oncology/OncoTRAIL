@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import os
 import argparse
-from llm_notes_classification.postproc.aggregate_methods_targets_results import (
+from oncotrail.postproc.aggregate_methods_targets_results import (
     load_all_raw_predictions, mrn_inference_aero_from_anchored_notes
 )
 import rpy2.robjects as ro

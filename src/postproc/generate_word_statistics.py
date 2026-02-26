@@ -1,7 +1,7 @@
 import os
 import glob
 import pandas as pd
-from llm_notes_classification.postproc.word_analyzer_utils import process_data_for_volcano_plot
+from oncotrail.postproc.word_analyzer_utils import process_data_for_volcano_plot
 import logging
 import sys
 import argparse

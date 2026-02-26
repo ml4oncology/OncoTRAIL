@@ -8,8 +8,8 @@ import torch
 import random
 
 # Import our custom modules
-from llm_notes_classification.finetune.main_train import set_seed
-from llm_notes_classification.finetune.encoder_finetuner import EncoderFineTuner
+from oncotrail.finetune.main_train import set_seed
+from oncotrail.finetune.encoder_finetuner import EncoderFineTuner
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
