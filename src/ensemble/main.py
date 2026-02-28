@@ -297,13 +297,6 @@ def run_ensemble_aggregation(
         save_dir=save_dir,
     )
 
-# To do:
-# send to Rob
-# de-identify new notes
-# set up inference pipeline for finetuning
-# figure out prompting vllm parallelization with kevin
-# fix tabular + nlp pipeline
-
 def main():
     parser = argparse.ArgumentParser(description="Run ensemble aggregation on predictions.")
     parser.add_argument("--train_dict", type=str, required=True, help="JSON string or path to JSON file for training predictions.")
