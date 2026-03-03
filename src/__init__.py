@@ -5,3 +5,5 @@ from pathlib import Path
 ROOT_DIR = Path(__file__).parent.parent.as_posix()
 if ROOT_DIR not in sys.path:
     sys.path.append(ROOT_DIR)
+
+sys.modules["llm_notes_classification"] = sys.modules[__name__]

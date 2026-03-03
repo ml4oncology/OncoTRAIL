@@ -21,7 +21,6 @@ from sklearn.metrics import roc_auc_score
 # nltk.download('averaged_perceptron_tagger')
 from nltk import pos_tag
 import os
-os.environ["R_HOME"] = "/cluster/home/t127556uhn/miniforge3/envs/LLMfinetune/lib/R"
 nltk_data_path = '/cluster/home/t127556uhn/nltk_data'
 nltk.data.path.append(nltk_data_path)
 

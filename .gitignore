@@ -15,4 +15,5 @@ scripts/debug
 src/finetune/unsloth_compiled_cache
 *.log
 archive/
+log_files/
 *.egg-info
