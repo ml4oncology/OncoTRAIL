@@ -381,78 +381,96 @@ def plot_input_output_alignment(df, title):
     ----------
     df : pd.DataFrame
         Columns: ["word", "change_in_metric_input", "change_in_metric_output", "frequency_ratio"]
-    target : str
+    title : str
         Name of the adverse event, used in the title.
     """
-    
-    sns.set(style="white", context="talk")
-    fig, ax = plt.subplots(figsize=(8, 8))
-    
-    # ---- Normalize color scale around 1 ----
-    norm = plt.Normalize(vmin=0.5, vmax=2.0)
-    cmap = plt.get_cmap("coolwarm")  # diverging, colorblind-safe alternative: 'RdBu_r'
-    
-    # ---- Scatter plot ----
-    sc = ax.scatter(
-        df["change_in_metric_input"],
-        df["change_in_metric_output"],
-        c=df["frequency_ratio"],
-        cmap=cmap,
-        norm=norm,
-        s=120,
-        alpha=0.9,
-        edgecolor="k",
-        linewidth=0.4
-    )
-    
-    # ---- Add word labels ----
-    texts = []
-    for _, row in df.iterrows():
-        texts.append(
-            ax.text(
-                row["change_in_metric_input"],
-                row["change_in_metric_output"],
-                row["word"],
-                fontsize=9,
-                color="black"
-            )
-        )
-    
-    adjust_text(
-        texts,
-        ax=ax,
-        arrowprops=dict(arrowstyle='->', color='gray', lw=0.5),
-        expand_points=(1.2, 1.4),
-        expand_text=(1.2, 1.4),
-        force_points=0.5,
-        force_text=0.5,
-        lim=500,
-        only_move={'points': 'y', 'text': 'xy'}
-    )
-    
-    # ---- Reference lines ----
-    ax.axhline(0, color="gray", lw=1)
-    ax.axvline(0, color="gray", lw=1)
-    
-    # ---- Labels and title ----
-    ax.set_xlabel("Δ predicted risk (input clinical notes)")
-    ax.set_ylabel("Δ predicted risk (LLM reasoning output)")
-    ax.set_title(f"{title}", loc="left")
-    
-    # ---- Correlation ----
-    corr = df[["change_in_metric_input", "change_in_metric_output"]].corr().iloc[0, 1]
-    ax.text(0.05, 0.95, f"Pearson r = {corr:.2f}", transform=ax.transAxes, fontsize=11)
-    
-    # ---- Colorbar ----
-    cbar = plt.colorbar(sc, ax=ax, fraction=0.046, pad=0.04)
-    cbar.set_label("frequency ratio (output / input)")
-    cbar.set_ticks([0.5, 1.0, 2.0])
-    cbar.ax.axhline(1.0, color='k', lw=0.8)  # visual center
-    
-    # ---- Clean aesthetic ----
-    sns.despine(ax=ax)
-    ax.grid(False)
-    plt.tight_layout()
-    plt.show()
 
-    return fig
+    # ---- compute normalized magnitude score ----
+    df = df.copy()
+    z_input = (df["change_in_metric_input"] - df["change_in_metric_input"].mean()) / df["change_in_metric_input"].std()
+    z_output = (df["change_in_metric_output"] - df["change_in_metric_output"].mean()) / df["change_in_metric_output"].std()
+    df["alignment_score"] = np.sqrt(z_input**2 + z_output**2)
+
+    def _draw_figure(data, ax_title, top_words):
+        sns.set(style="white", context="talk")
+        fig, ax = plt.subplots(figsize=(8, 8))
+        
+        # ---- Normalize color scale around 1 ----
+        norm = plt.Normalize(vmin=0.5, vmax=2.0)
+        cmap = plt.get_cmap("coolwarm")
+        
+        # ---- Scatter plot ----
+        sc = ax.scatter(
+            data["change_in_metric_input"],
+            data["change_in_metric_output"],
+            c=data["frequency_ratio"],
+            cmap=cmap,
+            norm=norm,
+            s=120,
+            alpha=0.9,
+            edgecolor="k",
+            linewidth=0.4
+        )
+        
+        # ---- Add word labels ----
+        texts = []
+        for _, row in data.iterrows():
+            if row["word"] in top_words:  # only label top words
+                texts.append(
+                    ax.text(
+                        row["change_in_metric_input"],
+                        row["change_in_metric_output"],
+                        row["word"],
+                        fontsize=9,
+                        color="black"
+                    )
+                )
+        
+        adjust_text(
+            texts,
+            ax=ax,
+            arrowprops=dict(arrowstyle='->', color='gray', lw=0.5),
+            expand_points=(1.2, 1.4),
+            expand_text=(1.2, 1.4),
+            force_points=0.5,
+            force_text=0.5,
+            lim=500,
+            only_move={'points': 'y', 'text': 'xy'}
+        )
+        
+        # ---- Reference lines ----
+        ax.axhline(0, color="gray", lw=1)
+        ax.axvline(0, color="gray", lw=1)
+        
+        # ---- Labels and title ----
+        ax.set_xlabel("Δ predicted risk (input clinical notes)")
+        ax.set_ylabel("Δ predicted risk (LLM reasoning output)")
+        ax.set_title(f"{ax_title}", loc="left")
+        
+        # ---- Correlation ----
+        corr = data[["change_in_metric_input", "change_in_metric_output"]].corr().iloc[0, 1]
+        ax.text(0.05, 0.95, f"Pearson r = {corr:.2f}", transform=ax.transAxes, fontsize=11)
+        
+        # ---- Colorbar ----
+        cbar = plt.colorbar(sc, ax=ax, fraction=0.046, pad=0.04)
+        cbar.set_label("frequency ratio (output / input)")
+        cbar.set_ticks([0.5, 1.0, 2.0])
+        cbar.ax.axhline(1.0, color='k', lw=0.8)
+        
+        # ---- Clean aesthetic ----
+        sns.despine(ax=ax)
+        ax.grid(False)
+        plt.tight_layout()
+        plt.show()
+        
+        return fig
+
+    # ---- Figure 1: all words ----
+    top_words = set(df["word"].unique())  # NEW
+    fig1 = _draw_figure(df, title, top_words)
+
+    # ---- Figure 2: top k words by squared magnitude of input/output ----
+    top_words = set(df.nlargest(20, "alignment_score")["word"])  # NEW
+    fig2 = _draw_figure(df, title, top_words)
+
+    return fig1, fig2

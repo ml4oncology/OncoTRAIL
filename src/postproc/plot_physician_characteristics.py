@@ -395,6 +395,7 @@ def plot_physician_target_dots(
 def plot_target_slopes(
     df_slopes,
     target_type_colors,
+    title,
     save_path
 ):
     
@@ -455,9 +456,13 @@ def plot_target_slopes(
     )
     ax.set_ylabel("Slope of Δ (Prompting − Tabular)\nper year of experience")
     ax.set_xlabel("")
+    ax.set_title(title)
 
     plt.tight_layout()
     plt.savefig(save_path, dpi=300)
+    # replace .png by .svg 
+    save_path_svg = save_path.replace('.png', '.svg')
+    plt.savefig(save_path_svg, bbox_inches="tight")
     plt.close()
     
 def plot_target_contrast_half_violin(
@@ -664,6 +669,17 @@ def plot_physician_characteristics(
     )
 
     ax0.axhline(0, linestyle="--", color="black", linewidth=1)
+    # replace title
+    if "(EPR)" in title:
+        title = title.replace(
+            "(EPR)",
+            "(Temporal out-of-distribution)"
+        )
+    if "(EPIC)" in title:
+        title = title.replace(
+            "(EPIC)",
+            "(Temporal, institutional, case-mix out-of-distribution)"
+        )
     ax0.set_title(title)
     ax0.set_xlabel("years of experience")
     ax0.set_ylabel("Prompting - Tabular Probability")
@@ -672,6 +688,9 @@ def plot_physician_characteristics(
 
     save_path_panel0 = save_path.replace('.png', '_YOE_scatter.png')
     fig0.savefig(save_path_panel0, dpi=300)
+    # replace png with svg
+    save_path_svg = save_path_panel0.replace('.png', '.svg')
+    plt.savefig(save_path_svg, bbox_inches="tight")
     plt.close(fig0)
 
 def plot_binary_contrast_half_violin(
@@ -679,6 +698,7 @@ def plot_binary_contrast_half_violin(
     binary_var,
     target_type_colors,
     save_path,
+    title="",
     return_stats=True
 ):
     """
@@ -694,6 +714,8 @@ def plot_binary_contrast_half_violin(
         Mapping from target_type to color
     save_path : str
         Path to save the figure
+    title : str
+        Figure title
     return_stats : bool
         Whether to return the statistics table
         
@@ -871,6 +893,7 @@ def plot_binary_contrast_half_violin(
     ax.set_xticklabels(summary["target_name_plotting"], rotation=45, ha="right")
     ax.set_ylabel("prompting - tabular probability difference")
     ax.set_xlabel("")
+    ax.set_title(title)
     
     # Add legend
     # Use gray with lighter/darker shading pattern
@@ -893,6 +916,9 @@ def plot_binary_contrast_half_violin(
     
     plt.tight_layout()
     plt.savefig(save_path, dpi=300)
+    # replace .png in save_path with .svg and save
+    save_path_svg = save_path.replace('.png', '.svg')
+    plt.savefig(save_path_svg, bbox_inches="tight")
     plt.close()
     
     # Return statistics table
@@ -1097,9 +1123,15 @@ def plot_physician_characteristics_main(
         n_boot=1000
     )
 
+    if emr_source == 'EPR':
+        title = 'Temporal out-of-distribution'
+    else:
+        title = 'Temporal, institutional, case-mix out-of-distribution'
+
     plot_target_slopes(
         df_slopes,
         target_type_colors,
+        title,
         save_path = os.path.join(output_dir, f"target_slopes_YOE_{emr_source}.png")
     )
 
@@ -1136,6 +1168,7 @@ def plot_physician_characteristics_main(
         binary_var,
         target_type_colors,
         save_path,
+        title,
         return_stats=True
     )
     stats.to_csv(os.path.join(output_dir, f"binary_contrast_stats_CMG_{emr_source}.csv"), index=False)
@@ -1147,6 +1180,7 @@ def plot_physician_characteristics_main(
         binary_var,
         target_type_colors,
         save_path,
+        title,
         return_stats=True
     )
     stats.to_csv(os.path.join(output_dir, f"binary_contrast_stats_S2L_{emr_source}.csv"), index=False)

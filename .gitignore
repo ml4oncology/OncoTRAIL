@@ -6,14 +6,12 @@
 data/
 results/
 models/
-notebooks/archive
 notebooks/external-examples
 debug
-src/debug
-src/archive
-scripts/debug
-src/finetune/unsloth_compiled_cache
 *.log
+*.svg
 archive/
 log_files/
 *.egg-info
+unsloth_compiled_cache
+*.swp
