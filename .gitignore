@@ -15,3 +15,7 @@ log_files/
 *.egg-info
 unsloth_compiled_cache
 *.swp
+notebooks/*
+scripts/*
+!notebooks/paper/
+!scripts/paper/
