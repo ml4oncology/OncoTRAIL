@@ -4,13 +4,12 @@ import torch
 import logging
 from llama_cpp import Llama
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from oncotrail.prompt.base_runner import BaseLLMRunner
+from oncotrail.prompt.base_local_runner import BaseLocalLLMRunner
 
 logger = logging.getLogger(__name__)
 
 # Empty cuda cache
 torch.cuda.empty_cache()
-
 
 def _worker_process_mrn(args):
     """Worker function for processing an MRN in a separate process.
@@ -88,14 +87,11 @@ def _worker_process_mrn(args):
     
     return mrn_idx, outputs
 
-
-class LocalLLMRunnerParallel(BaseLLMRunner):
+class LocalLLMRunnerParallel(BaseLocalLLMRunner):
     """GPU-required runner for local llama-cpp inference with parallel processing."""
     
     def __init__(self, cfg: dict):
         super().__init__(cfg)
-        self.chat_format = self._get_chat_format()
-        self.use_flash_attn = torch.cuda.mem_get_info()[1] / 1e5 > 120000
         
         # Batch collection lists (similar to vLLM)
         self.messages_list = []
@@ -115,17 +111,6 @@ class LocalLLMRunnerParallel(BaseLLMRunner):
             mp.set_start_method('spawn', force=True)
         except RuntimeError:
             pass  # Already set
-
-    def _get_chat_format(self):
-        name = self.config.LLM_name
-        if "Gemma" in name:
-            return "gemma"
-        elif "Qwen" in name or "QwQ" in name:
-            return "chatml"
-        elif "Llama" in name:
-            return "llama-3"
-        else:
-            return "llama-2"
 
     def _create_llama(self, seed=42, split_mode=1):
         """Create a Llama model instance.
@@ -203,8 +188,6 @@ class LocalLLMRunnerParallel(BaseLLMRunner):
         super().run()  # This will populate the batch lists
         if self.messages_list:  # Only run if we have messages to process
             self.batch_generate_with_llama_cpp()
-
-
 
     def _process_mrn_samples(self, model_idx, mrn_idx, messages, num_samples):
         """Process all samples for a single MRN on a specific model instance.

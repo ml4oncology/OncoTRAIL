@@ -171,7 +171,6 @@ if __name__ == "__main__":
     parser.add_argument("numeric_proba", help="numerical probability", type=int)  # numeric probability?
     parser.add_argument("prompt_file_dir", help="directory where json files are stored", type=str)  # directory of prompt json files
     parser.add_argument("prompt_num", help="prompt number", type=int)  # prompt number
-    parser.add_argument("llama_cpp", help="llama_cpp", type=int)  # llama_cpp
     parser.add_argument("top_k", help="top k", type=float)  # top k
     parser.add_argument("min_p", help="min p", type=float)  # min p
     parser.add_argument("top_p", help="top p", type=float)  # top p

@@ -10,6 +10,11 @@ import glob
 import argparse
 import ast
 import logging
+import matplotlib as mpl
+
+mpl.rcParams["svg.fonttype"] = "none"   # Keep text as text (not paths)
+mpl.rcParams["pdf.fonttype"] = 42       # Editable text in PDF
+mpl.rcParams["ps.fonttype"] = 42
 
 logger = logging.getLogger(__name__)
 def generate_mixed_violin_plot(aggregate_statistics_df, col_name, jitter, 

@@ -3,32 +3,15 @@ import pandas as pd
 import torch
 import logging
 from llama_cpp import Llama
-from oncotrail.prompt.base_runner import BaseLLMRunner
+from oncotrail.prompt.base_local_runner import BaseLocalLLMRunner
 
 logger = logging.getLogger(__name__)
 
 # Empty cuda cache
 torch.cuda.empty_cache()
 
-
-class LocalLLMRunnerSequential(BaseLLMRunner):
+class LocalLLMRunnerSequential(BaseLocalLLMRunner):
     """GPU-required runner for local llama-cpp inference."""
-    
-    def __init__(self, cfg: dict):
-        super().__init__(cfg)
-        self.chat_format = self._get_chat_format()
-        self.use_flash_attn = torch.cuda.mem_get_info()[1] / 1e5 > 120000
-
-    def _get_chat_format(self):
-        name = self.config.LLM_name
-        if "Gemma" in name:
-            return "gemma"
-        elif "Qwen" in name or "QwQ" in name:
-            return "chatml"
-        elif "Llama" in name:
-            return "llama-3"
-        else:
-            return "llama-2"
 
     def _create_llama(self):
         return Llama(
