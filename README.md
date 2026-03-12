@@ -51,11 +51,11 @@ pip install \
 
 ### 5. Install llama-cpp-python with GPU support
 
-This step requires setting the correct `CMAKE_ARGS` flag before installation to ensure GPU acceleration is enabled. Without this, llama-cpp will fall back to CPU-only mode and inference will be very slow.
+Install the prebuilt wheel for CUDA 12.1 to ensure GPU acceleration is enabled:
 
 ```bash
-export CMAKE_ARGS="-DGGML_CUDA=on"
-pip install llama-cpp-python==0.3.8 --no-cache-dir --force-reinstall
+pip install llama-cpp-python \
+    --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cu121
 ```
 
 To verify GPU is working correctly:
