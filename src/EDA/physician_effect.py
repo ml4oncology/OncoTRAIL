@@ -15,7 +15,7 @@ import pickle
 from statsmodels.tools.sm_exceptions import ConvergenceWarning
 import bambi as bmb
 import arviz as az
-from oncotrail.constants import df_physician_char_EPR as df_physician_char_global
+from oncotrail.constants import df_physician_char_EPR, df_physician_char_EPIC
 from oncotrail.constants import CANCER_COARSE_SITE_MAP as COARSE_SITE_MAP
 from oncotrail.constants import CANCER_HIERARCHY as HIERARCHY
 
@@ -26,7 +26,7 @@ OTHER_ILL_DEFINED_GROUP = "Other / Ill-Defined"
 def process_cancer_sites(df: pd.DataFrame) -> pd.DataFrame:
     """
     Converts multiple binary cancer site columns into a single 'cancer_type' column 
-    based on coarse grouping and clinical hierarchy (Strategy A).
+    based on coarse grouping and clinical hierarchy.
 
     Args:
         df: The input DataFrame containing 'cancer_site_CXX' columns, 'prompting_risk', 
@@ -61,7 +61,6 @@ def process_cancer_sites(df: pd.DataFrame) -> pd.DataFrame:
         
         if not positive_c_codes:
             # --- FIX: Merge "No Primary Found" cases into "Other / Ill-Defined" ---
-            # This handles the 6 cases where no indicator was set to 1.
             return OTHER_ILL_DEFINED_GROUP
 
         # Map positive C-codes to their coarse groups
@@ -93,18 +92,17 @@ def extract_names(s):
         names = ast.literal_eval(list_line)
 
         # Apply alias mapping to each name
-        return [
-            fellow_alias.get(aliasDictionary.get(name, name), aliasDictionary.get(name, name))
-            for name in names
-        ]
+        result = []
+        for name in names:
+            alias = aliasDictionary.get(name, name)
+            result.append(fellow_alias.get(alias, alias))
+        return result
 
     except Exception:
         return []
     
-def load_prompting_result(target_name):
-    model_val = "/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/LLM-notes-classification/data/prompt_engineering/test_set"
-    # Find path: {model_val}/{target_name}/note_*/summary_*.csv
-    target_dir = os.path.join(model_val, target_name)
+def load_prompting_result(target_name, prompting_results_dir):
+    target_dir = os.path.join(prompting_results_dir, target_name)
     note_dirs = [d for d in glob.glob(os.path.join(target_dir, "note_*")) if os.path.isdir(d)]
     assert len(note_dirs) == 1, f"Expected one note_ directory in {target_dir}, found: {note_dirs}"
     summary_files = glob.glob(os.path.join(note_dirs[0], "summary_*.csv"))
@@ -113,96 +111,65 @@ def load_prompting_result(target_name):
     
     return prompting_summary_df
 
-def load_tabular_result(target_name):
-    tabular_results = "/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/LLM-notes-classification/results/ML/best_result_summary_firstTreatmentOnly-medOnc-ConsultLetterClinic_deid_tabular_all_Temporal.csv"
-    df_model = pd.read_csv(tabular_results)
+def load_tabular_result(target_name, tabular_results_path, held_out_set):
+    df_model = pd.read_csv(tabular_results_path)
     target_row = df_model[df_model["target"] == target_name.replace("_", "-")]
     assert not target_row.empty, f"Target {target_name.replace('_', '-')} not found in dataframe"
     data = np.load(target_row["pred_file_name"].values[0], allow_pickle=True)
-    mrns = data['mrn_test']
-    probs = data['test_pred'].ravel()
+    if held_out_set == "test":
+        mrn_var = 'mrn_test'
+        pred_var = 'test_pred'
+    elif held_out_set == "inference":
+        mrn_var = 'mrn_inference'
+        pred_var = 'inference_pred'
+    mrns = data[mrn_var]
+    probs = data[pred_var].ravel()
 
     return pd.DataFrame({'mrn': mrns, 'prob': probs})
 
-def robust_mixedlm_fit(model, reml=True, full_output=True):
-    """
-    Fit MixedLM model, retrying with LBFGS if convergence warnings occur.
-    """
-
-    # Flag to indicate retry
-    had_warning = False
-
-    # Catch convergence warnings on first attempt
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always", ConvergenceWarning)
-        warnings.simplefilter("always", RuntimeWarning)   # catches Hessian PD issues
-
-        result = model.fit(reml=reml, full_output=full_output)
-
-        # Check if any warning is "bad enough" to trigger a refit
-        for warn in w:
-            msg = str(warn.message)
-            if (
-                "matrix" in msg.lower() or
-                "gradient" in msg.lower() or
-                "hessian" in msg.lower() or
-                "positive definite" in msg.lower()
-            ):
-                had_warning = True
-                break
-
-    if not had_warning:
-        return result   # success on first try
-
-    print("⚠️ Convergence issues detected — retrying with method='lbfgs'...")
-
-    # Retry with explicit LBFGS (often more stable)
-    return model.fit(reml=reml, method="lbfgs", full_output=full_output)
-
-def check_physician_effect(target_list, anchored_notes_path, save_dir, raw_treatment_path):
+def regress_physician_characteristics(target_list, held_out_set, anchored_notes_path, 
+                                      save_dir, prompting_results_dir, tabular_results_path,
+                                      raw_treatment_path):
 
     df_treatment = pd.read_csv(anchored_notes_path)
-    df_treatment['treatment_date'] = pd.to_datetime(df_treatment['treatment_date'])
+    df_treatment['treatment_date'] = pd.to_datetime(df_treatment['treatment_date'], utc=True)
     df_treatment['treatment_year'] = df_treatment['treatment_date'].dt.year
-    df_treatment = df_treatment[['mrn', 'stats_dictated_by', 'treatment_year']].copy()   
+    df_treatment = df_treatment[['mrn', 'stats_dictated_by', 'treatment_date', 'treatment_year']].copy()   
 
-    if raw_treatment_path != "None":
-        raw_treatment = pd.read_parquet(raw_treatment_path)
+    raw_treatment = pd.read_parquet(raw_treatment_path)
+    if held_out_set == "test":
         # find all columns in raw_treatment that contain 'cancer_site'
         cancer_site_cols = [col for col in raw_treatment.columns if 'cancer_site' in col]
         raw_treatment = raw_treatment[['mrn'] + cancer_site_cols].copy()
-        # replace values in cancer_site_cols with 1 if > 0 else 0
-        # raw_treatment[cancer_site_cols] = raw_treatment[cancer_site_cols].applymap(lambda x: 1 if x > 0 else 0)
         # rename the 'cancer_site_CXX' columns to just 'CXX'
         raw_treatment.rename(columns={col: col.replace('cancer_site_', '') for col in cancer_site_cols}, inplace=True)
         raw_treatment.drop_duplicates(subset=['mrn'], inplace=True)
         df_treatment = df_treatment.merge(raw_treatment, how='left', on='mrn')
         df_treatment = process_cancer_sites(df_treatment)
+    elif held_out_set == "inference":
+        raw_treatment['cancer_type'] = raw_treatment['primary_site_code'].map(COARSE_SITE_MAP).fillna(OTHER_ILL_DEFINED_GROUP)
+        raw_treatment['treatment_date'] = pd.to_datetime(raw_treatment['assessment_date'], utc=True)
+        # merge mrn, cancer_type, and treatment_date from raw_treatment into df_treatment
+        df_treatment = df_treatment.merge(raw_treatment[['mrn', 'cancer_type', 'treatment_date']], how='left', on='mrn')
 
-    m0R2 = []
-    m1R2 = []
-    deltaR2 = []
-    p_values = []
+    # drop treatment_date from df_treatment
+    df_treatment.drop(columns=['treatment_date'], inplace=True)
+
     ICC_values = []
     ICC_lower = []
     ICC_upper = []
     summary_across_targets = []
 
     for target_name in target_list:
-        prompting_summary_df = load_prompting_result(target_name)
-        tabular_summary_df = load_tabular_result(target_name)
-    
-        # fixed effects model
+        prompting_summary_df = load_prompting_result(target_name, prompting_results_dir)
+        tabular_summary_df = load_tabular_result(target_name, tabular_results_path, held_out_set)
 
         # rename 'Probability' column in prompting_summary_df to 'prob_prompting'
         prompting_summary_df = prompting_summary_df.rename(columns={'Probability': 'prob_prompting'})
         # rename 'prob' column in tabular_summary_df to 'prob_tabular'
         tabular_summary_df = tabular_summary_df.rename(columns={'prob': 'prob_tabular'})
         # merge prompting_summary_df['mrn', 'prob_prompting'] with df_treatment on 'mrn'
-        if raw_treatment_path == "None":
-            df_merged = pd.merge(prompting_summary_df[['mrn', 'prob_prompting']], df_treatment, on='mrn', how='inner')
-        else:
-            df_merged = pd.merge(prompting_summary_df[['mrn', 'prob_prompting']], df_treatment[['mrn', 'stats_dictated_by', 'cancer_type', 'treatment_year']], on='mrn', how='inner')
+        df_merged = pd.merge(prompting_summary_df[['mrn', 'prob_prompting']], df_treatment[['mrn', 'stats_dictated_by', 'cancer_type', 'treatment_year']], on='mrn', how='inner')
         # merge tabular_summary_df with df_merged on 'mrn'
         df_merged = pd.merge(df_merged, tabular_summary_df, on='mrn', how='inner')
 
@@ -217,41 +184,20 @@ def check_physician_effect(target_list, anchored_notes_path, save_dir, raw_treat
         df_merged["logit_tabular"]  = np.log((df_merged["prob_tabular"] + eps)  / (1 - df_merged["prob_tabular"]  + eps))
         df_merged['average_treatment_year'] = df_merged.groupby('dictating_physician')['treatment_year'].transform('mean')
 
-        if raw_treatment_path == "None":
-            m0 = smf.ols("logit_prompting ~ logit_tabular", data=df_merged).fit()
-            m1 = smf.ols("logit_prompting ~ logit_tabular + C(dictating_physician)", data=df_merged).fit()
-        else: 
-            m0 = smf.ols("logit_prompting ~ logit_tabular + C(cancer_type)", data=df_merged).fit()
-            m1 = smf.ols("logit_prompting ~ logit_tabular + C(cancer_type) + C(dictating_physician)", data=df_merged).fit()
-
-        m0R2.append(m0.rsquared)
-        m1R2.append(m1.rsquared)
-        deltaR2.append(m1.rsquared - m0.rsquared)
-        p_values.append(anova_lm(m0, m1)['Pr(>F)'][1])
-
-        df_merged["resid_m0"] = m0.resid
-        df_physician_residual = df_merged.groupby("dictating_physician")["resid_m0"].mean().reset_index()
-        df_physician_residual['resid_m0'] = np.abs(df_physician_residual['resid_m0'])
-        # add counts of dictating_physician in df_merged to df_physician_residual
-        physician_counts = df_merged['dictating_physician'].value_counts().reset_index()
-        df_physician_residual = pd.merge(df_physician_residual, physician_counts, on='dictating_physician', how='inner')
-        df_physician_residual.sort_values(by='resid_m0', ascending=False).head(20).to_csv(os.path.join(save_dir, f"top20_residuals_{target_name}.csv"), index=False)
-        df_physician_residual.sort_values(by='count', ascending=False).head(30).to_csv(os.path.join(save_dir, f"top30_count_{target_name}.csv"), index=False)
-
         df_merged["logit_tabular_c"] = df_merged["logit_tabular"] - df_merged["logit_tabular"].mean()
 
         print(target_name)
         print(100*"#")
-
-        if raw_treatment_path == "None":
-            raise NotImplementedError("Not implemented yet")
 
         # Bayesian model
 
         # create data matrix of physician characteristics
         df_physician_yoe = df_merged[['dictating_physician', 'average_treatment_year']].drop_duplicates()
         df_physician_yoe.rename(columns={'dictating_physician': 'med_onc'}, inplace=True)
-        df_physician_char = df_physician_char_global.copy()
+        if held_out_set == "test":
+            df_physician_char = df_physician_char_EPR.copy()
+        elif held_out_set == "inference":
+            df_physician_char = df_physician_char_EPIC.copy()
         df_physician_char = df_physician_char.merge(df_physician_yoe, on='med_onc')
         df_physician_char['average_YOE'] = df_physician_char['average_treatment_year'] - df_physician_char['YOG']
 
@@ -351,29 +297,30 @@ def check_physician_effect(target_list, anchored_notes_path, save_dir, raw_treat
 
     results_df = pd.DataFrame({
         'target': target_list,
-        'm0R2': m0R2,
-        'm1R2': m1R2,
-        'deltaR2': deltaR2,
-        'p_value': p_values,
         'ICC': ICC_values,
         'ICC_lower' : ICC_lower,
         'ICC_upper': ICC_upper
     })
 
-    results_df.to_csv(os.path.join(save_dir, 'results.csv'), index=False)
+    results_df.to_csv(os.path.join(save_dir, f'ICC_results_{held_out_set}.csv'), index=False)
     concat_summary = pd.concat(summary_across_targets)
-    concat_summary.to_csv(os.path.join(save_dir, 'stage2_coefficients.csv'), index=False)
+    concat_summary.to_csv(os.path.join(save_dir, f'characteristics_regression_coefficients_{held_out_set}.csv'), index=False)
 
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Check effect of dictating physician.")
+    parser.add_argument("held_out_set", type=str, choices=["test", "inference"], help="Which held-out set to analyze.")
     parser.add_argument("target_list", type=str, help="List of target names. E.g., \"['target1', 'target2']\"")
     parser.add_argument("anchored_notes_path", type=str, help="Path to CSV file with anchored notes.")
     parser.add_argument("save_dir", type=str, help="Directory to save the results.")
-    parser.add_argument("--raw_treatment_path", type=str, default="None", help="path to raw treatment")
+    parser.add_argument("prompting_results_dir", type=str, help="Directory containing prompting results.")
+    parser.add_argument("tabular_results_path", type=str, help="Path to tabular results.")
+    parser.add_argument("raw_treatment_path", type=str, default="None", help="Path to raw treatment")
 
     args = parser.parse_args()
 
     # Convert string lists to actual lists
     target_list = ast.literal_eval(args.target_list)
-    check_physician_effect(target_list, args.anchored_notes_path, args.save_dir, args.raw_treatment_path)
+    regress_physician_characteristics(target_list, args.held_out_set, args.anchored_notes_path, 
+                                      args.save_dir, args.prompting_results_dir, args.tabular_results_path,
+                                      args.raw_treatment_path)
