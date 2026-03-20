@@ -236,7 +236,7 @@ CANCER_COARSE_SITE_MAP = {
     "C64": "Urological", "C65": "Urological", "C66": "Urological", "C67": "Urological", "C68": "Urological", 
     
     # Nervous System
-    "C69": "Nervous System", "C71": "Nervous System", "C72": "Nervous System", 
+    "C69": "Nervous System", "C70": "Nervous System", "C71": "Nervous System", "C72": "Nervous System", 
     
     # Endocrine
     "C73": "Endocrine", "C74": "Endocrine", "C75": "Endocrine", 

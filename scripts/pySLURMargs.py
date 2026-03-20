@@ -87,13 +87,19 @@ fp.write('#SBATCH --ntasks=1\n')
 fp.write('#SBATCH --mem=' + memory + 'GB\n')
 fp.write('#SBATCH --time=' + run_time + '\n')
 if int(n_GPU) > 0:
-    fp.write('#SBATCH --partition=gpu\n')
+    if specific_node == 'node159':
+        fp.write('#SBATCH --partition=gpu_grantgroup\n')
+    else:
+        fp.write('#SBATCH --partition=gpu\n')
     fp.write('#SBATCH --account=' + group_name + '\n')
 
     if gpu_type:
         fp.write(f'#SBATCH --gres=gpu:{gpu_type}:{n_GPU}\n')
     else:
         fp.write(f'#SBATCH --gres=gpu:{n_GPU}\n')
+# if run time is less than 4 hrs and memory is less than 8, run on 'short' partition
+# elif int(run_time.split('-')[-1].split(':')[0]) <= 4 and int(memory) <= 8:
+#     fp.write('#SBATCH -p short'+'\n')
 else:
     fp.write('#SBATCH -p all'+'\n')
 if specific_node:

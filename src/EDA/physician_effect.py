@@ -1,326 +1,523 @@
+"""
+regress_physician_characteristics.py
+
+Fits a Bayesian hierarchical model (via Bambi) to assess how much variation
+in LLM prompting risk scores is explained by the dictating physician, after
+controlling for tabular risk and cancer type.  Then regresses the physician-
+level random effects on physician characteristics (CMG status, bilingualism,
+years of experience) using OLS on posterior samples.
+
+Outputs
+-------
+ICC_results_{held_out_set}.csv
+    Median + 95 % credible interval of the intraclass correlation coefficient.
+characteristics_regression_coefficients_{held_out_set}.csv
+    Posterior median + 95 % CI for each physician-characteristic coefficient,
+    aggregated across all targets.
+"""
+
 import argparse
-import pandas as pd
 import ast
+import glob
+import os
+
+import arviz as az
+import bambi as bmb
+import numpy as np
+import pandas as pd
+
 import sys
 sys.path.insert(1, "/cluster/projects/gliugroup/2BLAST/data/info")
 from phys_names import aliasDictionary, fellow_alias
-from collections import Counter
-import numpy as np
-import os
-import glob
-import statsmodels.formula.api as smf
-from statsmodels.stats.anova import anova_lm
-import warnings
-import pickle
-from statsmodels.tools.sm_exceptions import ConvergenceWarning
-import bambi as bmb
-import arviz as az
+
 from oncotrail.constants import df_physician_char_EPR, df_physician_char_EPIC
 from oncotrail.constants import CANCER_COARSE_SITE_MAP as COARSE_SITE_MAP
 from oncotrail.constants import CANCER_HIERARCHY as HIERARCHY
 
-# Create a dictionary where the key is the coarse group and the value is its rank (lower rank means higher priority)
-HIERARCHY_RANK = {site: rank for rank, site in enumerate(HIERARCHY)}
+
+# ---------------------------------------------------------------------------
+# Module-level constants
+# ---------------------------------------------------------------------------
+
+HIERARCHY_RANK: dict[str, int] = {
+    site: rank for rank, site in enumerate(HIERARCHY)
+}
 OTHER_ILL_DEFINED_GROUP = "Other / Ill-Defined"
 
+
+# ---------------------------------------------------------------------------
+# Cancer-site helpers
+# ---------------------------------------------------------------------------
+
 def process_cancer_sites(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Converts multiple binary cancer site columns into a single 'cancer_type' column 
-    based on coarse grouping and clinical hierarchy.
+    """Convert binary cancer-site indicator columns into a single
+    ``cancer_type`` column using the coarse grouping and clinical hierarchy.
 
-    Args:
-        df: The input DataFrame containing 'cancer_site_CXX' columns, 'prompting_risk', 
-            'tabular_risk', and 'dictating_physician'.
+    The function looks for columns whose names match a key in
+    ``COARSE_SITE_MAP`` (e.g. ``C34``).  For each patient it selects the
+    highest-priority positive code according to ``HIERARCHY_RANK``.
 
-    Returns:
-        The DataFrame with the new 'cancer_type' column.
+    Parameters
+    ----------
+    df:
+        Input DataFrame that contains ``cancer_site_CXX``-style columns
+        (already renamed to ``CXX`` before this function is called).
+
+    Returns
+    -------
+    The same DataFrame with a new ``cancer_type`` column appended.
     """
-    
-    # --- Step 1: Identify all cancer site columns ---
-    # Assuming all columns starting with 'C' followed by digits are cancer site indicators
-    # We must exclude the 'C' code columns that are not in our mapping if they exist
-    all_c_cols = [col for col in df.columns if col.startswith('C') and col[1:].isdigit()]
-    
-    # Filter the columns to only include those defined in our mapping
     defined_c_codes = set(COARSE_SITE_MAP.keys())
-    cancer_site_cols = [col for col in all_c_cols if col in defined_c_codes]
-    
+    cancer_site_cols = [
+        col for col in df.columns
+        if col.startswith("C") and col[1:].isdigit() and col in defined_c_codes
+    ]
+
     if not cancer_site_cols:
-        print("Warning: No defined 'C' code columns found. Assigning 'Other / Ill-Defined' to all.")
-        df['cancer_type'] = OTHER_ILL_DEFINED_GROUP
+        print("Warning: no defined C-code columns found — assigning 'Other / Ill-Defined'.")
+        df["cancer_type"] = OTHER_ILL_DEFINED_GROUP
         return df
 
-    # --- Step 2: Determine the Primary Cancer Type for each patient (row) ---
-    def get_primary_cancer_type(row):
-        # Identify all C-codes that are positive (value == 1) for the current patient
-        positive_c_codes = [col for col in cancer_site_cols if row.get(col) == 2]
-
-        # if positive_c_codes is empty, try to find codes with value == 1
-        if not positive_c_codes:
-            positive_c_codes = [col for col in cancer_site_cols if row.get(col) == 1]
-        
-        if not positive_c_codes:
-            # --- FIX: Merge "No Primary Found" cases into "Other / Ill-Defined" ---
+    def get_primary_cancer_type(row: pd.Series) -> str:
+        """Return the highest-priority coarse cancer group for one patient."""
+        # Prefer value==2 (primary), fall back to value==1 (secondary)
+        positive_codes = (
+            [col for col in cancer_site_cols if row.get(col) == 2]
+            or [col for col in cancer_site_cols if row.get(col) == 1]
+        )
+        if not positive_codes:
             return OTHER_ILL_DEFINED_GROUP
 
-        # Map positive C-codes to their coarse groups
-        coarse_groups = {COARSE_SITE_MAP.get(code, OTHER_ILL_DEFINED_GROUP) for code in positive_c_codes}
-        
-        # --- Step 3: Apply Hierarchy to select the single Primary Site ---
-        
-        # Define a function to look up the rank
-        def get_rank(group_name):
-            # Use the defined rank, or assign a high rank (low priority) if the group is unexpected
-            # We use len(HIERARCHY) as a very low priority rank for safety
-            return HIERARCHY_RANK.get(group_name, len(HIERARCHY))
+        coarse_groups = {
+            COARSE_SITE_MAP.get(code, OTHER_ILL_DEFINED_GROUP)
+            for code in positive_codes
+        }
+        return min(
+            coarse_groups,
+            key=lambda g: HIERARCHY_RANK.get(g, len(HIERARCHY)),
+        )
 
-        # Sort the groups by their rank. The group with the lowest rank (highest priority) is the first element.
-        primary_site = sorted(list(coarse_groups), key=get_rank)[0]
-        
-        return primary_site
-
-    # Apply the function across all rows to create the new 'cancer_type' column
-    df['cancer_type'] = df.apply(get_primary_cancer_type, axis=1)
-    
-    print(f"Data processed. Created 'cancer_type' column with {df['cancer_type'].nunique()} unique groups.")
+    df["cancer_type"] = df.apply(get_primary_cancer_type, axis=1)
+    print(
+        f"Created 'cancer_type' with {df['cancer_type'].nunique()} unique groups."
+    )
     return df
 
-def extract_names(s):
+
+def extract_names(s: str) -> list[str]:
+    """Parse a bracketed name list from *s* and resolve physician aliases.
+
+    The input string is expected to contain at least one line that starts with
+    ``[`` and represents a Python list literal of name strings.
+
+    Returns an empty list if parsing fails for any reason.
+    """
     try:
-        # Extract the line that looks like a list of names
-        list_line = [line for line in s.split('\n') if line.startswith('[')][0]
+        list_line = next(line for line in s.split("\n") if line.startswith("["))
         names = ast.literal_eval(list_line)
-
-        # Apply alias mapping to each name
-        result = []
-        for name in names:
-            alias = aliasDictionary.get(name, name)
-            result.append(fellow_alias.get(alias, alias))
-        return result
-
+        return [
+            fellow_alias.get(aliasDictionary.get(n, n), aliasDictionary.get(n, n))
+            for n in names
+        ]
     except Exception:
         return []
-    
-def load_prompting_result(target_name, prompting_results_dir):
+
+
+# ---------------------------------------------------------------------------
+# Data-loading helpers
+# ---------------------------------------------------------------------------
+
+def load_prompting_result(target_name: str, prompting_results_dir: str) -> pd.DataFrame:
+    """Load the prompting summary CSV for *target_name*.
+
+    Expects exactly one ``note_*/summary_*.csv`` file under
+    ``prompting_results_dir/target_name/``.
+    """
     target_dir = os.path.join(prompting_results_dir, target_name)
     note_dirs = [d for d in glob.glob(os.path.join(target_dir, "note_*")) if os.path.isdir(d)]
-    assert len(note_dirs) == 1, f"Expected one note_ directory in {target_dir}, found: {note_dirs}"
+    assert len(note_dirs) == 1, f"Expected one note_ dir in {target_dir}, found: {note_dirs}"
+
     summary_files = glob.glob(os.path.join(note_dirs[0], "summary_*.csv"))
     assert len(summary_files) == 1, f"Expected one summary_*.csv in {note_dirs[0]}, found: {summary_files}"
-    prompting_summary_df = pd.read_csv(summary_files[0])
-    
-    return prompting_summary_df
 
-def load_tabular_result(target_name, tabular_results_path, held_out_set):
+    return pd.read_csv(summary_files[0])
+
+
+def load_tabular_result(
+    target_name: str,
+    tabular_results_path: str,
+) -> pd.DataFrame:
+    """Load tabular model predictions for *target_name* from a ``.npz`` file.
+
+    Parameters
+    ----------
+    held_out_set:
+        Either ``"test"`` or ``"inference"``.
+
+    Returns
+    -------
+    DataFrame with columns ``mrn`` and ``prob``.
+    """
     df_model = pd.read_csv(tabular_results_path)
     target_row = df_model[df_model["target"] == target_name.replace("_", "-")]
-    assert not target_row.empty, f"Target {target_name.replace('_', '-')} not found in dataframe"
+    assert not target_row.empty, (
+        f"Target {target_name.replace('_', '-')} not found in {tabular_results_path}"
+    )
+
     data = np.load(target_row["pred_file_name"].values[0], allow_pickle=True)
-    if held_out_set == "test":
-        mrn_var = 'mrn_test'
-        pred_var = 'test_pred'
-    elif held_out_set == "inference":
-        mrn_var = 'mrn_inference'
-        pred_var = 'inference_pred'
-    mrns = data[mrn_var]
-    probs = data[pred_var].ravel()
+    return pd.DataFrame({"mrn": data['mrn_test'], "prob": data['test_pred'].ravel()})
 
-    return pd.DataFrame({'mrn': mrns, 'prob': probs})
 
-def regress_physician_characteristics(target_list, held_out_set, anchored_notes_path, 
-                                      save_dir, prompting_results_dir, tabular_results_path,
-                                      raw_treatment_path):
+# ---------------------------------------------------------------------------
+# Feature-engineering helpers
+# ---------------------------------------------------------------------------
 
-    df_treatment = pd.read_csv(anchored_notes_path)
-    df_treatment['treatment_date'] = pd.to_datetime(df_treatment['treatment_date'], utc=True)
-    df_treatment['treatment_year'] = df_treatment['treatment_date'].dt.year
-    df_treatment = df_treatment[['mrn', 'stats_dictated_by', 'treatment_date', 'treatment_year']].copy()   
+def build_merged_dataframe(
+    target_name: str,
+    df_treatment: pd.DataFrame,
+    prompting_results_dir: str,
+    tabular_results_path: str,
+) -> pd.DataFrame:
+    """Merge prompting + tabular predictions with treatment metadata.
 
-    raw_treatment = pd.read_parquet(raw_treatment_path)
-    if held_out_set == "test":
-        # find all columns in raw_treatment that contain 'cancer_site'
-        cancer_site_cols = [col for col in raw_treatment.columns if 'cancer_site' in col]
-        raw_treatment = raw_treatment[['mrn'] + cancer_site_cols].copy()
-        # rename the 'cancer_site_CXX' columns to just 'CXX'
-        raw_treatment.rename(columns={col: col.replace('cancer_site_', '') for col in cancer_site_cols}, inplace=True)
-        raw_treatment.drop_duplicates(subset=['mrn'], inplace=True)
-        df_treatment = df_treatment.merge(raw_treatment, how='left', on='mrn')
-        df_treatment = process_cancer_sites(df_treatment)
-    elif held_out_set == "inference":
-        raw_treatment['cancer_type'] = raw_treatment['primary_site_code'].map(COARSE_SITE_MAP).fillna(OTHER_ILL_DEFINED_GROUP)
-        raw_treatment['treatment_date'] = pd.to_datetime(raw_treatment['assessment_date'], utc=True)
-        # merge mrn, cancer_type, and treatment_date from raw_treatment into df_treatment
-        df_treatment = df_treatment.merge(raw_treatment[['mrn', 'cancer_type', 'treatment_date']], how='left', on='mrn')
+    Also filters to notes with exactly one dictating physician and computes
+    centred logit scores (``logit_prompting``, ``logit_tabular``,
+    ``logit_tabular_c``).
 
-    # drop treatment_date from df_treatment
-    df_treatment.drop(columns=['treatment_date'], inplace=True)
+    Returns a clean DataFrame ready for model fitting.
+    """
+    prompting_df = load_prompting_result(target_name, prompting_results_dir)
+    tabular_df   = load_tabular_result(target_name, tabular_results_path)
 
-    ICC_values = []
-    ICC_lower = []
-    ICC_upper = []
-    summary_across_targets = []
+    prompting_df = prompting_df.rename(columns={"Probability": "prob_prompting"})
+    tabular_df   = tabular_df.rename(columns={"prob": "prob_tabular"})
 
-    for target_name in target_list:
-        prompting_summary_df = load_prompting_result(target_name, prompting_results_dir)
-        tabular_summary_df = load_tabular_result(target_name, tabular_results_path, held_out_set)
-
-        # rename 'Probability' column in prompting_summary_df to 'prob_prompting'
-        prompting_summary_df = prompting_summary_df.rename(columns={'Probability': 'prob_prompting'})
-        # rename 'prob' column in tabular_summary_df to 'prob_tabular'
-        tabular_summary_df = tabular_summary_df.rename(columns={'prob': 'prob_tabular'})
-        # merge prompting_summary_df['mrn', 'prob_prompting'] with df_treatment on 'mrn'
-        df_merged = pd.merge(prompting_summary_df[['mrn', 'prob_prompting']], df_treatment[['mrn', 'stats_dictated_by', 'cancer_type', 'treatment_year']], on='mrn', how='inner')
-        # merge tabular_summary_df with df_merged on 'mrn'
-        df_merged = pd.merge(df_merged, tabular_summary_df, on='mrn', how='inner')
-
-        df_merged['dictating_physician'] = df_merged['stats_dictated_by'].apply(extract_names)
-        df_merged['num_dictators'] = df_merged['dictating_physician'].apply(len)
-        df_merged = df_merged.loc[df_merged['num_dictators']==1].copy()
-        df_merged['dictating_physician'] = df_merged['dictating_physician'].apply(lambda x: x[0] if x else 'Unknown')
-        # remove 'Unknown' dictating_physician
-        df_merged = df_merged[df_merged['dictating_physician'] != 'Unknown']
-        eps = 1e-6
-        df_merged["logit_prompting"] = np.log((df_merged["prob_prompting"] + eps) / (1 - df_merged["prob_prompting"] + eps))
-        df_merged["logit_tabular"]  = np.log((df_merged["prob_tabular"] + eps)  / (1 - df_merged["prob_tabular"]  + eps))
-        df_merged['average_treatment_year'] = df_merged.groupby('dictating_physician')['treatment_year'].transform('mean')
-
-        df_merged["logit_tabular_c"] = df_merged["logit_tabular"] - df_merged["logit_tabular"].mean()
-
-        print(target_name)
-        print(100*"#")
-
-        # Bayesian model
-
-        # create data matrix of physician characteristics
-        df_physician_yoe = df_merged[['dictating_physician', 'average_treatment_year']].drop_duplicates()
-        df_physician_yoe.rename(columns={'dictating_physician': 'med_onc'}, inplace=True)
-        if held_out_set == "test":
-            df_physician_char = df_physician_char_EPR.copy()
-        elif held_out_set == "inference":
-            df_physician_char = df_physician_char_EPIC.copy()
-        df_physician_char = df_physician_char.merge(df_physician_yoe, on='med_onc')
-        df_physician_char['average_YOE'] = df_physician_char['average_treatment_year'] - df_physician_char['YOG']
-
-        # fit hierarchical model
-        model = bmb.Model(
-            "logit_prompting ~ logit_tabular_c + C(cancer_type) + (1|dictating_physician)",
-            df_merged
+    df = (
+        prompting_df[["mrn", "prob_prompting"]]
+        .merge(
+            df_treatment[["mrn", "stats_dictated_by", "cancer_type", "treatment_year"]],
+            on="mrn", how="inner",
         )
-        res = model.fit(draws=2000, chains=4, target_accept=0.9)
+        .merge(tabular_df, on="mrn", how="inner")
+    )
 
-        max_Rhat = az.summary(res)['r_hat'].max()
-        if max_Rhat > 1.01:
-            print('Check quality of samples')
+    # Resolve dictating physician; keep only notes with exactly one dictator
+    df["dictating_physician"] = df["stats_dictated_by"].apply(extract_names)
+    df = df[df["dictating_physician"].apply(len) == 1].copy()
+    df["dictating_physician"] = df["dictating_physician"].apply(lambda x: x[0] if x else 'Unknown')
+    df = df[df["dictating_physician"] != "Unknown"]
 
-        # compute Bayesian ICC
-        # 1) extract posterior xarray variables
-        posterior = res.posterior
+    # Logit scores
+    eps = 1e-6
+    df["logit_prompting"] = np.log(
+        (df["prob_prompting"] + eps) / (1 - df["prob_prompting"] + eps)
+    )
+    df["logit_tabular"] = np.log(
+        (df["prob_tabular"] + eps) / (1 - df["prob_tabular"] + eps)
+    )
+    # Mean-centre the tabular logit (used as a covariate in the mixed model)
+    df["logit_tabular_c"] = df["logit_tabular"] - df["logit_tabular"].mean()
 
-        # extract as xarray DataArray
-        phys_sd_name = "1|dictating_physician_sigma"
-        resid_sd_name = "sigma"
-        sd_phys = posterior[phys_sd_name]        # dims: (chain, draw)
-        sd_resid = posterior[resid_sd_name]      # dims: (chain, draw)
+    # Per-physician mean treatment year (used to estimate years of experience)
+    df["average_treatment_year"] = df.groupby("dictating_physician")["treatment_year"].transform("mean")
 
-        # 2) convert to variances
-        var_phys = sd_phys**2     # same dims
-        var_resid = sd_resid**2   # same dims
+    return df
 
-        # 3) compute ICC per posterior draw
-        icc_xr = var_phys / (var_phys + var_resid)
 
-        # 4) flatten to 1D numpy array of draws
-        icc_vec = icc_xr.stack(sample=("chain", "draw")).values
-        ICC_values.append(float(np.median(icc_vec)))
-        ICC_lower.append(float(np.quantile(icc_vec, 0.025)))
-        ICC_upper.append(float(np.quantile(icc_vec, 0.975)))
+# ---------------------------------------------------------------------------
+# Bayesian model fitting + ICC
+# ---------------------------------------------------------------------------
 
-        # obtain posterior samples of the random effects for physicians we care about
-        top_dictating_physicians = df_physician_char['med_onc'].unique().tolist()
+def fit_bayesian_model(df: pd.DataFrame) -> az.InferenceData:
+    """Fit a Bayesian linear mixed model predicting ``logit_prompting``.
 
-        # Random effects array
-        re = posterior["1|dictating_physician"]
+    Fixed effects: mean-centred tabular logit + cancer type.
+    Random effect: intercept per dictating physician.
 
-        physicians_in_model = re.coords["dictating_physician__factor_dim"].values.tolist()
+    Returns the ArviZ InferenceData object from Bambi.
+    """
+    model = bmb.Model(
+        "logit_prompting ~ logit_tabular_c + C(cancer_type) + (1|dictating_physician)",
+        df,
+    )
+    res = model.fit(draws=2000, chains=4, target_accept=0.9)
 
-        # Select physicians present in the model
-        selected_physicians = [p for p in top_dictating_physicians if p in physicians_in_model]
+    max_rhat = az.summary(res)["r_hat"].max()
+    if max_rhat > 1.01:
+        print(f"  Warning: max R-hat = {max_rhat:.3f} — check sample quality.")
 
-        selected_idx = [physicians_in_model.index(p) for p in selected_physicians]
+    return res
 
-        # Subset posterior draws
-        re_subset = re[:, :, selected_idx]
 
-        # Stack sampling dims → rows; physicians → columns
-        re_df = re_subset.stack(sample=("chain", "draw")).to_pandas().T
+def compute_icc(res: az.InferenceData) -> tuple[float, float, float]:
+    """Compute the Bayesian ICC (physician variance / total variance).
 
-        # Fix column names
-        re_df.columns = selected_physicians
+    Parameters
+    ----------
+    res:
+        Fitted InferenceData returned by :func:`fit_bayesian_model`.
 
-        # Flatten the MultiIndex index (chain, draw)
-        re_df.index = re_df.index.map(lambda x: f"{x[0]}_{x[1]}")
+    Returns
+    -------
+    Tuple of (median ICC, 2.5th percentile, 97.5th percentile).
+    """
+    posterior = res.posterior
+    var_phys  = posterior["1|dictating_physician_sigma"] ** 2
+    var_resid = posterior["sigma"] ** 2
 
-        re_df = re_df.reset_index().rename(columns={'index': 'sample'})
-        re_df.columns.name = None  # Remove the column name if needed
+    icc_vec = (var_phys / (var_phys + var_resid)).stack(sample=("chain", "draw")).values
+    return (
+        float(np.median(icc_vec)),
+        float(np.quantile(icc_vec, 0.025)),
+        float(np.quantile(icc_vec, 0.975)),
+    )
 
-        # prepare med onc characteristics
-        X = np.column_stack([
-            np.ones(len(df_physician_char)),   # intercept
-            df_physician_char["Canadian_Medical_Graduate"].values.astype(float),
-            df_physician_char["Speaks_2nd_Language"].values.astype(float),
-            df_physician_char["average_YOE"].values.astype(float)
-        ])
 
-        feature_names = ["Intercept", "Canadian_Medical_Graduate",
-                        "Speaks_2nd_Language", "average_YOE"]
-        
-        # compute coefficients
-        betas = []   # each element will be a coefficient vector
+# ---------------------------------------------------------------------------
+# Regression of random effects on physician characteristics
+# ---------------------------------------------------------------------------
 
-        for _, row in re_df.iterrows():
-            y = row.values[1:].astype(float) # random effects for these physicians, 1d array
-            # OLS closed-form solution: beta = (X^T X)^(-1) X^T y
-            beta = np.linalg.solve(X.T @ X, X.T @ y)
-            betas.append(beta)
+def regress_re_on_physician_chars(
+    res: az.InferenceData,
+    df_physician_char: pd.DataFrame,
+) -> pd.DataFrame:
+    """Regress posterior physician random effects on physician characteristics.
 
-        betas = np.vstack(betas)   # shape = (samples, 4)
+    Uses OLS in closed form (beta = (X'X)^{-1} X'y) on each posterior sample,
+    then summarises the resulting coefficient distribution.
 
-        # create summary data frame
-        summary = pd.DataFrame({
-            "Feature": feature_names,
-            "Median": np.median(betas, axis=0),
-            "2.5%": np.percentile(betas, 2.5, axis=0),
-            "97.5%": np.percentile(betas, 97.5, axis=0),
-            "Target": target_name
-        })
-        summary_across_targets.append(summary)
+    Parameters
+    ----------
+    res:
+        Fitted InferenceData from :func:`fit_bayesian_model`.
+    df_physician_char:
+        DataFrame indexed by ``med_onc`` with columns
+        ``Canadian_Medical_Graduate``, ``Speaks_2nd_Language``, ``average_YOE``.
 
-    results_df = pd.DataFrame({
-        'target': target_list,
-        'ICC': ICC_values,
-        'ICC_lower' : ICC_lower,
-        'ICC_upper': ICC_upper
+    Returns
+    -------
+    DataFrame with columns Feature, Median, 2.5%, 97.5%.
+    """
+    posterior = res.posterior
+    re = posterior["1|dictating_physician"]
+    physicians_in_model = re.coords["dictating_physician__factor_dim"].values.tolist()
+
+    target_physicians = df_physician_char["med_onc"].unique().tolist()
+    selected = [p for p in target_physicians if p in physicians_in_model]
+    selected_idx = [physicians_in_model.index(p) for p in selected]
+
+    # Posterior draws: shape (n_samples, n_selected_physicians)
+    re_df = (
+        re[:, :, selected_idx]
+        .stack(sample=("chain", "draw"))
+        .to_pandas()
+        .T
+    )
+    re_df.columns = selected
+    re_df.index = re_df.index.map(lambda x: f"{x[0]}_{x[1]}")
+    re_df = re_df.reset_index().rename(columns={"index": "sample"})
+    re_df.columns.name = None
+
+    # Design matrix (intercept + 3 features) for the selected physicians
+    char = df_physician_char.set_index("med_onc").loc[selected]
+    X = np.column_stack([
+        np.ones(len(char)),
+        char["Canadian_Medical_Graduate"].astype(float),
+        char["Speaks_2nd_Language"].astype(float),
+        char["average_YOE"].astype(float),
+    ])
+    feature_names = [
+        "Intercept",
+        "Canadian_Medical_Graduate",
+        "Speaks_2nd_Language",
+        "average_YOE",
+    ]
+
+    # OLS on each posterior sample: hoist X'X outside the loop
+    XtX = X.T @ X
+    betas = np.vstack([
+        np.linalg.solve(XtX, X.T @ row.values[1:].astype(float))
+        for _, row in re_df.iterrows()
+    ])  # shape: (n_samples, 4)
+
+    return pd.DataFrame({
+        "Feature": feature_names,
+        "Median":  np.median(betas, axis=0),
+        "2.5%":    np.percentile(betas, 2.5,  axis=0),
+        "97.5%":   np.percentile(betas, 97.5, axis=0),
     })
 
-    results_df.to_csv(os.path.join(save_dir, f'ICC_results_{held_out_set}.csv'), index=False)
-    concat_summary = pd.concat(summary_across_targets)
-    concat_summary.to_csv(os.path.join(save_dir, f'characteristics_regression_coefficients_{held_out_set}.csv'), index=False)
+
+# ---------------------------------------------------------------------------
+# Treatment-table loader (run once, shared across all targets)
+# ---------------------------------------------------------------------------
+
+def load_treatment_table(
+    anchored_notes_path: str,
+    raw_treatment_path: str,
+    held_out_set: str,
+) -> pd.DataFrame:
+    """Build the per-note treatment table with cancer type and treatment year.
+
+    Parameters
+    ----------
+    anchored_notes_path:
+        CSV with columns including ``mrn``, ``stats_dictated_by``,
+        ``treatment_date``.
+    raw_treatment_path:
+        Parquet file whose schema differs between ``test`` and ``inference``
+        splits (see inline comments).
+    held_out_set:
+        ``"test"`` or ``"inference"``.
+
+    Returns
+    -------
+    DataFrame with columns: mrn, stats_dictated_by, treatment_year, cancer_type.
+    """
+    df = pd.read_csv(anchored_notes_path)
+    df["treatment_date"] = pd.to_datetime(df["treatment_date"], utc=True)
+    df["treatment_year"] = df["treatment_date"].dt.year
+    df = df[["mrn", "stats_dictated_by", "treatment_date", "treatment_year"]].copy()
+
+    raw = pd.read_parquet(raw_treatment_path)
+
+    if held_out_set == "test":
+        cancer_site_cols = [c for c in raw.columns if "cancer_site" in c]
+        raw = raw[["mrn"] + cancer_site_cols].copy()
+        raw.rename(columns={c: c.replace("cancer_site_", "") for c in cancer_site_cols}, inplace=True)
+        raw.drop_duplicates(subset=["mrn"], inplace=True)
+        df = df.merge(raw, how="left", on="mrn")
+        df = process_cancer_sites(df)
+
+    elif held_out_set == "inference":
+        raw["cancer_type"] = raw["primary_site_code"].map(COARSE_SITE_MAP).fillna(OTHER_ILL_DEFINED_GROUP)
+        raw["treatment_date"] = pd.to_datetime(raw["assessment_date"], utc=True)
+        # create a column with only the date (drops the time)
+        df['treatment_date_only'] = df['treatment_date'].dt.floor('D')
+        raw['treatment_date_only'] = raw['treatment_date'].dt.floor('D')
+
+        # merge on MRN and date only
+        df = df.merge(
+            raw[['mrn', 'cancer_type', 'treatment_date_only']],
+            how='left',
+            on=['mrn', 'treatment_date_only']
+        )
+    return df.drop(columns=["treatment_date", "treatment_date_only"])
+
+
+# ---------------------------------------------------------------------------
+# Main analysis loop
+# ---------------------------------------------------------------------------
+
+def regress_physician_characteristics(
+    target_list: list[str],
+    held_out_set: str,
+    anchored_notes_path: str,
+    save_dir: str,
+    prompting_results_dir: str,
+    tabular_results_path: str,
+    raw_treatment_path: str,
+) -> None:
+    """Run the full physician-characteristic regression pipeline.
+
+    For each target in *target_list*:
+      1. Merge prompting / tabular predictions with treatment metadata.
+      2. Fit a Bayesian hierarchical model (Bambi).
+      3. Compute the ICC from posterior samples.
+      4. Regress physician random effects on physician characteristics.
+
+    Results are written to *save_dir*.
+    """
+    df_treatment = load_treatment_table(anchored_notes_path, raw_treatment_path, held_out_set)
+
+    df_physician_char_base = (
+        df_physician_char_EPR.copy() if held_out_set == "test"
+        else df_physician_char_EPIC.copy()
+    )
+
+    icc_values: list[float] = []
+    icc_lower:  list[float] = []
+    icc_upper:  list[float] = []
+    summary_across_targets: list[pd.DataFrame] = []
+
+    for target_name in target_list:
+        print(f"\n{'#' * 80}\n{target_name}\n{'#' * 80}")
+
+        # --- 1. Feature engineering ---
+        df_merged = build_merged_dataframe(
+            target_name, df_treatment,
+            prompting_results_dir, tabular_results_path
+        )
+        
+        # --- 2. Physician-characteristic table (adds average YOE) ---
+        physician_yoe = (
+            df_merged[["dictating_physician", "average_treatment_year"]]
+            .drop_duplicates()
+            .rename(columns={"dictating_physician": "med_onc"})
+        )
+        df_physician_char = df_physician_char_base.merge(physician_yoe, on="med_onc")
+        df_physician_char["average_YOE"] = (
+            df_physician_char["average_treatment_year"] - df_physician_char["YOG"]
+        )
+        
+        # --- 3. Bayesian model + ICC ---
+        res = fit_bayesian_model(df_merged)
+        median_icc, lower_icc, upper_icc = compute_icc(res)
+        icc_values.append(median_icc)
+        icc_lower.append(lower_icc)
+        icc_upper.append(upper_icc)
+
+        # --- 4. Regress random effects on physician characteristics ---
+        coef_summary = regress_re_on_physician_chars(res, df_physician_char)
+        coef_summary["Target"] = target_name
+        summary_across_targets.append(coef_summary)
+
+    # --- Save results ---
+    pd.DataFrame({
+        "target":    target_list,
+        "ICC":       icc_values,
+        "ICC_lower": icc_lower,
+        "ICC_upper": icc_upper,
+    }).to_csv(os.path.join(save_dir, f"ICC_results_{held_out_set}.csv"), index=False)
+
+    pd.concat(summary_across_targets).to_csv(
+        os.path.join(save_dir, f"characteristics_regression_coefficients_{held_out_set}.csv"),
+        index=False,
+    )
+
+
+# ---------------------------------------------------------------------------
+# CLI entry point
+# ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-
-    parser = argparse.ArgumentParser(description="Check effect of dictating physician.")
-    parser.add_argument("held_out_set", type=str, choices=["test", "inference"], help="Which held-out set to analyze.")
-    parser.add_argument("target_list", type=str, help="List of target names. E.g., \"['target1', 'target2']\"")
-    parser.add_argument("anchored_notes_path", type=str, help="Path to CSV file with anchored notes.")
-    parser.add_argument("save_dir", type=str, help="Directory to save the results.")
-    parser.add_argument("prompting_results_dir", type=str, help="Directory containing prompting results.")
-    parser.add_argument("tabular_results_path", type=str, help="Path to tabular results.")
-    parser.add_argument("raw_treatment_path", type=str, default="None", help="Path to raw treatment")
-
+    parser = argparse.ArgumentParser(
+        description="Assess dictating-physician effects on LLM prompting risk scores."
+    )
+    parser.add_argument(
+        "held_out_set", choices=["test", "inference"],
+        help="Which held-out split to analyze.",
+    )
+    parser.add_argument(
+        "target_list",
+        help="List of target names. E.g., \"['target1', 'target2']\""
+    )
+    parser.add_argument("anchored_notes_path", help="CSV with anchored notes.")
+    parser.add_argument("save_dir",            help="Directory to write output CSVs.")
+    parser.add_argument("prompting_results_dir", help="Root dir for prompting results.")
+    parser.add_argument("tabular_results_path",  help="CSV index of tabular model files.")
+    parser.add_argument(
+        "raw_treatment_path", default="None",
+        help="Parquet file with raw treatment records.",
+    )
     args = parser.parse_args()
 
-    # Convert string lists to actual lists
-    target_list = ast.literal_eval(args.target_list)
-    regress_physician_characteristics(target_list, args.held_out_set, args.anchored_notes_path, 
-                                      args.save_dir, args.prompting_results_dir, args.tabular_results_path,
-                                      args.raw_treatment_path)
+    regress_physician_characteristics(
+        target_list           = ast.literal_eval(args.target_list),
+        held_out_set          = args.held_out_set,
+        anchored_notes_path   = args.anchored_notes_path,
+        save_dir              = args.save_dir,
+        prompting_results_dir = args.prompting_results_dir,
+        tabular_results_path  = args.tabular_results_path,
+        raw_treatment_path    = args.raw_treatment_path,
+    )
