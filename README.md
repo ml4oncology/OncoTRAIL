@@ -195,3 +195,6 @@ scripts/paper/
 | `postproc/plot_word_statistics.sh` | Plot word popularity and alignment between input and model reasoning |
 | `postproc/delong_auc_comparison.sh` | Perform DeLong statistical tests for AUC comparison |
 | `postproc/plot_physician_characteristics.sh` | Analyze model sensitivity to physician writing style |
+| `postproc/sensitivity_analysis.sh` | Aggregate and bootstrap results across all toxicities, methods, and data folds for healthy patients at baseline |
+| `postproc/regress_physician_characteristics.sh` | Fit Bayesian hierarchical models to quantify sensitivity to physician writing style |
+| `postproc/plot_physician_characteristics.sh` | Plot ICC and regression coefficients for Bayesian models regressed on physician demographics |

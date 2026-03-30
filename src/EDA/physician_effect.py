@@ -383,12 +383,14 @@ def load_treatment_table(
 
     if held_out_set == "test":
         cancer_site_cols = [c for c in raw.columns if "cancer_site" in c]
-        raw = raw[["mrn"] + cancer_site_cols].copy()
+        raw = raw[["mrn", "treatment_date"] + cancer_site_cols].copy()
         raw.rename(columns={c: c.replace("cancer_site_", "") for c in cancer_site_cols}, inplace=True)
+        raw["treatment_date"] = pd.to_datetime(raw["treatment_date"], utc=True)
         raw.drop_duplicates(subset=["mrn"], inplace=True)
-        df = df.merge(raw, how="left", on="mrn")
+        df = df.merge(raw, how="left", on=["mrn", "treatment_date"])
         df = process_cancer_sites(df)
-
+        return df.drop(columns=["treatment_date"])
+    
     elif held_out_set == "inference":
         raw["cancer_type"] = raw["primary_site_code"].map(COARSE_SITE_MAP).fillna(OTHER_ILL_DEFINED_GROUP)
         raw["treatment_date"] = pd.to_datetime(raw["assessment_date"], utc=True)
@@ -402,7 +404,7 @@ def load_treatment_table(
             how='left',
             on=['mrn', 'treatment_date_only']
         )
-    return df.drop(columns=["treatment_date", "treatment_date_only"])
+        return df.drop(columns=["treatment_date", "treatment_date_only"])
 
 
 # ---------------------------------------------------------------------------
