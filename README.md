@@ -28,6 +28,10 @@ mamba install cuda-toolkit r-base rpy2 ipykernel ipywidgets \
     -c conda-forge -c nvidia
 ```
 
+```bash
+Rscript -e "install.packages(c('pROC'), repos='https://cloud.r-project.org')"
+```
+
 ### 4. Install Python dependencies
 
 ```bash
