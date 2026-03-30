@@ -2,7 +2,7 @@
 export PATH=$PATH:$(pwd)
 
 userName="t127556uhn"
-memory=1
+memory=8
 condaEnv="$(conda run -n OncoTRAIL which python)"
 nGPU=0
 runTime='0-02:00:00'

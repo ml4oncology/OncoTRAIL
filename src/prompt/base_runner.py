@@ -13,6 +13,13 @@ from ml_common.constants import CANCER_CODE_MAP
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+FEW_SHOT_PHRASE = (
+            " Below are examples of clinical note summaries along with whether "
+            "or not the adverse event occurred (1 = Yes, 0 = No). These examples are for reference, "
+            "but your prediction should be a probability rather than a binary classification.\n"
+            "Examples:\n"
+        )
+
 def clean_col_name(str_name):
     if str_name == 'num_prior_ED_visits_within_5_years':
         clean_name = 'number of prior ED visits within 5 years'
@@ -328,22 +335,16 @@ class BaseLLMRunner:
         df_few = df_few[df_few["note"] != note].copy()
         df_few = self.utils.alternate_rows(df_few, target_name)
 
-        few_shot_phrase = (
-            " Below are examples of clinical note summaries along with whether "
-            "or not the adverse event occurred (1 = Yes, 0 = No). These examples are for reference, "
-            "but your prediction should be a probability rather than a binary classification.\n"
-            "Examples:\n"
-        )
         note_tokens = len(self.tokenizer.tokenize(note))
         system_tokens = len(self.tokenizer.tokenize(system_instructions))
-        few_shot_phrase_tokens = len(self.tokenizer.tokenize(few_shot_phrase))
+        few_shot_phrase_tokens = len(self.tokenizer.tokenize(FEW_SHOT_PHRASE))
         first_example_tokens = len(self.tokenizer.tokenize(df_few.iloc[0]["note_summary"]))
         initial_tokens = note_tokens + system_tokens + few_shot_phrase_tokens + first_example_tokens
         n_added = 0
 
         # Only proceed if initial token budget allows
         if initial_tokens < self.n_ctx_length:
-            system_instructions += few_shot_phrase
+            system_instructions += FEW_SHOT_PHRASE
 
             for idx, row in df_few.iterrows():
                 if idx + 1 > self.config.n_few_shot:

@@ -62,12 +62,13 @@ for target in "${target_list[@]}"; do
     for subdir in "$TARGET_DIR"/*/; do
         # Check if the subdirectory name starts with "note_anchored" or "note_tabular_anchored"
         if [[ -d "$subdir" ]] && ([[ $(basename "$subdir") == note_anchored* ]] || [[ $(basename "$subdir") == note_tabular_anchored* ]]); then
-            if compgen -G "$subdir/summary_*.csv" > /dev/null; then
-            # summary exists → do nothing
-            :
-            else
-                ../../pySLURMargs.py $userName $memory $condaEnv $nGPU $runTime "../../../src/prompt/combine_prompt_results.py $subdir $target"
-            fi
+            # if compgen -G "$subdir/summary_*.csv" > /dev/null; then
+            # # summary exists → do nothing
+            # :
+            # else
+            #     ../../pySLURMargs.py $userName $memory $condaEnv $nGPU $runTime "../../../src/prompt/combine_prompt_results.py $subdir $target"
+            # fi
+            ../../pySLURMargs.py $userName $memory $condaEnv $nGPU $runTime "../../../src/prompt/combine_prompt_results.py $subdir $target"
         fi
     done
 done

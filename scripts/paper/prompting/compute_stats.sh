@@ -64,11 +64,11 @@ for target in "${target_list[@]}"; do
     for subdir in "$TARGET_DIR"/*/; do
         # Check if the subdirectory name starts with "note_anchored" or "note_tabular_anchored"
         if [[ -d "$subdir" ]] && ([[ $(basename "$subdir") == note_anchored* ]] || [[ $(basename "$subdir") == note_tabular_anchored* ]]); then
-            # Skip only if statistics.csv exists AND has data rows (more than 1 line)
-            if [[ -f "$subdir/statistics.csv" ]] && [[ $(wc -l < "$subdir/statistics.csv") -gt 1 ]]; then
-                echo "Skipping $subdir: statistics.csv already exists and has data."
-                continue
-            fi
+            # # Skip only if statistics.csv exists AND has data rows (more than 1 line)
+            # if [[ -f "$subdir/statistics.csv" ]] && [[ $(wc -l < "$subdir/statistics.csv") -gt 1 ]]; then
+            #     echo "Skipping $subdir: statistics.csv already exists and has data."
+            #     continue
+            # fi
             ../../pySLURMargs.py $userName $memory $condaEnv $nGPU $runTime "../../../src/prompt/compute_stats.py $subdir $target $original_data"
         fi
     done

@@ -18,7 +18,7 @@ mode="$1"
 # SLURM config
 # -------------------------
 userName="t127556uhn"
-memory=16
+memory=4
 condaEnv="$(conda run -n OncoTRAIL which python)"
 nGPU=0
 runTime='0-02:00:00'
