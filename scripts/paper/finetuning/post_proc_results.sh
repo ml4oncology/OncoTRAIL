@@ -7,14 +7,14 @@ export PATH=$PATH:$(pwd)
 # Usage check
 # -------------------------
 if [[ $# -ne 1 ]]; then
-    echo "Usage: $0 {train|inference}"
+    echo "Usage: $0 {EPR|EPIC}"
     exit 1
 fi
 
 MODE="$1"
 
-if [[ "$MODE" != "train" && "$MODE" != "inference" ]]; then
-    echo "Error: argument must be 'train' or 'inference'"
+if [[ "$MODE" != "EPR" && "$MODE" != "EPIC" ]]; then
+    echo "Error: argument must be 'EPR' or 'EPIC'"
     exit 1
 fi
 
@@ -32,7 +32,7 @@ model_name="ModernBERT-base"
 # -------------------------
 # Mode-specific settings
 # -------------------------
-if [[ "$MODE" == "train" ]]; then
+if [[ "$MODE" == "EPR" ]]; then
     base_dir="/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/methods/finetuning/train_test"
     save_dir="/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/results/aggregate/train_test/finetuning"
 

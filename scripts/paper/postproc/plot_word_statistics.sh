@@ -12,7 +12,7 @@ export PATH=$R_HOME/bin:$PATH
 export PATH=$PATH:$(pwd)
 
 if [[ $# -ne 1 ]]; then
-    echo "Usage: $0 {epr|epic}"
+    echo "Usage: $0 {EPR|EPIC}"
     exit 1
 fi
 
@@ -46,7 +46,7 @@ target_list="[
 'target_ED_visit'
 ]"
 
-if [[ "$MODE" == "epr" ]]; then
+if [[ "$MODE" == "EPR" ]]; then
     save_dir='/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/results/plots/word_analysis/epr'
     data_dir='/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/results/plots/word_analysis/epr'
 else

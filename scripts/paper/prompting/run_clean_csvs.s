@@ -24,15 +24,15 @@ elif [[ "$stage" == "stage2" ]]; then
     BASE_PATH=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/methods/prompting/train_test/stage2
 elif [[ "$stage" == "stage3" ]]; then
     BASE_PATH=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/methods/prompting/train_test/stage3
-elif [[ "$stage" == "train" ]]; then
+elif [[ "$stage" == "EPR_train" ]]; then
     BASE_PATH=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/methods/prompting/train_test/train
-elif [[ "$stage" == "test" ]]; then
+elif [[ "$stage" == "EPR_test" ]]; then
     BASE_PATH=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/methods/prompting/train_test/test
-elif [[ "$stage" == "inference" ]]; then
+elif [[ "$stage" == "EPIC" ]]; then
     BASE_PATH=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/methods/prompting/inference
 else
     echo "Error: unknown stage '$stage'"
-    echo "Valid stages are: stage1, stage2, stage3, train, test, inference"
+    echo "Valid stages are: stage1, stage2, stage3, EPR_train, EPR_test, EPIC"
     exit 1
 fi
 

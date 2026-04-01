@@ -47,22 +47,24 @@ if [[ "$mode" == "aggregate" ]]; then
         results_dir=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/methods/prompting/train_test/stage3
         save_dir=$results_dir
         save_string="$stage"
-    elif [[ "$stage" == "train" ]]; then
+    elif [[ "$stage" == "EPR_train" ]]; then
         results_dir=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/methods/prompting/train_test/train
         save_dir=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/results/aggregate/train_test/prompting
-        save_string="$stage"
-    elif [[ "$stage" == "test" ]]; then
+        save_string="train"
+        stage="train"
+    elif [[ "$stage" == "EPR_test" ]]; then
         results_dir=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/methods/prompting/train_test/test
         save_dir=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/results/aggregate/train_test/prompting
-        save_string="$stage"
-    elif [[ "$stage" == "inference" ]]; then
+        save_string="test"
+        stage="test"
+    elif [[ "$stage" == "EPIC" ]]; then
         results_dir=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/methods/prompting/inference
         stage="test"
         save_string="inference"
         save_dir=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/results/aggregate/inference/prompting
     else
         echo "Error: unknown stage '$stage'"
-        echo "Valid stages: stage1, stage2, stage3, train, test, inference"
+        echo "Valid stages: stage1, stage2, stage3, EPR_train, EPR_test, EPIC"
         exit 1
     fi
 

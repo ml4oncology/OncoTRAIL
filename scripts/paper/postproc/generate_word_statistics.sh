@@ -12,7 +12,7 @@ export PATH=$R_HOME/bin:$PATH
 export PATH=$PATH:$(pwd)
 
 if [[ $# -ne 1 ]]; then
-    echo "Usage: $0 {epr|epic}"
+    echo "Usage: $0 {EPR|EPIC}"
     exit 1
 fi
 
@@ -50,7 +50,7 @@ target_list=(
 
 # n_targets=${#target_list[@]}
 
-if [[ "$MODE" == "epr" ]]; then
+if [[ "$MODE" == "EPR" ]]; then
     data_dir='/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/methods/prompting/train_test/test'
     save_dir='/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/results/plots/word_analysis/epr'
     path_to_anchored_notes='/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/data/train_test/note_anchored/note_anchored_firstTreatmentOnly-medOnc-ConsultLetterClinic_deid.csv'

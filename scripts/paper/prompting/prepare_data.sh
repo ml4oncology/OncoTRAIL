@@ -41,7 +41,7 @@ if [[ "$dataset_type" == "devt" ]]; then
     data_dir_note_anchored=${root_dir_proj}/paper/pmh_method/data/train_test/note_anchored
     data_dir_note_tabular=${root_dir_proj}/paper/pmh_method/data/train_test/note_tabular_anchored
     few_shot_loop=(0 4 8 16)
-elif [[ "$dataset_type" == "train" ]]; then
+elif [[ "$dataset_type" == "EPR_train" ]]; then
     start_date=$date_lower_limit
     end_date=$end_devt_date
     numeric_proba=1
@@ -51,7 +51,7 @@ elif [[ "$dataset_type" == "train" ]]; then
     data_dir_note_anchored=${root_dir_proj}/paper/pmh_method/data/train_test/note_anchored
     data_dir_note_tabular=${root_dir_proj}/paper/pmh_method/data/train_test/note_tabular_anchored
     few_shot_loop=(0 4 8 16)
-elif [[ "$dataset_type" == "test" ]]; then
+elif [[ "$dataset_type" == "EPR_test" ]]; then
     start_date=$start_test_date
     end_date=$date_upper_limit
     numeric_proba=1
@@ -61,7 +61,7 @@ elif [[ "$dataset_type" == "test" ]]; then
     data_dir_note_anchored=${root_dir_proj}/paper/pmh_method/data/train_test/note_anchored
     data_dir_note_tabular=${root_dir_proj}/paper/pmh_method/data/train_test/note_tabular_anchored
     few_shot_loop=(0 4 8 16)
-elif [[ "$dataset_type" == "inference" ]]; then
+elif [[ "$dataset_type" == "EPIC" ]]; then
     start_date=$inference_start_date
     end_date=$inference_end_date
     numeric_proba=1

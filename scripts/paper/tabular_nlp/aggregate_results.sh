@@ -7,14 +7,14 @@ export PATH=$PATH:$(pwd)
 # Usage check
 # -------------------------
 if [[ $# -ne 1 ]]; then
-    echo "Usage: $0 {train|inference}"
+    echo "Usage: $0 {EPR|EPIC}"
     exit 1
 fi
 
 MODE="$1"
 
-if [[ "$MODE" != "train" && "$MODE" != "inference" ]]; then
-    echo "Error: argument must be 'train' or 'inference'"
+if [[ "$MODE" != "EPR" && "$MODE" != "EPIC" ]]; then
+    echo "Error: argument must be 'EPR' or 'EPIC'"
     exit 1
 fi
 
@@ -55,7 +55,7 @@ note_list="['firstTreatmentOnly-medOnc-ConsultLetterClinic_deid']"
 # -------------------------
 # Mode-specific settings
 # -------------------------
-if [[ "$MODE" == "train" ]]; then
+if [[ "$MODE" == "EPR" ]]; then
     pred_directory='/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/methods/tabular_nlp/train_test/results/'
     model_directory='/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/methods/tabular_nlp/train_test/models/'
     save_dir='/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/results/aggregate/train_test/tabular_nlp'
@@ -77,7 +77,7 @@ for data_type in 'tabular' 'nlp-tfidf' 'nlp-count'
 do
     for model_restriction_list in "[]" # "['LR']"
     do
-        if [[ "$MODE" == "train" ]]; then
+        if [[ "$MODE" == "EPR" ]]; then
             cmd="../../../src/ML/aggregate.py \
                 $pred_directory \
                 $model_directory \

@@ -31,21 +31,21 @@ print(f'inference_end_date="{config.inference_end_date}"')
 EOF
 )"
 
-if [[ "$dataset_type" == "train" ]]; then
+if [[ "$dataset_type" == "EPR_train" ]]; then
     start_date=$date_lower_limit
     end_date=$end_devt_date
     save_dir_base=${root_dir_proj}/paper/pmh_method/methods/prompting/train_test/train
     data_dir_note=${root_dir_proj}/paper/pmh_method/data/train_test/note_anchored
     data_dir_note_tabular=${root_dir_proj}/paper/pmh_method/data/train_test/note_tabular_anchored
     extra_args=""
-elif [[ "$dataset_type" == "test" ]]; then
+elif [[ "$dataset_type" == "EPR_test" ]]; then
     start_date=$start_test_date
     end_date=$date_upper_limit
     save_dir_base=${root_dir_proj}/paper/pmh_method/methods/prompting/train_test/test
     data_dir_note=${root_dir_proj}/paper/pmh_method/data/train_test/note_anchored
     data_dir_note_tabular=${root_dir_proj}/paper/pmh_method/data/train_test/note_tabular_anchored
     extra_args=""
-elif [[ "$dataset_type" == "inference" ]]; then
+elif [[ "$dataset_type" == "EPIC" ]]; then
     start_date=$inference_start_date
     end_date=$inference_end_date
     save_dir_base=${root_dir_proj}/paper/pmh_method/methods/prompting/inference
@@ -159,7 +159,7 @@ do
     file_name=${fname}.csv
 
     # Build extra_args for inference mode
-    if [[ "$dataset_type" == "inference" ]]; then
+    if [[ "$dataset_type" == "EPIC" ]]; then
         if [ "$tabular" == "note" ]; then
             few_shot_train_dir=${few_shot_train_dir_base}/note_anchored/data_partitions/${fname}
         elif [ "$tabular" == "note-tabular" ]; then

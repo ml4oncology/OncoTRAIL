@@ -110,7 +110,7 @@ scripts/paper/
 | Script | Description |
 | --- | --- |
 | `tabular_nlp/main_tabular_train.sh` | Train tabular and NLP models and evaluate on held-out test set |
-| `tabular_nlp/aggregate_results.sh` | Aggregate results across configurations and perform model selection |
+| `tabular_nlp/aggregate_results.sh EPR` | Aggregate results across configurations and perform model selection |
 
 ---
 
@@ -119,7 +119,7 @@ scripts/paper/
 | Script | Description |
 | --- | --- |
 | `finetuning/main_finetuning_train_test.sh` | Train and evaluate finetuned LLM classifiers |
-| `finetuning/post_proc_results.sh` | Aggregate results and identify optimal finetuning configuration |
+| `finetuning/post_proc_results.sh EPR` | Aggregate results and identify optimal finetuning configuration |
 
 ---
 
@@ -140,22 +140,28 @@ scripts/paper/
 | `prompting/prompting_train_stage2.sh` | Stage 2 hyperparameter refinement |
 | `prompting/prompting_train_stage3.sh` | Stage 3 hyperparameter refinement |
 
+> Each stage produces outputs that must be processed separately in the aggregation step below.
+
+---
+
 #### Training Result Aggregation
+
+For each stage (`stage1`, `stage2`, `stage3`), run the following scripts with the corresponding stage argument.
 
 | Script | Description |
 | --- | --- |
-| `prompting/combine_prompt_results.sh` | Combine outputs from parallel prompting jobs |
-| `prompting/compute_stats.sh` | Compute evaluation metrics for prompting results |
-| `prompting/load_aggregate_statistics.sh` | Aggregate metrics across configurations and identify optimal setup |
+| `prompting/combine_prompt_results.sh <stage>` | Combine outputs from parallel prompting jobs for a given stage |
+| `prompting/compute_stats.sh <stage>` | Compute evaluation metrics for a given stage |
+| `prompting/load_aggregate_statistics.sh aggregate <stage>` | Aggregate metrics and identify optimal configuration for a given stage |
 
 #### Held-Out Test Evaluation
 
 | Script | Description |
 | --- | --- |
-| `prompting/prompting_evaluate.sh` | Run prompting evaluation using optimal configuration |
-| `prompting/combine_prompt_results.sh` | Combine evaluation outputs |
-| `prompting/compute_stats.sh` | Compute evaluation metrics |
-| `prompting/load_aggregate_statistics.sh` | Aggregate evaluation results |
+| `prompting/prompting_evaluate.sh EPR_test` | Run prompting evaluation using optimal configuration |
+| `prompting/combine_prompt_results.sh EPR_test` | Combine evaluation outputs |
+| `prompting/compute_stats.sh EPR_test` | Compute evaluation metrics |
+| `prompting/load_aggregate_statistics.sh aggregate EPR_test` | Aggregate evaluation results |
 
 ---
 
@@ -166,24 +172,24 @@ scripts/paper/
 | Script | Description |
 | --- | --- |
 | `tabular_nlp/main_inference.sh` | Run inference using optimal configuration on EPIC dataset |
-| `tabular_nlp/aggregate_results.sh` | Aggregate inference results |
+| `tabular_nlp/aggregate_results.sh EPIC` | Aggregate inference results |
 
 ### Finetuned Models
 
 | Script | Description |
 | --- | --- |
 | `finetuning/main_inference.sh` | Run finetuned model inference on EPIC dataset |
-| `finetuning/post_proc_results.sh` | Aggregate inference results |
+| `finetuning/post_proc_results.sh EPIC` | Aggregate inference results |
 
 ### Prompting Models
 
 | Script | Description |
 | --- | --- |
-| `prompting/prompting_evaluate.sh` | Evaluate prompting model on EPIC dataset |
-| `prompting/combine_prompt_results.sh` | Combine outputs from parallel prompting jobs |
-| `prompting/compute_stats.sh` | Compute evaluation metrics |
-| `prompting/load_aggregate_statistics.sh` | Aggregate inference results |
-| `prompting/load_aggregate_statistics.sh` | Aggregate results across all data folds |
+| `prompting/prompting_evaluate.sh EPIC` | Evaluate prompting model on EPIC dataset |
+| `prompting/combine_prompt_results.sh EPIC` | Combine outputs from parallel prompting jobs |
+| `prompting/compute_stats.sh EPIC` | Compute evaluation metrics |
+| `prompting/load_aggregate_statistics.sh aggregate EPIC` | Aggregate inference results |
+| `prompting/load_aggregate_statistics.sh concatenate` | Aggregate results across all data folds |
 ---
 
 ## 4. Postprocessing and Analysis
@@ -191,10 +197,10 @@ scripts/paper/
 | Script | Description |
 | --- | --- |
 | `postproc/aggregate_methods_targets_results.sh` | Aggregate and bootstrap results across all toxicities, methods, and data folds |
-| `postproc/generate_word_statistics.sh` | Compute word frequency and influence statistics |
-| `postproc/plot_word_statistics.sh` | Plot word popularity and alignment between input and model reasoning |
+| `postproc/generate_word_statistics.sh {EPR/EPIC}` | Compute word frequency and influence statistics |
+| `postproc/plot_word_statistics.sh {EPR/EPIC}` | Plot word popularity and alignment between input and model reasoning |
 | `postproc/delong_auc_comparison.sh` | Perform DeLong statistical tests for AUC comparison |
-| `postproc/plot_physician_characteristics.sh` | Analyze model sensitivity to physician writing style |
+| `postproc/plot_physician_characteristics.sh {EPR/EPIC}` | Analyze model sensitivity to physician writing style |
 | `postproc/sensitivity_analysis.sh` | Aggregate and bootstrap results across all toxicities, methods, and data folds for healthy patients at baseline |
-| `postproc/regress_physician_characteristics.sh` | Fit Bayesian hierarchical models to quantify sensitivity to physician writing style |
-| `postproc/plot_physician_characteristics.sh` | Plot ICC and regression coefficients for Bayesian models regressed on physician demographics |
+| `postproc/regress_physician_characteristics.sh {EPR/EPIC}` | Fit Bayesian hierarchical models to quantify sensitivity to physician writing style |
+| `postproc/plot_physician_characteristics.sh {EPR/EPIC}` | Plot ICC and regression coefficients for Bayesian models regressed on physician demographics |

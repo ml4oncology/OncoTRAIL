@@ -68,7 +68,7 @@ do
 for hyperParamEval in 'AUROC' 'logloss'
 do
 
-for modelName in 'MLP' # 'LR' 'LGBM' 'XGB' 'MLP' 
+for modelName in 'MLP' 'LR' 'LGBM' 'XGB' 'MLP' 
 do
 
 if [[ $modelName == "MLP" ]]; then
