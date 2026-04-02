@@ -9,6 +9,8 @@ if [[ $# -gt 1 ]]; then
 fi
 
 ROOT_PREFIX="${1:-$DEFAULT_ROOT_PREFIX}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SRC_DIR="$(cd "${SCRIPT_DIR}/../../../src" && pwd)"
 
 userName="t127556uhn"
 memory=16
@@ -19,9 +21,11 @@ runTime='0-00:15:00'
 root_dir_proj="${ROOT_PREFIX}/OncoTRAIL"
 
 eval "$(
+export SRC_DIR
 python - <<'EOF'
 import sys
-sys.path.insert(0, "/cluster/home/t127556uhn/gitrepo/2024/OncoTRAIL/src") 
+import os
+sys.path.insert(0, os.environ["SRC_DIR"])
 import config
 print(f'start_test_date="{config.start_test_date}"')
 print(f'end_devt_date="{config.end_devt_date}"')
@@ -190,5 +194,4 @@ do
 
 done
 done
-
 

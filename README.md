@@ -91,6 +91,7 @@ All scripts are located under:
 ```
 scripts/paper/
 ```
+Please change the user name before running the scripts.
 
 ## 1. Data Preparation
 
@@ -136,9 +137,9 @@ scripts/paper/
 
 | Script | Description |
 | --- | --- |
-| `prompting/prompting_train_stage1.sh` | Stage 1 hyperparameter search for prompting configurations |
+| `prompting/prompting_train_stage1.sh llama_cpp_sequential` | Stage 1 hyperparameter search for prompting configurations |
 | `prompting/prompting_train_stage2.sh` | Stage 2 hyperparameter refinement |
-| `prompting/prompting_train_stage3.sh` | Stage 3 hyperparameter refinement |
+| `prompting/prompting_train_stage3.sh llama_cpp_sequential` | Stage 3 hyperparameter refinement |
 
 > Each stage produces outputs that must be processed separately in the aggregation step below.
 

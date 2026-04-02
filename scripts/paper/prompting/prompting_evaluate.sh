@@ -17,11 +17,15 @@ runTime='0-00:15:00'
 dataset_type="$1"
 ROOT_PREFIX="${2:-$DEFAULT_ROOT_PREFIX}"
 root_dir_proj="${ROOT_PREFIX}/OncoTRAIL"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SRC_DIR="$(cd "${SCRIPT_DIR}/../../../src" && pwd)"
 
 eval "$(
+export SRC_DIR
 python - <<'EOF'
 import sys
-sys.path.insert(0, "/cluster/home/t127556uhn/gitrepo/2024/OncoTRAIL/src") 
+import os
+sys.path.insert(0, os.environ["SRC_DIR"])
 import config
 print(f'start_test_date="{config.start_test_date}"')
 print(f'end_devt_date="{config.end_devt_date}"')
