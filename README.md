@@ -1,5 +1,11 @@
 # OncoTRAIL: Oncology Toxicity Risk prediction using Artificial Intelligence and Language models
 
+OncoTRAIL is a machine learning framework for predicting adverse events during cancer treatment from real-world clinical data at Princess Margaret Cancer Centre. It targets a diverse set of toxicities, including short-term mortality, acute care use, patient-reported symptom worsening, and laboratory abnormalities.
+
+The framework benchmarks multiple modeling paradigms—LLM prompting (zero/few-shot), LLM fine-tuning, bag-of-words NLP, and tabular machine learning—across heterogeneous data sources, including unstructured clinical notes and structured variables. It also includes systematic prompt engineering to study the impact of prompt design, model scale, and input composition.
+
+A key emphasis is out-of-distribution generalization. Models are evaluated under temporal, EHR, and cancer case-mix shifts, as well as robustness to variation in clinician writing styles.
+
 ## Installation
 
 ### Prerequisites
