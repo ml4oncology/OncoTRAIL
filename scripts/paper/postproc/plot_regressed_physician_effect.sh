@@ -6,12 +6,16 @@ export PATH=$PATH:$(pwd)
 # -------------------------
 # Usage check
 # -------------------------
-if [[ $# -ne 1 ]]; then
-    echo "Usage: $0 {EPR|EPIC}"
+DEFAULT_ROOT_PREFIX="/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024"
+
+if [[ $# -lt 1 || $# -gt 2 ]]; then
+    echo "Usage: $0 {EPR|EPIC} [root_prefix]"
     exit 1
 fi
 
 EMR_system="$1"
+ROOT_PREFIX="${2:-$DEFAULT_ROOT_PREFIX}"
+PROJECT_ROOT="${ROOT_PREFIX}/OncoTRAIL"
 
 if [[ "$EMR_system" != "EPR" && "$EMR_system" != "EPIC" ]]; then
     echo "Error: argument must be 'EPR' or 'EPIC'"
@@ -54,15 +58,15 @@ target_list="[
 # -------------------------
 if [[ "$EMR_system" == "EPR" ]]; then
     held_out_set="test"
-    ICC_results_path=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/results/plots/physician_variability/regression/ICC_results_test.csv
-    regression_coefficients_path=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/results/plots/physician_variability/regression/characteristics_regression_coefficients_test.csv
+    ICC_results_path="${PROJECT_ROOT}/paper/pmh_method/results/plots/physician_variability/regression/ICC_results_test.csv"
+    regression_coefficients_path="${PROJECT_ROOT}/paper/pmh_method/results/plots/physician_variability/regression/characteristics_regression_coefficients_test.csv"
 else  # EPIC
     held_out_set="inference"
-    ICC_results_path=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/results/plots/physician_variability/regression/ICC_results_inference.csv
-    regression_coefficients_path=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/results/plots/physician_variability/regression/characteristics_regression_coefficients_inference.csv
+    ICC_results_path="${PROJECT_ROOT}/paper/pmh_method/results/plots/physician_variability/regression/ICC_results_inference.csv"
+    regression_coefficients_path="${PROJECT_ROOT}/paper/pmh_method/results/plots/physician_variability/regression/characteristics_regression_coefficients_inference.csv"
 fi
 
-prompting_results_path=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/results/aggregate/inference/prompting/prompting_results_train_test_inference.csv
-output_dir=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/results/plots/physician_variability/regression
+prompting_results_path="${PROJECT_ROOT}/paper/pmh_method/results/aggregate/inference/prompting/prompting_results_train_test_inference.csv"
+output_dir="${PROJECT_ROOT}/paper/pmh_method/results/plots/physician_variability/regression"
 
 ../../pySLURMargs.py $userName $memory $condaEnv $nGPU $runTime "../../../src/EDA/plot_regressed_physician_effect.py $held_out_set $prompting_results_path $ICC_results_path $regression_coefficients_path $output_dir"

@@ -1,12 +1,16 @@
 #!/bin/bash
 export PATH=$PATH:$(pwd)
 
-if [[ $# -ne 1 ]]; then
-    echo "Usage: $0 <stage>"
+DEFAULT_ROOT_PREFIX="/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024"
+
+if [[ $# -lt 1 || $# -gt 2 ]]; then
+    echo "Usage: $0 <stage> [root_prefix]"
     exit 1
 fi
 
 stage="$1"
+ROOT_PREFIX="${2:-$DEFAULT_ROOT_PREFIX}"
+PROJECT_ROOT="${ROOT_PREFIX}/OncoTRAIL"
 
 userName="t127556uhn"
 memory=8
@@ -17,17 +21,17 @@ runTime='0-00:30:00'
 # Note: need to get a node before you can run this script!
 
 if [[ "$stage" == "stage1" ]]; then
-    root_dir=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/methods/prompting/train_test/stage1
+    root_dir=${PROJECT_ROOT}/paper/pmh_method/methods/prompting/train_test/stage1
 elif [[ "$stage" == "stage2" ]]; then
-    root_dir=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/methods/prompting/train_test/stage2
+    root_dir=${PROJECT_ROOT}/paper/pmh_method/methods/prompting/train_test/stage2
 elif [[ "$stage" == "stage3" ]]; then
-    root_dir=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/methods/prompting/train_test/stage3
+    root_dir=${PROJECT_ROOT}/paper/pmh_method/methods/prompting/train_test/stage3
 elif [[ "$stage" == "EPR_train" ]]; then
-    root_dir=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/methods/prompting/train_test/train
+    root_dir=${PROJECT_ROOT}/paper/pmh_method/methods/prompting/train_test/train
 elif [[ "$stage" == "EPR_test" ]]; then
-    root_dir=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/methods/prompting/train_test/test
+    root_dir=${PROJECT_ROOT}/paper/pmh_method/methods/prompting/train_test/test
 elif [[ "$stage" == "EPIC" ]]; then
-    root_dir=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/methods/prompting/inference
+    root_dir=${PROJECT_ROOT}/paper/pmh_method/methods/prompting/inference
 else
     echo "Error: unknown stage '$stage'"
     echo "Valid stages are: stage1, stage2, stage3, EPR_train, EPR_test, EPIC"

@@ -11,14 +11,18 @@ export PATH=$R_HOME/bin:$PATH
 
 export PATH=$PATH:$(pwd)
 
-if [[ $# -ne 1 ]]; then
-    echo "Usage: $0 {EPR|EPIC}"
+DEFAULT_ROOT_PREFIX="/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024"
+
+if [[ $# -lt 1 || $# -gt 2 ]]; then
+    echo "Usage: $0 {EPR|EPIC} [root_prefix]"
     exit 1
 fi
 
 # note: need to export R_HOME=$(R RHOME) after activating environment
 
 MODE="$1"
+ROOT_PREFIX="${2:-$DEFAULT_ROOT_PREFIX}"
+PROJECT_ROOT="${ROOT_PREFIX}/OncoTRAIL"
 
 userName="t127556uhn"
 memory=16
@@ -51,13 +55,13 @@ target_list=(
 # n_targets=${#target_list[@]}
 
 if [[ "$MODE" == "EPR" ]]; then
-    data_dir='/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/methods/prompting/train_test/test'
-    save_dir='/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/results/plots/word_analysis/epr'
-    path_to_anchored_notes='/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/data/train_test/note_anchored/note_anchored_firstTreatmentOnly-medOnc-ConsultLetterClinic_deid.csv'
+    data_dir="${PROJECT_ROOT}/paper/pmh_method/methods/prompting/train_test/test"
+    save_dir="${PROJECT_ROOT}/paper/pmh_method/results/plots/word_analysis/epr"
+    path_to_anchored_notes="${PROJECT_ROOT}/paper/pmh_method/data/train_test/note_anchored/note_anchored_firstTreatmentOnly-medOnc-ConsultLetterClinic_deid.csv"
 else
-    data_dir='/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/methods/prompting/inference'
-    save_dir='/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/results/plots/word_analysis/epic'
-    path_to_anchored_notes='/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/data/inference/note_anchored/note_anchored_firstTreatmentOnly-medOnc-ConsultLetterClinic_deid.csv'
+    data_dir="${PROJECT_ROOT}/paper/pmh_method/methods/prompting/inference"
+    save_dir="${PROJECT_ROOT}/paper/pmh_method/results/plots/word_analysis/epic"
+    path_to_anchored_notes="${PROJECT_ROOT}/paper/pmh_method/data/inference/note_anchored/note_anchored_firstTreatmentOnly-medOnc-ConsultLetterClinic_deid.csv"
 fi
 
 for target in "${target_list[@]}"; do

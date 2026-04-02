@@ -1,13 +1,23 @@
 #!/bin/bash
 export PATH=$PATH:$(pwd)
 
+DEFAULT_ROOT_PREFIX="/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024"
+
+if [[ $# -gt 1 ]]; then
+    echo "Usage: $0 [root_prefix]"
+    exit 1
+fi
+
+ROOT_PREFIX="${1:-$DEFAULT_ROOT_PREFIX}"
+PROJECT_ROOT="${ROOT_PREFIX}/OncoTRAIL"
+
 userName="t127556uhn"
 memory=1
 condaEnv="$(conda run -n OncoTRAIL which python)"
 nGPU=0
 runTime='0-01:00:00'
 
-rootDirProj=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL
+rootDirProj=${PROJECT_ROOT}
 saveDir=${rootDirProj}/paper/pmh_method/methods/prompting/prompts
 
 target_list=(
@@ -45,4 +55,3 @@ numeric_proba=1
 repeated_sampling=0
 
 ../../pySLURMargs.py $userName $memory $condaEnv $nGPU $runTime "../../../src/prompt/generate_prompts.py $target_array $numeric_proba $saveDir $repeated_sampling"
-

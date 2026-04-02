@@ -6,12 +6,16 @@ export PATH=$PATH:$(pwd)
 # -------------------------
 # Usage check
 # -------------------------
-if [[ $# -ne 1 ]]; then
-    echo "Usage: $0 {EPR|EPIC}"
+DEFAULT_ROOT_PREFIX="/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024"
+
+if [[ $# -lt 1 || $# -gt 2 ]]; then
+    echo "Usage: $0 {EPR|EPIC} [root_prefix]"
     exit 1
 fi
 
 MODE="$1"
+ROOT_PREFIX="${2:-$DEFAULT_ROOT_PREFIX}"
+PROJECT_ROOT="${ROOT_PREFIX}/OncoTRAIL"
 
 if [[ "$MODE" != "EPR" && "$MODE" != "EPIC" ]]; then
     echo "Error: argument must be 'EPR' or 'EPIC'"
@@ -56,15 +60,15 @@ note_list="['firstTreatmentOnly-medOnc-ConsultLetterClinic_deid']"
 # Mode-specific settings
 # -------------------------
 if [[ "$MODE" == "EPR" ]]; then
-    pred_directory='/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/methods/tabular_nlp/train_test/results/'
-    model_directory='/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/methods/tabular_nlp/train_test/models/'
-    save_dir='/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/results/aggregate/train_test/tabular_nlp'
+    pred_directory="${PROJECT_ROOT}/paper/pmh_method/methods/tabular_nlp/train_test/results/"
+    model_directory="${PROJECT_ROOT}/paper/pmh_method/methods/tabular_nlp/train_test/models/"
+    save_dir="${PROJECT_ROOT}/paper/pmh_method/results/aggregate/train_test/tabular_nlp"
     mode="train"
 
 else  # inference
-    pred_directory='/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/methods/tabular_nlp/inference/results/'
-    model_directory='/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/methods/tabular_nlp/train_test/models/'
-    save_dir='/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/results/aggregate/inference/tabular_nlp'
+    pred_directory="${PROJECT_ROOT}/paper/pmh_method/methods/tabular_nlp/inference/results/"
+    model_directory="${PROJECT_ROOT}/paper/pmh_method/methods/tabular_nlp/train_test/models/"
+    save_dir="${PROJECT_ROOT}/paper/pmh_method/results/aggregate/inference/tabular_nlp"
     mode="inference"
     
 fi
@@ -89,7 +93,7 @@ do
                 $save_dir \
                 $mode"
         else
-            path_to_best_train=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/results/aggregate/train_test/tabular_nlp/best_result_summary_firstTreatmentOnly-medOnc-ConsultLetterClinic_deid_${data_type}_all_Temporal.csv
+            path_to_best_train="${PROJECT_ROOT}/paper/pmh_method/results/aggregate/train_test/tabular_nlp/best_result_summary_firstTreatmentOnly-medOnc-ConsultLetterClinic_deid_${data_type}_all_Temporal.csv"
 
             cmd="../../../src/ML/aggregate.py \
                 $pred_directory \

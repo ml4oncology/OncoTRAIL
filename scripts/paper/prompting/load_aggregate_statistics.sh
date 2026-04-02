@@ -5,10 +5,12 @@ export PATH=$PATH:$(pwd)
 # -------------------------
 # Usage
 # -------------------------
-if [[ $# -lt 1 ]]; then
+DEFAULT_ROOT_PREFIX="/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024"
+
+if [[ $# -lt 1 || $# -gt 3 ]]; then
     echo "Usage:"
-    echo "  $0 aggregate <stage>"
-    echo "  $0 concatenate"
+    echo "  $0 aggregate <stage> [root_prefix]"
+    echo "  $0 concatenate [root_prefix]"
     exit 1
 fi
 
@@ -28,40 +30,42 @@ runTime='0-02:00:00'
 # ============================================================
 if [[ "$mode" == "aggregate" ]]; then
 
-    if [[ $# -ne 2 ]]; then
-        echo "Usage: $0 aggregate <stage>"
+    if [[ $# -lt 2 || $# -gt 3 ]]; then
+        echo "Usage: $0 aggregate <stage> [root_prefix]"
         exit 1
     fi
 
     stage="$2"
+    ROOT_PREFIX="${3:-$DEFAULT_ROOT_PREFIX}"
+    PROJECT_ROOT="${ROOT_PREFIX}/OncoTRAIL"
 
     if [[ "$stage" == "stage1" ]]; then
-        results_dir=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/methods/prompting/train_test/stage1
+        results_dir=${PROJECT_ROOT}/paper/pmh_method/methods/prompting/train_test/stage1
         save_dir=$results_dir
         save_string="$stage"
     elif [[ "$stage" == "stage2" ]]; then
-        results_dir=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/methods/prompting/train_test/stage2
+        results_dir=${PROJECT_ROOT}/paper/pmh_method/methods/prompting/train_test/stage2
         save_dir=$results_dir
         save_string="$stage"
     elif [[ "$stage" == "stage3" ]]; then
-        results_dir=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/methods/prompting/train_test/stage3
+        results_dir=${PROJECT_ROOT}/paper/pmh_method/methods/prompting/train_test/stage3
         save_dir=$results_dir
         save_string="$stage"
     elif [[ "$stage" == "EPR_train" ]]; then
-        results_dir=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/methods/prompting/train_test/train
-        save_dir=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/results/aggregate/train_test/prompting
+        results_dir=${PROJECT_ROOT}/paper/pmh_method/methods/prompting/train_test/train
+        save_dir=${PROJECT_ROOT}/paper/pmh_method/results/aggregate/train_test/prompting
         save_string="train"
         stage="train"
     elif [[ "$stage" == "EPR_test" ]]; then
-        results_dir=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/methods/prompting/train_test/test
-        save_dir=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/results/aggregate/train_test/prompting
+        results_dir=${PROJECT_ROOT}/paper/pmh_method/methods/prompting/train_test/test
+        save_dir=${PROJECT_ROOT}/paper/pmh_method/results/aggregate/train_test/prompting
         save_string="test"
         stage="test"
     elif [[ "$stage" == "EPIC" ]]; then
-        results_dir=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/methods/prompting/inference
+        results_dir=${PROJECT_ROOT}/paper/pmh_method/methods/prompting/inference
         stage="test"
         save_string="inference"
-        save_dir=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/results/aggregate/inference/prompting
+        save_dir=${PROJECT_ROOT}/paper/pmh_method/results/aggregate/inference/prompting
     else
         echo "Error: unknown stage '$stage'"
         echo "Valid stages: stage1, stage2, stage3, EPR_train, EPR_test, EPIC"
@@ -98,12 +102,19 @@ if [[ "$mode" == "aggregate" ]]; then
 # MODE: CONCATENATE
 # ============================================================
 elif [[ "$mode" == "concatenate" ]]; then
+    if [[ $# -gt 2 ]]; then
+        echo "Usage: $0 concatenate [root_prefix]"
+        exit 1
+    fi
+
+    ROOT_PREFIX="${2:-$DEFAULT_ROOT_PREFIX}"
+    PROJECT_ROOT="${ROOT_PREFIX}/OncoTRAIL"
 
     # ---- MANUALLY SPECIFY PATHS HERE ----
-    results_dir_train=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/results/aggregate/train_test/prompting
-    results_dir_test=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/results/aggregate/train_test/prompting
-    results_dir_inference=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/results/aggregate/inference/prompting
-    save_dir=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/results/aggregate/inference/prompting
+    results_dir_train=${PROJECT_ROOT}/paper/pmh_method/results/aggregate/train_test/prompting
+    results_dir_test=${PROJECT_ROOT}/paper/pmh_method/results/aggregate/train_test/prompting
+    results_dir_inference=${PROJECT_ROOT}/paper/pmh_method/results/aggregate/inference/prompting
+    save_dir=${PROJECT_ROOT}/paper/pmh_method/results/aggregate/inference/prompting
 
     ../../pySLURMargs.py \
         $userName $memory $condaEnv $nGPU $runTime \

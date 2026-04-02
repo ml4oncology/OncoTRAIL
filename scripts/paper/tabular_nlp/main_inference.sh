@@ -1,6 +1,16 @@
 #!/bin/bash
 export PATH=$PATH:$(pwd)
 
+DEFAULT_ROOT_PREFIX="/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024"
+
+if [[ $# -gt 1 ]]; then
+    echo "Usage: $0 [root_prefix]"
+    exit 1
+fi
+
+ROOT_PREFIX="${1:-$DEFAULT_ROOT_PREFIX}"
+PROJECT_ROOT="${ROOT_PREFIX}/OncoTRAIL"
+
 userName="t127556uhn"
 memory=16
 condaEnv="$(conda run -n OncoTRAIL which python)"
@@ -25,11 +35,11 @@ EOF
 date_lower_limit=$inference_start_date
 date_upper_limit=$inference_end_date
 
-rootDir=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL
-resultsDir=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/methods/tabular_nlp/inference/results
+rootDir=${PROJECT_ROOT}
+resultsDir=${PROJECT_ROOT}/paper/pmh_method/methods/tabular_nlp/inference/results
 
 # Path to the CSV file containing model information
-csvRoot=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/results/aggregate/train_test/tabular_nlp
+csvRoot=${PROJECT_ROOT}/paper/pmh_method/results/aggregate/train_test/tabular_nlp
 
 embeddingPath=None
 

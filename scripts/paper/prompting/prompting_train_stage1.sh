@@ -1,10 +1,18 @@
 #!/bin/bash
 export PATH=$PATH:$(pwd)
 
+DEFAULT_ROOT_PREFIX="/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024"
+
+if [[ $# -lt 1 || $# -gt 2 ]]; then
+    echo "Usage: $0 <llama_cpp_parallel|llama_cpp_sequential|vllm_offline> [root_prefix]"
+    exit 1
+fi
+
 # ── Mode selection ────────────────────────────────────────────────────────────
 # Usage: ./prompting_train_stage1_consolidated.sh <mode>
 # Modes: llama_cpp_parallel | llama_cpp_sequential | vllm_offline
-mode="${1:?Usage: $0 <llama_cpp_parallel|llama_cpp_sequential|vllm_offline>}"
+mode="$1"
+ROOT_PREFIX="${2:-$DEFAULT_ROOT_PREFIX}"
 
 case "$mode" in
     llama_cpp_parallel|llama_cpp_sequential|vllm_offline) ;;
@@ -25,7 +33,7 @@ userName="t127556uhn"
 memory=16
 condaEnv="$(conda run -n OncoTRAIL which python)"
 
-root_dir_proj=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL
+root_dir_proj="${ROOT_PREFIX}/OncoTRAIL"
 
 eval "$(
 python - <<'EOF'

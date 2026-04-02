@@ -6,12 +6,16 @@ export PATH=$PATH:$(pwd)
 # -------------------------
 # Usage check
 # -------------------------
-if [[ $# -ne 1 ]]; then
-    echo "Usage: $0 {EPR|EPIC}"
+DEFAULT_ROOT_PREFIX="/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024"
+
+if [[ $# -lt 1 || $# -gt 2 ]]; then
+    echo "Usage: $0 {EPR|EPIC} [root_prefix]"
     exit 1
 fi
 
 MODE="$1"
+ROOT_PREFIX="${2:-$DEFAULT_ROOT_PREFIX}"
+PROJECT_ROOT="${ROOT_PREFIX}/OncoTRAIL"
 
 if [[ "$MODE" != "EPR" && "$MODE" != "EPIC" ]]; then
     echo "Error: argument must be 'EPR' or 'EPIC'"
@@ -33,8 +37,8 @@ model_name="ModernBERT-base"
 # Mode-specific settings
 # -------------------------
 if [[ "$MODE" == "EPR" ]]; then
-    base_dir="/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/methods/finetuning/train_test"
-    save_dir="/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/results/aggregate/train_test/finetuning"
+    base_dir="${PROJECT_ROOT}/paper/pmh_method/methods/finetuning/train_test"
+    save_dir="${PROJECT_ROOT}/paper/pmh_method/results/aggregate/train_test/finetuning"
 
     cmd="../../../src/finetune/post_proc_results.py \
         $base_dir \
@@ -43,9 +47,9 @@ if [[ "$MODE" == "EPR" ]]; then
         --mode train"
 
 else  # inference
-    base_dir="/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/methods/finetuning/inference"
-    save_dir="/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/results/aggregate/inference/finetuning"
-    path_to_best_train="/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/results/aggregate/train_test/finetuning/best_finetune_results_for_comparison.csv"
+    base_dir="${PROJECT_ROOT}/paper/pmh_method/methods/finetuning/inference"
+    save_dir="${PROJECT_ROOT}/paper/pmh_method/results/aggregate/inference/finetuning"
+    path_to_best_train="${PROJECT_ROOT}/paper/pmh_method/results/aggregate/train_test/finetuning/best_finetune_results_for_comparison.csv"
 
     cmd="../../../src/finetune/post_proc_results.py \
         $base_dir \

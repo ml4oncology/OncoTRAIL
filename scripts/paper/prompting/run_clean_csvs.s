@@ -15,21 +15,30 @@ PYTHON_ENV=~/miniforge3/envs/OncoTRAIL/bin/python
 # Path to the clean_csvs.py script
 SCRIPT_PATH="/cluster/home/t127556uhn/gitrepo/2024/OncoTRAIL/src/prompt/clean_csvs.py"
 
+DEFAULT_ROOT_PREFIX="/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024"
+
+if [[ $# -lt 1 || $# -gt 2 ]]; then
+    echo "Usage: $0 <stage> [root_prefix]"
+    exit 1
+fi
+
 # Parse the stage argument
 stage=$1
+ROOT_PREFIX="${2:-$DEFAULT_ROOT_PREFIX}"
+PROJECT_ROOT="${ROOT_PREFIX}/OncoTRAIL"
 
 if [[ "$stage" == "stage1" ]]; then
-    BASE_PATH=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/methods/prompting/train_test/stage1
+    BASE_PATH=${PROJECT_ROOT}/paper/pmh_method/methods/prompting/train_test/stage1
 elif [[ "$stage" == "stage2" ]]; then
-    BASE_PATH=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/methods/prompting/train_test/stage2
+    BASE_PATH=${PROJECT_ROOT}/paper/pmh_method/methods/prompting/train_test/stage2
 elif [[ "$stage" == "stage3" ]]; then
-    BASE_PATH=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/methods/prompting/train_test/stage3
+    BASE_PATH=${PROJECT_ROOT}/paper/pmh_method/methods/prompting/train_test/stage3
 elif [[ "$stage" == "EPR_train" ]]; then
-    BASE_PATH=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/methods/prompting/train_test/train
+    BASE_PATH=${PROJECT_ROOT}/paper/pmh_method/methods/prompting/train_test/train
 elif [[ "$stage" == "EPR_test" ]]; then
-    BASE_PATH=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/methods/prompting/train_test/test
+    BASE_PATH=${PROJECT_ROOT}/paper/pmh_method/methods/prompting/train_test/test
 elif [[ "$stage" == "EPIC" ]]; then
-    BASE_PATH=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/methods/prompting/inference
+    BASE_PATH=${PROJECT_ROOT}/paper/pmh_method/methods/prompting/inference
 else
     echo "Error: unknown stage '$stage'"
     echo "Valid stages are: stage1, stage2, stage3, EPR_train, EPR_test, EPIC"

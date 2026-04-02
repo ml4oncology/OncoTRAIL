@@ -1,6 +1,16 @@
 #!/bin/bash
 export PATH=$PATH:$(pwd)
 
+DEFAULT_ROOT_PREFIX="/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024"
+
+if [[ $# -gt 1 ]]; then
+    echo "Usage: $0 [root_prefix]"
+    exit 1
+fi
+
+ROOT_PREFIX="${1:-$DEFAULT_ROOT_PREFIX}"
+PROJECT_ROOT="${ROOT_PREFIX}/OncoTRAIL"
+
 userName="t127556uhn"
 memory=16
 condaEnv="$(conda run -n OncoTRAIL which python)"
@@ -23,7 +33,7 @@ EOF
 end_devt_date=$end_devt_date
 date_lower_limit=$date_lower_limit
 date_upper_limit=$date_upper_limit
-rootDir=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method
+rootDir=${PROJECT_ROOT}/paper/pmh_method
 resultsRootDir=${rootDir}/methods/tabular_nlp/train_test
 modelDir=${resultsRootDir}/models
 resultsDir=${resultsRootDir}/results

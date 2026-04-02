@@ -1,8 +1,10 @@
 #!/bin/bash
 export PATH=$PATH:$(pwd)
 
-if [[ $# -ne 1 ]]; then
-    echo "Usage: $0 <dataset_type>"
+DEFAULT_ROOT_PREFIX="/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024"
+
+if [[ $# -lt 1 || $# -gt 2 ]]; then
+    echo "Usage: $0 <dataset_type> [root_prefix]"
     exit 1
 fi
 
@@ -13,8 +15,8 @@ nGPU=0
 runTime='0-00:15:00'
 
 dataset_type="$1"
-
-root_dir_proj=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL
+ROOT_PREFIX="${2:-$DEFAULT_ROOT_PREFIX}"
+root_dir_proj="${ROOT_PREFIX}/OncoTRAIL"
 
 eval "$(
 python - <<'EOF'

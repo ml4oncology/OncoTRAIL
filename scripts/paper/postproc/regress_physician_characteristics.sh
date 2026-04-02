@@ -6,12 +6,16 @@ export PATH=$PATH:$(pwd)
 # -------------------------
 # Usage check
 # -------------------------
-if [[ $# -ne 1 ]]; then
-    echo "Usage: $0 {EPR|EPIC}"
+DEFAULT_ROOT_PREFIX="/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024"
+
+if [[ $# -lt 1 || $# -gt 2 ]]; then
+    echo "Usage: $0 {EPR|EPIC} [root_prefix]"
     exit 1
 fi
 
 EMR_system="$1"
+ROOT_PREFIX="${2:-$DEFAULT_ROOT_PREFIX}"
+PROJECT_ROOT="${ROOT_PREFIX}/OncoTRAIL"
 
 if [[ "$EMR_system" != "EPR" && "$EMR_system" != "EPIC" ]]; then
     echo "Error: argument must be 'EPR' or 'EPIC'"
@@ -54,18 +58,18 @@ target_list="[
 # -------------------------
 if [[ "$EMR_system" == "EPR" ]]; then
     held_out_set="test"
-    anchored_notes_path=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/data/train_test/note_anchored/note_anchored_firstTreatmentOnly-medOnc-ConsultLetterClinic_deid.csv
-    prompting_data_dir=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/methods/prompting/train_test/test
-    tabular_results=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/results/aggregate/train_test/tabular_nlp/best_result_summary_firstTreatmentOnly-medOnc-ConsultLetterClinic_deid_tabular_all_Temporal.csv
+    anchored_notes_path="${PROJECT_ROOT}/paper/pmh_method/data/train_test/note_anchored/note_anchored_firstTreatmentOnly-medOnc-ConsultLetterClinic_deid.csv"
+    prompting_data_dir="${PROJECT_ROOT}/paper/pmh_method/methods/prompting/train_test/test"
+    tabular_results="${PROJECT_ROOT}/paper/pmh_method/results/aggregate/train_test/tabular_nlp/best_result_summary_firstTreatmentOnly-medOnc-ConsultLetterClinic_deid_tabular_all_Temporal.csv"
     raw_treatment_path='/cluster/projects/gliugroup/2BLAST/data/final/data_2023-02-21/processed/treatment_centered_dataset.parquet'
 else  # EPIC
     held_out_set="inference"
-    anchored_notes_path=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/data/inference/note_anchored/note_anchored_firstTreatmentOnly-medOnc-ConsultLetterClinic_deid.csv
-    prompting_data_dir=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/methods/prompting/inference
-    tabular_results=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/results/aggregate/inference/tabular_nlp/best_result_summary_firstTreatmentOnly-medOnc-ConsultLetterClinic_deid_tabular_all_Temporal.csv
+    anchored_notes_path="${PROJECT_ROOT}/paper/pmh_method/data/inference/note_anchored/note_anchored_firstTreatmentOnly-medOnc-ConsultLetterClinic_deid.csv"
+    prompting_data_dir="${PROJECT_ROOT}/paper/pmh_method/methods/prompting/inference"
+    tabular_results="${PROJECT_ROOT}/paper/pmh_method/results/aggregate/inference/tabular_nlp/best_result_summary_firstTreatmentOnly-medOnc-ConsultLetterClinic_deid_tabular_all_Temporal.csv"
     raw_treatment_path='/cluster/projects/gliugroup/2BLAST/data/final/data_2025-03-29/processed/treatment_centered_data.parquet'
 fi
 
-output_dir=/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024/OncoTRAIL/paper/pmh_method/results/plots/physician_variability/regression
+output_dir="${PROJECT_ROOT}/paper/pmh_method/results/plots/physician_variability/regression"
 
 ../../pySLURMargs.py $userName $memory $condaEnv $nGPU $runTime "../../../src/EDA/physician_effect.py $held_out_set \"$target_list\" $anchored_notes_path $output_dir $prompting_data_dir $tabular_results $raw_treatment_path"
