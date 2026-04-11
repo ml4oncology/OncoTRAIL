@@ -213,11 +213,11 @@ def load_and_prepare_notes(
 
     if any(x in config_name for x in config_list):
         med_oncs = list(set(aliasDictionary.values()))
-        if mode == 'train':
-            merged_notes = merged_notes.loc[
-                (merged_notes['processed_physician_name'].isin(med_oncs)) &
-                (merged_notes['Observations.ProcName'].isin(proc_name))
-            ].copy()
+        # if mode == 'train':
+        merged_notes = merged_notes.loc[
+            (merged_notes['processed_physician_name'].isin(med_oncs)) &
+            (merged_notes['Observations.ProcName'].isin(proc_name))
+        ].copy()
 
         merged_notes = _aggregate_notes_by_date(merged_notes, mode)
         merged_notes = _apply_note_configuration(merged_notes, config_name, procedure_exclude)
