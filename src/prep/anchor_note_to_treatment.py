@@ -279,6 +279,25 @@ def _append_first_note(
     procedure_exclude: list
 ) -> pd.DataFrame:
     """Append the patient's first note to all subsequent notes."""
+    def _merge_unique_string_arrays(existing, additional):
+        values = []
+        for item in [existing, additional]:
+            if item is None or pd.isna(item) is True:
+                continue
+
+            if isinstance(item, str):
+                items = [item]
+            elif pd.api.types.is_list_like(item):
+                items = item.tolist() if hasattr(item, 'tolist') else list(item)
+            else:
+                items = [item]
+
+            for value in items:
+                if pd.notna(value) and value not in values:
+                    values.append(value)
+
+        return pd.array(values, dtype='string')
+
     merged_notes.sort_values(by='processed_date', inplace=True)
 
     # Filter notes if needed
@@ -292,7 +311,14 @@ def _append_first_note(
         filtered_notes = merged_notes.copy()
 
     # Get first note for each patient
-    first_note = filtered_notes.groupby(['mrn'])['note'].first(skipna=False).reset_index(name='first_note')
+    first_note = filtered_notes.groupby(['mrn'])[
+        ['note', 'stats_physician', 'stats_dictated_by']
+    ].first(skipna=False).reset_index()
+    first_note.rename(columns={
+        'note': 'first_note',
+        'stats_physician': 'first_stats_physician',
+        'stats_dictated_by': 'first_stats_dictated_by'
+    }, inplace=True)
     merged_notes = merged_notes.merge(first_note, on="mrn")
 
     # Append first note to subsequent notes
@@ -301,6 +327,16 @@ def _append_first_note(
         merged_notes["note"],
         merged_notes["first_note"] + "\n\n" + merged_notes["note"]
     )
+
+    mask = merged_notes["note"] != merged_notes["first_note"]
+    for stats_col, first_stats_col in [
+        ('stats_physician', 'first_stats_physician'),
+        ('stats_dictated_by', 'first_stats_dictated_by')
+    ]:
+        merged_notes.loc[mask, stats_col] = merged_notes.loc[mask].apply(
+            lambda row: _merge_unique_string_arrays(row[stats_col], row[first_stats_col]),
+            axis=1
+        )
 
     merged_notes = merged_notes[[
         'mrn', 'processed_date', 'max_epr_date', 'appended_note',
