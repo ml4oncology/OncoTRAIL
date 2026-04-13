@@ -37,7 +37,7 @@ print(f'inference_end_date="{config.inference_end_date}"')
 EOF
 )"
 
-if [[ "$dataset_type" == "devt" ]]; then
+if [[ "$dataset_type" == "EPR_train_sample" ]]; then
     start_date=$date_lower_limit
     end_date=$end_devt_date
     numeric_proba=1

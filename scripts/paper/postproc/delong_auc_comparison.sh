@@ -45,6 +45,6 @@ save_dir="${PROJECT_ROOT}/paper/pmh_method/results/aggregate"
 
 inf_anchored_notes_path="${PROJECT_ROOT}/paper/pmh_method/data/inference/note_anchored/note_anchored_firstTreatmentOnly-medOnc-ConsultLetterClinic_deid.csv"
 
-baseline_method="tabular"
+baseline_method="prompting"
 
 ../../pySLURMargs.py $userName $memory $condaEnv $nGPU $runTime "../../../src/postproc/delong_auc_comparison.py $prompting_tt $prompting_inf $tabular_tt $tabular_inf $nlptfidf_tt $nlptfidf_inf $nlpcount_tt $nlpcount_inf $finetune_tt $finetune_inf $save_dir $inf_anchored_notes_path --baseline_method $baseline_method"

@@ -263,8 +263,7 @@ def main_inference(
     filename, _ = os.path.splitext(base)
 
     # Save predictions
-    if not os.path.exists(results_dir):
-        os.makedirs(results_dir)
+    os.makedirs(results_dir, exist_ok=True)
     
     np.savez(
         f"{results_dir}/inference_{filename}.npz",

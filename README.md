@@ -137,7 +137,7 @@ Please change the user name before running the scripts.
 | Script | Description |
 | --- | --- |
 | `prompting/generate_prompts.sh` | Generate prompts from clinical notes |
-| `prompting/prepare_data.sh` | Split notes into chunks for parallel prompting |
+| `prompting/prepare_data.sh {EPR_train_sample/EPR_test/EPIC}` | Split notes into chunks for parallel prompting |
 
 #### Hyperparameter Optimization
 
@@ -210,4 +210,4 @@ For each stage (`stage1`, `stage2`, `stage3`), run the following scripts with th
 | `postproc/plot_physician_characteristics.sh {EPR/EPIC}` | Analyze model sensitivity to physician writing style |
 | `postproc/sensitivity_analysis.sh` | Aggregate and bootstrap results across all toxicities, methods, and data folds for healthy patients at baseline |
 | `postproc/regress_physician_characteristics.sh {EPR/EPIC}` | Fit Bayesian hierarchical models to quantify sensitivity to physician writing style |
-| `postproc/plot_physician_characteristics.sh {EPR/EPIC}` | Plot ICC and regression coefficients for Bayesian models regressed on physician demographics |
+| `postproc/plot_regressed_physician_effect.sh {EPR/EPIC}` | Plot ICC and regression coefficients for Bayesian models regressed on physician demographics |
