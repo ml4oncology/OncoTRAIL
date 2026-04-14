@@ -7,6 +7,8 @@ from oncotrail.postproc.aggregate_methods_targets_results import (
 )
 import rpy2.robjects as ro
 from rpy2.robjects.packages import importr
+from oncotrail.postproc.util import target_category
+from oncotrail.constants import target_dict_mapping
 # from rpy2.robjects import numpy2ri
 # from rpy2.robjects.conversion import localconverter
 
@@ -247,6 +249,22 @@ def compute_delong_comparisons_between_methods(preds, baseline_method):
     
     df_heldout1 = pd.DataFrame(results_heldout1)
     df_heldout2 = pd.DataFrame(results_heldout2)
+
+    # create target category column
+    df_heldout1["target_category"] = df_heldout1["target"].apply(target_category)
+    df_heldout2["target_category"] = df_heldout2["target"].apply(target_category)
+
+    # drop 'nlp-count' method from both dataframes
+    df_heldout1 = df_heldout1[df_heldout1["method"] != "nlp-count"].reset_index(drop=True)
+    df_heldout2 = df_heldout2[df_heldout2["method"] != "nlp-count"].reset_index(drop=True)
+
+    # rename 'nlp-tfidf' to 'bag-of-words' in both dataframes
+    df_heldout1["method"] = df_heldout1["method"].replace({"nlp-tfidf": "bag of words"})
+    df_heldout2["method"] = df_heldout2["method"].replace({"nlp-tfidf": "bag of words"})
+
+    # apply target_dict_mapping to target column in both dataframes after replacing '_' with '-'
+    df_heldout1["target"] = df_heldout1["target"].str.replace("_", "-").map(target_dict_mapping)
+    df_heldout2["target"] = df_heldout2["target"].str.replace("_", "-").map(target_dict_mapping)
     
     return df_heldout1, df_heldout2
 
@@ -385,11 +403,11 @@ def delong_auc_comparison(
 
     df_test, df_inf = compute_delong_comparisons_between_methods(preds, baseline_method)
     df_test.to_csv(
-        os.path.join(save_dir, "delong_comparison_test.csv"),
+        os.path.join(save_dir, f"delong_comparison_test_{baseline_method}.csv"),
         index=False
     )
     df_inf.to_csv(
-        os.path.join(save_dir, "delong_comparison_inference.csv"),
+        os.path.join(save_dir, f"delong_comparison_inference_{baseline_method}.csv"),
         index=False
     )
 

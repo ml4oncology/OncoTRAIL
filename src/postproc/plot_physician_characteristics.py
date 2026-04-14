@@ -15,29 +15,9 @@ import glob
 sys.path.insert(1, "/cluster/projects/gliugroup/2BLAST/data/info/")
 from phys_names import aliasDictionary, fellow_alias
 from oncotrail.constants import df_physician_char_EPR, df_physician_char_EPIC, target_dict_mapping
+from oncotrail.postproc.util import target_category
 
 sns.set(style="whitegrid")
-
-def target_category(target: str) -> str:
-    """
-    Categorize target based on naming patterns.
-    
-    Parameters:
-    -----------
-    target : str
-        Target name
-        
-    Returns:
-    --------
-    str
-        Target category ('lab', 'symptom', or 'clinic')
-    """
-    if 'grade2plus' in target:
-        return 'lab'
-    elif 'change' in target:
-        return 'symptom'
-    else:
-        return 'clinic'
 
 def plot_physician_violin(
     df,
@@ -230,6 +210,8 @@ def bootstrap_target_slopes(
     For each target, compute slope of y ~ x and bootstrap 95% CI.
     Returns one row per target.
     """
+    from scipy.stats import linregress
+
     rng = np.random.default_rng(random_state)
     records = []
 
@@ -238,14 +220,16 @@ def bootstrap_target_slopes(
 
     for target, dft in df.groupby("target", observed=True):
         X = dft[[x_col]].values
+        x = dft[x_col].values
         y = dft[y_col].values
 
-        if len(np.unique(X)) < 2:
+        if len(np.unique(x)) < 2:
             continue  # cannot fit slope
 
         # Point estimate
         lr = LinearRegression().fit(X, y)
         slope_hat = lr.coef_[0]
+        p_value = linregress(x, y).pvalue
 
         # Bootstrap
         boot_slopes = []
@@ -260,6 +244,7 @@ def bootstrap_target_slopes(
         records.append({
             "target": target,
             "slope": slope_hat,
+            "p_value": p_value,
             "lo": np.percentile(boot_slopes, 2.5),
             "hi": np.percentile(boot_slopes, 97.5),
             **meta.loc[target].to_dict()
@@ -398,8 +383,9 @@ def plot_target_slopes(
     title,
     save_path
 ):
-    
+
     fig, ax = plt.subplots(figsize=(10, 6))
+    alpha_corrected = 0.05 / (19 * 4)
 
     # Order targets: by target_type, then slope
     df_plot = df_slopes.copy()
@@ -436,6 +422,22 @@ def plot_target_slopes(
 
     # Reference line at 0
     ax.axhline(0, color="gray", linestyle="--", lw=0.7, alpha=0.6)
+
+    # Add asterisk for statistically significant slopes
+    y_span = ax.get_ylim()[1] - ax.get_ylim()[0]
+    for _, row in df_plot.iterrows():
+        if pd.notna(row.get("p_value")) and row["p_value"] < alpha_corrected:
+            y_max = max(row["hi"], row["slope"])
+            ax.text(
+                row["x"],
+                y_max + 0.02 * y_span,
+                '*',
+                ha='center',
+                va='bottom',
+                fontsize=14,
+                fontweight='bold',
+                color='black'
+            )
 
     # Group separators by target_type
     group_boundaries = (

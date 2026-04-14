@@ -191,6 +191,13 @@ def load_and_prepare_notes(
     merged_notes = pd.read_parquet(notes_data_path)
     merged_notes['mrn'] = pd.to_numeric(merged_notes['mrn'], errors='coerce').astype(int)
 
+    # if Cosigner column exists, for the rows where Cosigner is not null, only keep if Cosigner is in aliasDictionary values
+    if 'Cosigner' in merged_notes.columns:
+        merged_notes = merged_notes.loc[
+            (merged_notes['Cosigner'].isna()) |
+            (merged_notes['Cosigner'].isin(aliasDictionary.values()))
+        ].copy()
+
     # Define procedure types based on mode
     if mode == 'inference':
         merged_notes.drop(columns=['EPIC_FLAG', 'Cosigner'], inplace=True, errors='ignore')
