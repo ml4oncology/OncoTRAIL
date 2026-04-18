@@ -14,7 +14,7 @@ CTCAE_constants = {
     'AKI': {
         'grade2plus': 1.5,
         'grade3plus': 3.0,
-        'ULN': 353.68
+        'ULN': 98
     },
     'ALT': {
         'grade2plus': 3.0,
@@ -37,3 +37,9 @@ map_CTCAE_lab = {'AKI': 'creatinine',
                  'ALT': 'alanine_aminotransferase', 
                  'AST': 'aspartate_aminotransferase', 
                  'bilirubin': 'total_bilirubin'}
+
+HEME_DEPTS = {
+    "HEM", "LY", "CLL", "CML", "AML", "ALL", "APL",
+    "MDS", "MPN", "WM", "MY",
+    "BMT", "ALLO", "AUTO", "IEC"
+}
