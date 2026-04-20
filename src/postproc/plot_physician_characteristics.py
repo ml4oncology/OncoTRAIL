@@ -381,10 +381,18 @@ def plot_target_slopes(
     df_slopes,
     target_type_colors,
     title,
-    save_path
+    save_path,
+    fig_size_mm=(150,45)
 ):
 
-    fig, ax = plt.subplots(figsize=(10, 6))
+    fontsize_axes = 4
+    fontsize_legend = 4
+
+    if fig_size_mm is not None:
+        figsize = (fig_size_mm[0] / 25.4, fig_size_mm[1] / 25.4)
+    else:
+        figsize = (10, 6)
+    fig, ax = plt.subplots(figsize=figsize)
     alpha_corrected = 0.05 / (19 * 4)
 
     # Order targets: by target_type, then slope
@@ -416,12 +424,12 @@ def plot_target_slopes(
             row["x"],
             row["slope"],
             color=color,
-            s=35,
+            s=15,
             zorder=3
         )
 
     # Reference line at 0
-    ax.axhline(0, color="gray", linestyle="--", lw=0.7, alpha=0.6)
+    ax.axhline(0, color="gray", linestyle="--", lw=0.8)
 
     # Add asterisk for statistically significant slopes
     y_span = ax.get_ylim()[1] - ax.get_ylim()[0]
@@ -434,7 +442,7 @@ def plot_target_slopes(
                 '*',
                 ha='center',
                 va='bottom',
-                fontsize=14,
+                fontsize=15,
                 fontweight='bold',
                 color='black'
             )
@@ -447,24 +455,40 @@ def plot_target_slopes(
         .values
     )
     for x_sep in group_boundaries[:-1]:
-        ax.axvline(x=x_sep + 0.5, color="lightgray", linestyle=":", lw=0.8)
+        ax.axvline(x=x_sep + 0.5, color="gray", linestyle="--", lw=0.8)
 
     # Axis formatting
     ax.set_xticks(df_plot["x"])
     ax.set_xticklabels(
         df_plot["target_name_plotting"],
         rotation=45,
-        ha="right"
+        ha="right",
+        fontsize=fontsize_axes
     )
-    ax.set_ylabel("Slope of Δ (Prompting − Tabular)\nper year of experience")
-    ax.set_xlabel("")
-    ax.set_title(title)
+    ax.set_ylabel(
+        "Δ(prompting − tabular) per YOE slope",
+        fontsize=fontsize_axes
+    )
+    ax.tick_params(axis='y', labelsize=fontsize_axes)
+    ax.set_xlabel("", fontsize=fontsize_axes)
+
+    ax.grid(False)
+
+    # Remove all spines except left (y-axis) and bottom (x-axis)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['left'].set_linewidth(1.0)
+    ax.spines['bottom'].set_linewidth(1.0)
+
+    ax.spines['left'].set_color('black')
+    ax.spines['bottom'].set_color('black')
+    ax.tick_params(axis='both', colors='black')
 
     plt.tight_layout()
     plt.savefig(save_path, dpi=300)
     # replace .png by .svg 
     save_path_svg = save_path.replace('.png', '.svg')
-    plt.savefig(save_path_svg, bbox_inches="tight")
+    plt.savefig(save_path_svg)
     plt.close()
     
 def plot_target_contrast_half_violin(
@@ -701,7 +725,8 @@ def plot_binary_contrast_half_violin(
     target_type_colors,
     save_path,
     title="",
-    return_stats=True
+    return_stats=True,
+    fig_size_mm=(150,45)
 ):
     """
     Plot paired half-violins comparing prob_diff distributions by binary variable.
@@ -720,6 +745,8 @@ def plot_binary_contrast_half_violin(
         Figure title
     return_stats : bool
         Whether to return the statistics table
+    fig_size_mm : tuple
+        Figure size as (width_mm, height_mm)    
         
     Returns:
     --------
@@ -727,8 +754,15 @@ def plot_binary_contrast_half_violin(
         Contains target, target_type, target_name_plotting, p_value, median_true, median_false
     """
     
-    fig, ax = plt.subplots(figsize=(10, 6))
-    
+    fontsize_axes = 4
+    fontsize_legend = 4
+
+    if fig_size_mm is not None:
+        figsize = (fig_size_mm[0] / 25.4, fig_size_mm[1] / 25.4)
+    else:
+        figsize = (10, 6)
+    fig, ax = plt.subplots(figsize=figsize)
+
     # Bonferroni correction threshold
     alpha_corrected = 0.05 / (19 * 4)
     
@@ -872,14 +906,14 @@ def plot_binary_contrast_half_violin(
                 '*',
                 ha='center',
                 va='bottom',
-                fontsize=14,
+                fontsize=15,
                 fontweight='bold',
                 color='black'
             )
     
     # Reference line at 0
-    ax.axhline(0, color="gray", linestyle="--", lw=0.7, alpha=0.6)
-    
+    # ax.axhline(0, color="gray", linestyle="--", lw=0.8)
+
     # Group separators by target_type
     group_boundaries = (
         summary.groupby("target_type", observed=True)["x"]
@@ -888,15 +922,25 @@ def plot_binary_contrast_half_violin(
         .values
     )
     for x_sep in group_boundaries[:-1]:
-        ax.axvline(x=x_sep + 0.5, color="lightgray", linestyle=":", lw=0.8)
-    
+        ax.axvline(x=x_sep + 0.5, color="gray", linestyle="--", lw=0.8)
+
     # Axis formatting
     ax.set_xticks(summary["x"])
-    ax.set_xticklabels(summary["target_name_plotting"], rotation=45, ha="right")
-    ax.set_ylabel("prompting - tabular probability difference")
-    ax.set_xlabel("")
-    ax.set_title(title)
+    ax.set_xticklabels(summary["target_name_plotting"], rotation=45, ha="right", fontsize=fontsize_axes)
+    ax.set_ylabel("Δ (prompting - tabular) probability", fontsize=fontsize_axes)
+    ax.set_xlabel("", fontsize=fontsize_axes)
+    ax.tick_params(axis='y', labelsize=fontsize_axes)
+    ax.grid(False)
+    # ax.set_title(title)
     
+     # Remove all spines except left (y-axis) and bottom (x-axis)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['left'].set_linewidth(1.0)
+    ax.spines['bottom'].set_linewidth(1.0)
+    ax.spines['left'].set_color('black')
+    ax.spines['bottom'].set_color('black')
+
     # Add legend
     # Use gray with lighter/darker shading pattern
     base_gray = 'gray'
@@ -914,13 +958,13 @@ def plot_binary_contrast_half_violin(
     
     # loc options: 'upper left', 'upper right', 'lower left', 'lower right', 
     #              'upper center', 'lower center', 'center left', 'center right', 'center', 'best'
-    ax.legend(handles=legend_elements, loc='lower left', framealpha=0.9)
+    ax.legend(handles=legend_elements, loc='lower left', framealpha=0.9, fontsize=fontsize_legend)
     
     plt.tight_layout()
     plt.savefig(save_path, dpi=300)
     # replace .png in save_path with .svg and save
     save_path_svg = save_path.replace('.png', '.svg')
-    plt.savefig(save_path_svg, bbox_inches="tight")
+    plt.savefig(save_path_svg)#, bbox_inches="tight")
     plt.close()
     
     # Return statistics table
@@ -1053,9 +1097,9 @@ def plot_physician_characteristics_main(
 ):
     
     target_type_colors = {
-        'clinic': '#d95f02',
-        'lab': '#1b9e77',
-        'symptom': '#7570b3',
+        'clinic': '#88bb99',
+        'lab': '#e6b3bb',
+        'symptom': '#9a91c4',
     }
         
     df_all = prepare_all_dataframes(

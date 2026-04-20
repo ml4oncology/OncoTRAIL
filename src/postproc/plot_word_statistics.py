@@ -98,7 +98,7 @@ def plot_word_statistics(data_dir, save_dir, target_list):
                     f"{save_dir}/word_popularity_reason_{target_clean}.png", dpi=300, bbox_inches="tight"
                 )
                 fig.savefig(
-                    f"{save_dir}/word_popularity_reason_{target_clean}.svg", bbox_inches="tight"
+                    f"{save_dir}/word_popularity_reason_{target_clean}.svg"#, bbox_inches="tight"
                 )
             except Exception as e:
                 print(f"Failed Reason popularity plot: {e}")
@@ -116,7 +116,7 @@ def plot_word_statistics(data_dir, save_dir, target_list):
                     f"{save_dir}/word_popularity_note_{target_clean}.png", dpi=300, bbox_inches="tight"
                 )
                 fig.savefig(
-                    f"{save_dir}/word_popularity_note_{target_clean}.svg", bbox_inches="tight"
+                    f"{save_dir}/word_popularity_note_{target_clean}.svg"#, bbox_inches="tight"
                 )
             except Exception as e:
                 print(f"Failed Note popularity plot: {e}")
@@ -160,13 +160,13 @@ def plot_word_statistics(data_dir, save_dir, target_list):
                     f"{save_dir}/word_alignment_{target_clean}.png", dpi=300, bbox_inches="tight"
                 )
                 fig_all.savefig(
-                    f"{save_dir}/word_alignment_{target_clean}.svg", bbox_inches="tight"
+                    f"{save_dir}/word_alignment_{target_clean}.svg"#, bbox_inches="tight"
                 )
                 fig_subset.savefig(
                     f"{save_dir}/word_alignment_subset_{target_clean}.png", dpi=300, bbox_inches="tight"
                 )
                 fig_subset.savefig(
-                    f"{save_dir}/word_alignment_subset_{target_clean}.svg", bbox_inches="tight"
+                    f"{save_dir}/word_alignment_subset_{target_clean}.svg"#, bbox_inches="tight"
                 )
 
             except Exception as e:

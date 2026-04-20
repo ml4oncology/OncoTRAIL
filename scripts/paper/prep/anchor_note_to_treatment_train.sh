@@ -18,7 +18,7 @@ nGPU=0
 runTime='0-02:00:00'
 
 data_path="/cluster/projects/gliugroup/2BLAST/data/processed/clinical_notes/data_pull_2024-06-04/splits/deid_merged_processed_cleaned_clinical_notes_medonc_only.parquet.gzip"
-treatment_data_path="/cluster/projects/gliugroup/2BLAST/data/final/data_2023-02-21/processed/treatment_centered_dataset.parquet"
+treatment_data_path="/cluster/projects/gliugroup/2BLAST/data/final/data_2023-02-21/processed/treatment_centered_clinical_dataset.parquet"
 opis_data_path="/cluster/projects/gliugroup/2BLAST/data/final/data_2023-02-21/raw/opis.parquet.gzip"
 test_end_date="2019-12-31"
 lookback_window=30

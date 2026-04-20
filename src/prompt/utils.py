@@ -20,7 +20,9 @@ logger = logging.getLogger(__name__)
 def generate_mixed_violin_plot(aggregate_statistics_df, col_name, jitter, 
                                xtick_labels=None, plot_title="Violin Plot",
                                use_paired_test=True, base_cols=None,
-                               print_all_pvalues=False):
+                               print_all_pvalues=False,
+                               fig_size_mm=None):
+    
     """
     Generate a mixed violin plot with statistical significance testing.
     
@@ -35,7 +37,7 @@ def generate_mixed_violin_plot(aggregate_statistics_df, col_name, jitter,
     xtick_labels : list, optional
         Custom labels for x-axis ticks
     plot_title : str
-        Title for the plot
+        Title for the plot (unused, kept for API compatibility)
     use_paired_test : bool
         If True, use Wilcoxon signed-rank test (paired); if False, use Mann-Whitney U (unpaired)
     base_cols : list, required when use_paired_test=True
@@ -44,22 +46,26 @@ def generate_mixed_violin_plot(aggregate_statistics_df, col_name, jitter,
         Must be provided when use_paired_test=True.
     print_all_pvalues : bool
         If True, print all p-values; if False, only print significant ones
+    fig_size_mm : tuple, optional
+        Figure size as (width_mm, height_mm) for the first plot. If None, defaults to
+        (len(ys)*2.5 inches, 6 inches) as before.
     
     Returns:
     --------
     matplotlib.figure.Figure
         The generated plot figure
     """
-
-
+        
     # Parameters
     base_color = '#666666'
     target_type_colors = {
-        'clinic': '#d95f02',
-        'lab': '#1b9e77',
-        'symptom': '#7570b3',
+        'clinic': '#88bb99',
+        'lab': '#e6b3bb',
+        'symptom': '#9a91c4',
     }
     violin_width = 0.4
+    fontsize_axes = 4       # font size for x/y-axis labels and tick labels
+    fontsize_legend = 4     # font size for legend and p-values
     all_patch = mpatches.Patch(color=base_color, label='all')
 
     # Unique values
@@ -103,7 +109,7 @@ def generate_mixed_violin_plot(aggregate_statistics_df, col_name, jitter,
             except ValueError:
                 p = 1.0
             pairwise_results.append(((a, b), p))
-
+    
     # Print p-values and mean differences
     if print_all_pvalues:
         for (a, b), p in pairwise_results:
@@ -135,7 +141,6 @@ def generate_mixed_violin_plot(aggregate_statistics_df, col_name, jitter,
         # FEATURE 1: Print mean differences stratified by target type
         for tt in target_types:
             if use_paired_test:
-                # Create pivot table for this target type
                 pivot_df_tt = aggregate_statistics_df[
                     aggregate_statistics_df['target_type'] == tt
                 ].pivot_table(
@@ -164,14 +169,17 @@ def generate_mixed_violin_plot(aggregate_statistics_df, col_name, jitter,
                     mean_b_tt = auc_b_tt.mean()
                     print(f"  {tt.capitalize()}: Mean difference = {mean_a_tt - mean_b_tt:.3f}")
 
-    # Create plot
-    fig, ax = plt.subplots(figsize=(len(ys)*2.5, 6))
-    ax.grid(True, axis='y', linestyle='--', alpha=0.4)
+    # Create first plot
+    if fig_size_mm is not None:
+        figsize = (fig_size_mm[0] / 25.4, fig_size_mm[1] / 25.4)
+    else:
+        figsize = (len(ys) * 2.5, 6)
+    fig, ax = plt.subplots(figsize=figsize)
 
     for i, y_val in enumerate(ys):
         x_center = i
         
-        # Left half: KDE of AUC for all target_types at Y=y_val
+        # Left half: KDE of AUC for all target_types at Y=y_val        
         auc_all = aggregate_statistics_df[aggregate_statistics_df[col_name] == y_val]['AUC']
         kde = gaussian_kde(auc_all)
         auc_vals = np.linspace(0, 1, 200)
@@ -182,10 +190,9 @@ def generate_mixed_violin_plot(aggregate_statistics_df, col_name, jitter,
             auc_vals, 
             x_center - densities, 
             x_center, 
-            facecolor=base_color, 
-            alpha=0.6
+            facecolor=base_color,
         )
-
+        
         # Add box plot elements
         q1, q2, q3 = np.percentile(auc_all, [25, 50, 75])
         iqr = q3 - q1
@@ -193,7 +200,7 @@ def generate_mixed_violin_plot(aggregate_statistics_df, col_name, jitter,
         uw = min(q3 + 1.5 * iqr, auc_all.max())
         
         # Whiskers
-        ax.vlines(x_center - 0.1, lw, uw, color='gray', linestyle='dashed', linewidth=0.5)
+        ax.vlines(x_center - 0.1, lw, uw, color='gray', linestyle='dashed', linewidth=0.8)
         # IQR box
         ax.vlines(x_center - 0.1, q1, q3, color='black', linewidth=1)
         # Median line
@@ -201,7 +208,6 @@ def generate_mixed_violin_plot(aggregate_statistics_df, col_name, jitter,
 
         # Right half: either KDE or jittered points by target type
         if jitter == 0:
-            # KDE plots for each target type
             for tt in target_types:
                 auc_tt = aggregate_statistics_df[
                     (aggregate_statistics_df[col_name] == y_val) & 
@@ -220,11 +226,9 @@ def generate_mixed_violin_plot(aggregate_statistics_df, col_name, jitter,
                     x_center,
                     x_center + densities_tt,
                     facecolor=target_type_colors[tt],
-                    alpha=0.8,
                     label=tt if i == 0 else None
                 )
         else:
-            # Jittered scatter points
             jitter_scale = 0.04
             for tt in target_types:
                 auc_tt = aggregate_statistics_df[
@@ -238,7 +242,7 @@ def generate_mixed_violin_plot(aggregate_statistics_df, col_name, jitter,
                 x_vals = np.random.normal(loc=x_center + 0.1, scale=jitter_scale, size=len(auc_tt))
                 ax.scatter(
                     x_vals, auc_tt,
-                    alpha=0.7, color=target_type_colors[tt],
+                    color=target_type_colors[tt],
                     edgecolor='black', linewidth=0.3, s=20,
                     label=tt if i == 0 else None
                 )
@@ -264,32 +268,34 @@ def generate_mixed_violin_plot(aggregate_statistics_df, col_name, jitter,
         ax.plot([x1, x1, x2, x2], [height, height + text_offset, height + text_offset, height],
                 lw=1.2, c='black')
         ax.text(x_center, height + (1.5 * text_offset), f"p = {p_val:.3g}",
-                ha='center', va=text_va, fontsize=14)
+                ha='center', va=text_va, fontsize=fontsize_legend)
 
-    # Format axes
     ax.set_xticks(range(len(ys)))
-    ax.set_xticklabels(xtick_labels if xtick_labels else ys, rotation=15, ha='right', fontsize=14)
-    ax.set_ylabel('AUC', fontsize=18)
+    ax.set_xticklabels(xtick_labels if xtick_labels else ys, rotation=15, ha='right', fontsize=fontsize_axes)
+    ax.set_ylabel('AUC', fontsize=fontsize_axes)
+    ax.tick_params(axis='y', labelsize=fontsize_axes)
     ax.set_ylim(0.2, 1)
-    ax.set_title(plot_title, fontsize=18)
 
-    # Add legend
+    # Remove all spines except left (y-axis) and bottom (x-axis)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['left'].set_linewidth(1.0)
+    ax.spines['bottom'].set_linewidth(1.0)
+
     handles, labels = ax.get_legend_handles_labels()
     if 'all' not in labels:
         handles = [all_patch] + handles
         labels = ['all'] + labels
-    labels = [label.capitalize() for label in labels]
+    labels = [label.lower() for label in labels]
 
     ax.legend(
         handles, labels,
         loc='upper left',
         bbox_to_anchor=(1.02, 1),
         borderaxespad=0,
-        fontsize=12
+        fontsize=fontsize_legend
     )
-
     plt.tight_layout()
-    plt.show()
 
     # FEATURE 2: Create delta AUC plot for paired test with exactly 2 conditions
     if use_paired_test and len(ys) == 2:
@@ -297,23 +303,18 @@ def generate_mixed_violin_plot(aggregate_statistics_df, col_name, jitter,
         print("Creating Delta AUC Plot")
         print("="*50)
         
-        # Calculate delta AUC
         baseline, comparison = sorted(ys)
         delta_col_name = f"Delta_AUC_{comparison}_vs_{baseline}"
         
-        # Create a new dataframe with delta AUCs
         delta_df_list = []
         for idx, row in pivot_df.iterrows():
             delta_auc = row[comparison] - row[baseline]
             
-            # Get the original row to extract target_type
-            # We need to find matching rows in the original dataframe
             filter_dict = {k: v for k, v in zip(grouping_cols, idx if isinstance(idx, tuple) else [idx])}
             matching_rows = aggregate_statistics_df.copy()
             for key, val in filter_dict.items():
                 matching_rows = matching_rows[matching_rows[key] == val]
             
-            # Get target_type from matching rows (should be consistent)
             if not matching_rows.empty:
                 target_type = matching_rows.iloc[0]['target_type']
                 delta_df_list.append({
@@ -326,12 +327,11 @@ def generate_mixed_violin_plot(aggregate_statistics_df, col_name, jitter,
         
         # Create delta plot
         fig_delta, ax_delta = plt.subplots(figsize=(4, 6))
-        ax_delta.grid(True, axis='y', linestyle='--', alpha=0.4)
-        ax_delta.axhline(y=0, color='red', linestyle='--', linewidth=1, alpha=0.5)
+        ax_delta.axhline(y=0, color='red', linestyle='--', linewidth=1)
         
         x_center = 0
         
-        # Left half: KDE of delta AUC for all target_types
+        # Left half: KDE of delta AUC for all target_types        
         delta_all = delta_df['delta_AUC']
         kde_delta = gaussian_kde(delta_all)
         delta_vals = np.linspace(delta_all.min() - 0.05, delta_all.max() + 0.05, 200)
@@ -343,9 +343,8 @@ def generate_mixed_violin_plot(aggregate_statistics_df, col_name, jitter,
             x_center - densities_delta,
             x_center,
             facecolor=base_color,
-            alpha=0.6
         )
-        
+
         # Add box plot elements
         q1_delta, q2_delta, q3_delta = np.percentile(delta_all, [25, 50, 75])
         iqr_delta = q3_delta - q1_delta
@@ -353,7 +352,7 @@ def generate_mixed_violin_plot(aggregate_statistics_df, col_name, jitter,
         uw_delta = min(q3_delta + 1.5 * iqr_delta, delta_all.max())
         
         # Whiskers
-        ax_delta.vlines(x_center - 0.1, lw_delta, uw_delta, color='gray', linestyle='dashed', linewidth=0.5)
+        ax_delta.vlines(x_center - 0.1, lw_delta, uw_delta, color='gray', linestyle='dashed', linewidth=0.8)
         # IQR box
         ax_delta.vlines(x_center - 0.1, q1_delta, q3_delta, color='black', linewidth=1)
         # Median line
@@ -361,7 +360,6 @@ def generate_mixed_violin_plot(aggregate_statistics_df, col_name, jitter,
         
         # Right half: either KDE or jittered points by target type
         if jitter == 0:
-            # KDE plots for each target type
             for tt in target_types:
                 delta_tt = delta_df[delta_df['target_type'] == tt]['delta_AUC']
                 
@@ -377,11 +375,9 @@ def generate_mixed_violin_plot(aggregate_statistics_df, col_name, jitter,
                     x_center,
                     x_center + densities_tt_delta,
                     facecolor=target_type_colors[tt],
-                    alpha=0.8,
                     label=tt
                 )
         else:
-            # Jittered scatter points
             jitter_scale = 0.04
             for tt in target_types:
                 delta_tt = delta_df[delta_df['target_type'] == tt]['delta_AUC']
@@ -392,31 +388,36 @@ def generate_mixed_violin_plot(aggregate_statistics_df, col_name, jitter,
                 x_vals_delta = np.random.normal(loc=x_center + 0.1, scale=jitter_scale, size=len(delta_tt))
                 ax_delta.scatter(
                     x_vals_delta, delta_tt,
-                    alpha=0.7, color=target_type_colors[tt],
+                    color=target_type_colors[tt],
                     edgecolor='black', linewidth=0.3, s=20,
                     label=tt
                 )
         
-        # Format axes
         ax_delta.set_xticks([0])
         delta_xlabel = xtick_labels[1] if xtick_labels and len(xtick_labels) >= 2 else comparison
-        ax_delta.set_xticklabels([f"{delta_xlabel}\nvs {xtick_labels[0] if xtick_labels else baseline}"], fontsize=14)
-        ax_delta.set_ylabel('Delta AUC', fontsize=18)
-        ax_delta.set_title(f"Delta AUC: {plot_title}", fontsize=18)
+        ax_delta.set_xticklabels([f"{delta_xlabel}\nvs {xtick_labels[0] if xtick_labels else baseline}"], fontsize=fontsize_axes)
+        ax_delta.set_ylabel('Delta AUC', fontsize=fontsize_axes)
+        ax_delta.tick_params(axis='y', labelsize=fontsize_axes)
+
+        # Remove all spines except left (y-axis) and bottom (x-axis)
+        ax_delta.spines['top'].set_visible(False)
+        ax_delta.spines['right'].set_visible(False)
+        ax_delta.spines['left'].set_linewidth(1.0)
+        ax_delta.spines['bottom'].set_linewidth(1.0)
         
         # Add legend
         handles_delta, labels_delta = ax_delta.get_legend_handles_labels()
         if 'all' not in labels_delta:
             handles_delta = [all_patch] + handles_delta
             labels_delta = ['all'] + labels_delta
-        labels_delta = [label.capitalize() for label in labels_delta]
+        labels_delta = [label.lower() for label in labels_delta]
         
         ax_delta.legend(
             handles_delta, labels_delta,
             loc='upper left',
             bbox_to_anchor=(1.02, 1),
             borderaxespad=0,
-            fontsize=12
+            fontsize=fontsize_legend
         )
         
         plt.tight_layout()
@@ -431,11 +432,13 @@ def generate_mixed_violin_plot(aggregate_statistics_df, col_name, jitter,
             if len(delta_tt) > 0:
                 print(f"{tt.capitalize()} mean delta: {delta_tt.mean():.3f}")
 
+    
     return fig
-
+    
 def generate_multi_delta_violin_plot(aggregate_statistics_df, comparisons, jitter,
                                      plot_title="Delta AUC Comparison",
-                                     base_cols=None):
+                                     base_cols=None,
+                                     fig_size_mm=(100, 150)):
     """
     Generate a multi-panel delta violin plot comparing multiple paired design configurations.
     
@@ -451,9 +454,11 @@ def generate_multi_delta_violin_plot(aggregate_statistics_df, comparisons, jitte
     jitter : int
         If 0, show KDE plots on right side; if non-zero, show jittered scatter points
     plot_title : str
-        Overall title for the plot
+        Overall title for the plot (unused, kept for API compatibility)
     base_cols : list
         All columns that could be used for grouping
+    fig_size_mm : tuple
+        Figure size as (width_mm, height_mm). Default is (100, 150).
     
     Returns:
     --------
@@ -468,21 +473,22 @@ def generate_multi_delta_violin_plot(aggregate_statistics_df, comparisons, jitte
         {'col_name': 'task_phrase', 'labels': ['non-simplified', 'simplified'], 'title': 'Task Phrase'},
         {'col_name': 'tabular', 'labels': ['note', 'note-tabular'], 'title': 'Note Type'}
     ]
-    fig = generate_multi_delta_violin_plot(agg_df_train, comparisons, 0, 
-                                           "Delta AUC Across Design Configurations", 
-                                           base_cols)
+    fig = generate_multi_delta_violin_plot(agg_df_train, comparisons, 0,
+                                           base_cols=base_cols,
+                                           fig_size_mm=(100, 150))
     """
     
     # Parameters
     base_color = '#666666'
     target_type_colors = {
-        'clinic': '#d95f02',
-        'lab': '#1b9e77',
-        'symptom': '#7570b3',
+        'clinic': '#88bb99',
+        'lab': '#e6b3bb',
+        'symptom': '#9a91c4',
     }
     violin_width = 0.4
     all_patch = mpatches.Patch(color=base_color, label='all')
-    
+    fontsize_axes = 4
+    fontsize_legend = 4
     target_types = aggregate_statistics_df['target_type'].unique()
     
     # Collect all delta AUC data for each comparison
@@ -555,13 +561,16 @@ def generate_multi_delta_violin_plot(aggregate_statistics_df, comparisons, jitte
     
     delta_df = pd.DataFrame(all_delta_data)
     
+    # Convert mm to inches for matplotlib
+    fig_width_in = fig_size_mm[0] / 25.4
+    fig_height_in = fig_size_mm[1] / 25.4
+
     # Create the plot
-    n_comparisons = len(comparisons)
-    fig, ax = plt.subplots(figsize=(n_comparisons * 2.5, 6))
-    ax.grid(True, axis='y', linestyle='--', alpha=0.4)
+    fig, ax = plt.subplots(figsize=(fig_width_in, fig_height_in))
     ax.axhline(y=0, color='red', linestyle='--', linewidth=1, alpha=0.5, zorder=1)
     
     # Plot each comparison
+    n_comparisons = len(comparisons)
     for i in range(n_comparisons):
         x_center = i
         
@@ -584,7 +593,7 @@ def generate_multi_delta_violin_plot(aggregate_statistics_df, comparisons, jitte
             x_center - densities_delta,
             x_center,
             facecolor=base_color,
-            alpha=0.6,
+            # alpha=0.6,
             zorder=2
         )
         
@@ -595,7 +604,7 @@ def generate_multi_delta_violin_plot(aggregate_statistics_df, comparisons, jitte
         uw_delta = min(q3_delta + 1.5 * iqr_delta, delta_comp.max())
         
         # Whiskers
-        ax.vlines(x_center - 0.1, lw_delta, uw_delta, color='gray', linestyle='dashed', linewidth=0.5, zorder=3)
+        ax.vlines(x_center - 0.1, lw_delta, uw_delta, color='gray', linestyle='dashed', linewidth=0.8, zorder=3)
         # IQR box
         ax.vlines(x_center - 0.1, q1_delta, q3_delta, color='black', linewidth=1, zorder=3)
         # Median line
@@ -622,7 +631,7 @@ def generate_multi_delta_violin_plot(aggregate_statistics_df, comparisons, jitte
                     x_center,
                     x_center + densities_tt_delta,
                     facecolor=target_type_colors[tt],
-                    alpha=0.8,
+                    # alpha=0.8,
                     label=tt if i == 0 else None,
                     zorder=2
                 )
@@ -641,7 +650,8 @@ def generate_multi_delta_violin_plot(aggregate_statistics_df, comparisons, jitte
                 x_vals_delta = np.random.normal(loc=x_center + 0.1, scale=jitter_scale, size=len(delta_tt))
                 ax.scatter(
                     x_vals_delta, delta_tt,
-                    alpha=0.7, color=target_type_colors[tt],
+                    # alpha=0.7, 
+                    color=target_type_colors[tt],
                     edgecolor='black', linewidth=0.3, s=20,
                     label=tt if i == 0 else None,
                     zorder=3
@@ -649,36 +659,32 @@ def generate_multi_delta_violin_plot(aggregate_statistics_df, comparisons, jitte
     
     # Format axes
     ax.set_xticks(range(n_comparisons))
-    ax.set_xticklabels([comp['title'] for comp in comparisons], fontsize=14)
-    ax.set_ylabel('Δ AUC', fontsize=18)
-    ax.set_title(plot_title, fontsize=18)
-    
+    ax.set_xticklabels([comp['title'] for comp in comparisons], fontsize=fontsize_axes)
+    ax.set_ylabel('Δ AUC', fontsize=fontsize_axes)
+    ax.tick_params(axis='y', labelsize=fontsize_axes)
+
+    # Remove all spines except left (y-axis) and bottom (x-axis)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['left'].set_linewidth(1.0)
+    ax.spines['bottom'].set_linewidth(1.0)
+
     # Add legend
-    # Legend location guide:
-    # - 'upper left' -> upper left corner inside plot
-    # - 'upper right' -> upper right corner inside plot
-    # - 'lower left' -> lower left corner inside plot
-    # - 'lower right' -> lower right corner inside plot
-    # - 'center left' -> middle left inside plot
-    # - 'center right' -> middle right inside plot
-    # - 'upper center' -> top center inside plot
-    # - 'lower center' -> bottom center inside plot
-    # - 'center' -> dead center inside plot
     handles_delta, labels_delta = ax.get_legend_handles_labels()
     if 'all' not in labels_delta:
         handles_delta = [all_patch] + handles_delta
         labels_delta = ['all'] + labels_delta
-    labels_delta = [label.capitalize() for label in labels_delta]
+    labels_delta = [label.lower() for label in labels_delta]
     
     ax.legend(
         handles_delta, labels_delta,
-        loc='upper left',  # Change this to move legend (see guide above)
-        fontsize=12,
-        framealpha=0.9  # Semi-transparent background
+        loc='upper left',
+        fontsize=fontsize_legend,
+        framealpha=0.9
     )
     
     plt.tight_layout()
-    plt.show()
+    # plt.show()
 
     return fig
 

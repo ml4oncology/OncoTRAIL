@@ -34,6 +34,7 @@ from make_clinical_dataset.shared.constants import (
 )
 from make_clinical_dataset.epr.prep import fill_missing_data_heuristically
 from oncotrail.prep.add_tabular_to_note import add_tabular_data_to_note
+from oncotrail.prep.constants import HEME_DEPTS
 import logging
 logging.basicConfig(
     level=logging.INFO
@@ -658,6 +659,14 @@ def anchor_note_to_treatment(
 
     cols_not_imputed = ['line_of_therapy', 'height', 'weight', 'intent', 'body_surface_area']
     df_treat.dropna(subset=cols_not_imputed, inplace=True)
+
+    # drop heme cases, if any
+    if 'department' in df_treat.columns:
+        # compute how many rows in df_treat have department in HEME_DEPTS and print
+        num_heme_rows = df_treat.loc[df_treat['department'].isin(HEME_DEPTS)].shape[0]
+        logger.info(f"Number of rows with department in HEME_DEPTS: {num_heme_rows}")
+        # only keep rows if department is not in HEME_DEPTS
+        df_treat = df_treat.loc[~df_treat['department'].isin(HEME_DEPTS)].copy()
 
     # Save output
     suffix = "note_tabular" if add_tabular_to_note else "note"

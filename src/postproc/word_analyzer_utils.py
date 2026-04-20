@@ -277,11 +277,18 @@ def adjust_p_values(df, adjust_method):
 
     return df
 
-def generate_popularity_plot(df, title, note_type):
+def generate_popularity_plot(df, title, note_type, fig_size_mm=(90,60)):
     # Filter to significant 1-grams
     df = df[df['p_adj'] < 0.05].copy()
 
-    fig, ax = plt.subplots(figsize=(8, 6))
+    fontsize_axes = 4
+    fontsize_legend = 4
+
+    if fig_size_mm is not None:
+        figsize = (fig_size_mm[0] / 25.4, fig_size_mm[1] / 25.4)
+    else:
+        figsize = (8, 6)
+    fig, ax = plt.subplots(figsize=figsize)
 
     # -----------------------
     # Select words to highlight
@@ -299,8 +306,8 @@ def generate_popularity_plot(df, title, note_type):
     # -----------------------
     # Marker sizes (constant for all points)
     # -----------------------
-    size_bg = 50
-    size_hi = 50
+    size_bg = 10
+    size_hi = 10
 
     # -----------------------
     # Background points (grey, no labels)
@@ -336,7 +343,7 @@ def generate_popularity_plot(df, title, note_type):
             row['change_in_metric'],
             row['frequency'],
             row['word'],
-            fontsize=12
+            fontsize=fontsize_legend
         )
         for _, row in df_highlight.iterrows()
     ]
@@ -344,35 +351,53 @@ def generate_popularity_plot(df, title, note_type):
     adjust_text(
         texts,
         ax=ax,
-        arrowprops=dict(arrowstyle='->', color='gray', lw=0.5),
-        expand_points=(1.2, 1.4),
-        expand_text=(1.2, 1.4),
-        force_points=0.5,
-        force_text=0.5,
-        lim=500,
-        only_move={'points': 'y', 'text': 'xy'}
+        arrowprops=dict(arrowstyle='-', color='gray', lw=0.4),  # simpler arrows
+        expand_points=(2.0, 2.5),   # push away from points more
+        expand_text=(1.5, 1.8),     # more spacing between labels
+        force_points=1.5,           # MUCH stronger push from points
+        force_text=0.8,             # moderate separation between labels
+        lim=2000,                   # more iterations = better layout
+        only_move={'points': 'xy', 'text': 'xy'}  # allow full movement
     )
 
     # -----------------------
     # Labels and title
     # -----------------------
-    ax.set_xlabel('average Δ LLM risk prediction', fontsize=16)
+    ax.set_xlabel('average Δ LLM risk prediction', fontsize=fontsize_axes)
 
     if note_type == 'note':
         y_label_string = 'clinical notes'
     elif note_type == 'Reason':
         y_label_string = 'LLM responses'
 
-    ax.set_ylabel(f'proportion of {y_label_string} with 1-gram', fontsize=16)
-    ax.set_title(title, fontsize=17)
-    ax.grid(True)
+    ax.set_ylabel(f'proportion of {y_label_string} with 1-gram', fontsize=fontsize_axes)
+    ax.set_title(title, fontsize=fontsize_axes)
+    ax.grid(False)
 
-    plt.tight_layout()
+    # -----------------------
+    # Tick label font sizes and padding
+    # -----------------------
+    ax.tick_params(axis='both', labelsize=fontsize_axes, pad=1)
+    ax.xaxis.labelpad = 2
+    ax.yaxis.labelpad = 2
+
+    # -----------------------
+    # Remove all spines except left (y-axis) and bottom (x-axis)
+    # -----------------------
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['left'].set_linewidth(1.0)
+    ax.spines['left'].set_color('black')
+    ax.spines['bottom'].set_linewidth(1.0)
+    ax.spines['bottom'].set_color('black')
+
+    plt.tight_layout(pad=0.5)
+    # fig.set_size_inches(figsize[0], figsize[1])
     plt.show()
     return fig
 
 
-def plot_input_output_alignment(df, title):
+def plot_input_output_alignment(df, title, fig_size_mm=(60,60)):
     """
     Plot alignment between influential words from input (clinical notes)
     and output (LLM reasoning), colored by frequency ratio.
@@ -383,7 +408,17 @@ def plot_input_output_alignment(df, title):
         Columns: ["word", "change_in_metric_input", "change_in_metric_output", "frequency_ratio"]
     title : str
         Name of the adverse event, used in the title.
+    fig_size_mm : tuple, optional
+        Figure size as (width_mm, height_mm). If None, defaults to (8 inches, 8 inches).
     """
+
+    fontsize_axes = 4
+    fontsize_legend = 4
+
+    if fig_size_mm is not None:
+        figsize = (fig_size_mm[0] / 25.4, fig_size_mm[1] / 25.4)
+    else:
+        figsize = (8, 8)
 
     # ---- compute normalized magnitude score ----
     df = df.copy()
@@ -392,8 +427,8 @@ def plot_input_output_alignment(df, title):
     df["alignment_score"] = np.sqrt(z_input**2 + z_output**2)
 
     def _draw_figure(data, ax_title, top_words):
-        sns.set(style="white", context="talk")
-        fig, ax = plt.subplots(figsize=(8, 8))
+        # sns.set(style="white", context="talk")
+        fig, ax = plt.subplots(figsize=figsize)
         
         # ---- Normalize color scale around 1 ----
         norm = plt.Normalize(vmin=0.5, vmax=2.0)
@@ -406,12 +441,11 @@ def plot_input_output_alignment(df, title):
             c=data["frequency_ratio"],
             cmap=cmap,
             norm=norm,
-            s=120,
-            alpha=0.9,
+            s=10,
             edgecolor="k",
             linewidth=0.4
         )
-        
+
         # ---- Add word labels ----
         texts = []
         for _, row in data.iterrows():
@@ -421,46 +455,82 @@ def plot_input_output_alignment(df, title):
                         row["change_in_metric_input"],
                         row["change_in_metric_output"],
                         row["word"],
-                        fontsize=9,
+                        fontsize=fontsize_legend,
                         color="black"
                     )
                 )
-        
+
         adjust_text(
             texts,
             ax=ax,
-            arrowprops=dict(arrowstyle='->', color='gray', lw=0.5),
-            expand_points=(1.2, 1.4),
-            expand_text=(1.2, 1.4),
-            force_points=0.5,
-            force_text=0.5,
-            lim=500,
-            only_move={'points': 'y', 'text': 'xy'}
+            arrowprops=dict(arrowstyle='-', color='gray', lw=0.4),  # simpler arrows
+            expand_points=(2.0, 2.5),   # push away from points more
+            expand_text=(1.5, 1.8),     # more spacing between labels
+            force_points=1.5,           # MUCH stronger push from points
+            force_text=0.8,             # moderate separation between labels
+            lim=2000,                   # more iterations = better layout
+            only_move={'points': 'xy', 'text': 'xy'}  # allow full movement
         )
         
         # ---- Reference lines ----
-        ax.axhline(0, color="gray", lw=1)
-        ax.axvline(0, color="gray", lw=1)
+        ax.axhline(0, color="gray", linestyle="--", lw=0.8)
+        ax.axvline(0, color="gray", linestyle="--", lw=0.8)
+
+        x_min, x_max = data["change_in_metric_input"].min(), data["change_in_metric_input"].max()
+        y_min, y_max = data["change_in_metric_output"].min(), data["change_in_metric_output"].max()
+
+        x_pad = 0.05 * (x_max - x_min)
+        y_pad = 0.05 * (y_max - y_min)
+
+        ax.set_xlim(x_min - x_pad, x_max + x_pad)
+        ax.set_ylim(y_min - y_pad, y_max + y_pad)
         
         # ---- Labels and title ----
-        ax.set_xlabel("Δ predicted risk (input clinical notes)")
-        ax.set_ylabel("Δ predicted risk (LLM reasoning output)")
-        ax.set_title(f"{ax_title}", loc="left")
+        ax.set_xlabel("Δ predicted risk (input clinical notes)", fontsize=fontsize_axes)
+        ax.set_ylabel("Δ predicted risk (LLM reasoning output)", fontsize=fontsize_axes)
+        ax.tick_params(axis='both', labelsize=fontsize_axes, pad=1)
+        ax.set_title(f"{ax_title}", loc="left", fontsize=fontsize_axes)
+        ax.xaxis.labelpad = 2
+        ax.yaxis.labelpad = 2
         
         # ---- Correlation ----
         corr = data[["change_in_metric_input", "change_in_metric_output"]].corr().iloc[0, 1]
-        ax.text(0.05, 0.95, f"Pearson r = {corr:.2f}", transform=ax.transAxes, fontsize=11)
+        ax.text(0.05, 0.95, f"Pearson r = {corr:.2f}", transform=ax.transAxes, fontsize=fontsize_legend)
         
-        # ---- Colorbar ----
-        cbar = plt.colorbar(sc, ax=ax, fraction=0.046, pad=0.04)
-        cbar.set_label("frequency ratio (output / input)")
+        # # ---- Colorbar ----
+        # cbar = plt.colorbar(sc, ax=ax, fraction=0.046, pad=0.04)
+        # cbar.set_label("frequency ratio (output / input)", fontsize=fontsize_axes)
+        # cbar.set_ticks([0.5, 1.0, 2.0])
+        # cbar.ax.tick_params(labelsize=fontsize_axes)
+        # cbar.ax.axhline(1.0, color='k', lw=0.8)
+        # REPLACE colorbar with horizontal version
+        cbar = plt.colorbar(
+            sc, ax=ax, orientation='horizontal',
+            fraction=0.05, pad=0.12
+        )
+        cbar.set_label("frequency ratio (output / input)", fontsize=fontsize_axes)
         cbar.set_ticks([0.5, 1.0, 2.0])
-        cbar.ax.axhline(1.0, color='k', lw=0.8)
-        
-        # ---- Clean aesthetic ----
-        sns.despine(ax=ax)
+        cbar.ax.tick_params(labelsize=fontsize_axes, pad=1, length=2)
+        cbar.outline.set_linewidth(0.6)
+        cbar.ax.axvline(1.0, color='k', lw=0.6)
+
+        # ---- Remove all spines except left (y-axis) and bottom (x-axis) ----
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['left'].set_linewidth(1.0)
+        ax.spines['left'].set_color('black')
+        ax.spines['bottom'].set_linewidth(1.0)
+        ax.spines['bottom'].set_color('black')
         ax.grid(False)
-        plt.tight_layout()
+
+        # plt.tight_layout()
+        fig.subplots_adjust(
+            left=0.12,
+            right=0.88,
+            bottom=0.12,
+            top=0.92
+        )
+
         plt.show()
         
         return fig
