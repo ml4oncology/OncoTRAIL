@@ -3,12 +3,133 @@ import polars as pl
 import argparse
 from transformers import AutoTokenizer
 import seaborn as sns
+from scipy.stats import mannwhitneyu
 import matplotlib.pyplot as plt
 import importlib.util
 spec = importlib.util.spec_from_file_location("phys_names", "/cluster/projects/gliugroup/2BLAST/data/info/phys_names.py")
 constants = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(constants)
 aliasDictionary = constants.aliasDictionary
+
+def plot_note_length_over_time(df_notes_visit, first_year_EPIC, fig_size_mm=None):
+    """
+    Plot distribution of tokenized clinical note length over time,
+    highlighting the EMR system change (EPIC_FLAG == 1).
+    """
+
+    fontsize_axes = 4
+    fontsize_legend = 4
+
+    if fig_size_mm is not None:
+        figsize = (fig_size_mm[0] / 25.4, fig_size_mm[1] / 25.4)
+    else:
+        figsize = (12, 6)
+
+    # ----------------------------
+    # Compute yearly summary stats
+    # ----------------------------
+    summary = (
+        df_notes_visit
+        .groupby("year")["tokenized_length"]
+        .agg(
+            median="median",
+            q1=lambda x: x.quantile(0.25),
+            q3=lambda x: x.quantile(0.75),
+            min="min",
+            max="max",
+        )
+        .reset_index()
+    )
+
+    # ----------------------------
+    # Compute IQR + whiskers
+    # ----------------------------
+    summary["IQR"] = summary["q3"] - summary["q1"]
+    summary["lower_whisker_calc"] = summary["q1"] - 1.5 * summary["IQR"]
+    summary["upper_whisker"] = summary["q3"] + 1.5 * summary["IQR"]
+
+    # Lower whisker cannot be below observed minimum
+    summary["lower_whisker"] = summary[["lower_whisker_calc", "min"]].max(axis=1)
+
+    # Ensure clean numeric data
+    summary = summary.apply(pd.to_numeric, errors="coerce").dropna()
+
+    # ----------------------------
+    # Colorblind-friendly palette
+    # ----------------------------
+    COLOR_IQR = "#E69F00"       # Orange
+    COLOR_WHISKER = "#56B4E9"   # Sky Blue
+    COLOR_MEDIAN = "#000000"    # Black
+    COLOR_EMR = "#999999"       # Neutral gray
+
+    # ----------------------------
+    # Plot
+    # ----------------------------
+    fig, ax = plt.subplots(figsize=figsize)
+
+    # Highlight EMR change period
+    if pd.notna(first_year_EPIC):
+        ax.axvspan(
+            first_year_EPIC,
+            summary["year"].max(),
+            color=COLOR_EMR,
+            alpha=0.2,
+            label="EMR change",
+        )
+
+    # Whisker region
+    ax.fill_between(
+        summary["year"],
+        summary["lower_whisker"],
+        summary["upper_whisker"],
+        alpha=0.2,
+        color=COLOR_WHISKER,
+        label="min to Q3 + 1.5×IQR",
+    )
+
+    # IQR region
+    ax.fill_between(
+        summary["year"],
+        summary["q1"],
+        summary["q3"],
+        alpha=0.4,
+        color=COLOR_IQR,
+        label="IQR (Q1–Q3)",
+    )
+
+    # Median line
+    ax.plot(
+        summary["year"],
+        summary["median"],
+        marker="o",
+        markersize=5,
+        color=COLOR_MEDIAN,
+        label="median",
+    )
+
+    # Labels & formatting
+    ax.set_xlabel("year", fontsize=fontsize_axes)
+    ax.set_ylabel("tokenized length of oncology clinical note", fontsize=fontsize_axes)
+    ax.set_xticks(summary["year"])
+    ax.set_xticklabels(summary["year"], rotation=45, fontsize=fontsize_axes)
+    ax.tick_params(axis='both', labelsize=fontsize_axes, pad=1)
+    ax.grid(False)
+
+    # Remove all spines except left (y-axis) and bottom (x-axis)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['left'].set_linewidth(1.0)
+    ax.spines['left'].set_color('black')
+    ax.spines['bottom'].set_linewidth(1.0)
+    ax.spines['bottom'].set_color('black')
+
+    ax.legend(loc="upper left", fontsize=fontsize_legend)
+
+    plt.tight_layout(pad=0.5)
+    fig.set_size_inches(figsize[0], figsize[1])
+    plt.show()
+
+    return fig, ax
 
 def main(notes_path, save_dir, model_path):
 
@@ -46,63 +167,29 @@ def main(notes_path, save_dir, model_path):
     # find the first year where EPIC_FLAG==1
     first_year_EPIC = df_notes_visit[df_notes_visit['EPIC_FLAG'] == 1]['year'].min()
 
-    # Compute summary statistics
-    summary = df_notes_visit.groupby("year")["tokenized_length"].agg(
-        median="median",
-        q1=lambda x: x.quantile(0.25),
-        q3=lambda x: x.quantile(0.75),
-        min="min",
-        max="max"
-    ).reset_index()
+    fig, _ = plot_note_length_over_time(df_notes_visit, first_year_EPIC, fig_size_mm=(150, 45))
 
-    # Custom colorblind-friendly palette
-    COLOR_IQR = "#E69F00"       # Orange
-    COLOR_WHISKER = "#56B4E9"   # Sky Blue
-    COLOR_MEDIAN = "#000000"    # Black
+    fig.savefig(save_dir + '/clinical_note_tokenized_length_over_time.svg')
 
-    # Compute IQR and whisker limits
-    summary["IQR"] = summary["q3"] - summary["q1"]
-    summary["lower_whisker_calc"] = summary["q1"] - 1.5 * summary["IQR"]
-    summary["upper_whisker"] = summary["q3"] + 1.5 * summary["IQR"]
+    # statistics
 
-    # Replace negative lower whisker with actual minimum
-    summary["lower_whisker"] = summary[["lower_whisker_calc", "min"]].max(axis=1)
+    # Split the groups
+    group0 = df_notes_visit[df_notes_visit['EPIC_FLAG'] == 0]['tokenized_length'].dropna()
+    group1 = df_notes_visit[df_notes_visit['EPIC_FLAG'] == 1]['tokenized_length'].dropna()
 
-    # Ensure all values are numeric and clean
-    summary = summary.apply(pd.to_numeric, errors="coerce").dropna()
+    # Compute medians
+    median0 = group0.median()
+    median1 = group1.median()
 
-    # Plot
-    fig, ax = plt.subplots(figsize=(12, 6))
+    # Mann–Whitney U test (two-sided)
+    stat, p_value = mannwhitneyu(group0, group1, alternative='two-sided')
 
-    # Highlight the EMR change period
-    ax.axvspan(first_year_EPIC, summary["year"].max(), 
-            color="#999999", alpha=0.2, label="EMR change")  # gray, subtle
+    # Print results
+    print(f"Median (EPIC_FLAG=0): {median0:.1f}")
+    print(f"Median (EPIC_FLAG=1): {median1:.1f}")
+    print(f"P-value: {p_value}")
 
-    # Shaded region: adjusted whiskers (min to upper limit)
-    ax.fill_between(summary["year"], summary["lower_whisker"], summary["upper_whisker"],
-                    alpha=0.2, label="min to Q3+1.5×IQR", color=COLOR_WHISKER)
 
-    # Shaded region: interquartile range (Q1 to Q3)
-    ax.fill_between(summary["year"], summary["q1"], summary["q3"],
-                    alpha=0.4, label="IQR (Q1 to Q3)", color=COLOR_IQR)
-
-    # Line for median
-    ax.plot(summary["year"], summary["median"], marker="o", label="median", color=COLOR_MEDIAN)
-
-    # Axis labels and title
-    ax.set_title("Distribution of oncology clinical note length over time", fontsize=18)
-    ax.set_xlabel("Year", fontsize=18)
-    ax.set_ylabel("Tokenized length", fontsize=18)
-    ax.set_xticks(summary["year"])
-    ax.set_xticklabels(summary["year"], rotation=45)
-    ax.grid(True)
-
-    # Legend
-    ax.legend(loc="upper left", fontsize=14)
-    plt.tight_layout()
-    plt.show()
-
-    fig.savefig(save_dir + '/tokenized_note_length.png', format='png', dpi=300)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Plot figure for tokenized note length")

@@ -567,7 +567,7 @@ def generate_multi_delta_violin_plot(aggregate_statistics_df, comparisons, jitte
 
     # Create the plot
     fig, ax = plt.subplots(figsize=(fig_width_in, fig_height_in))
-    ax.axhline(y=0, color='red', linestyle='--', linewidth=1, alpha=0.5, zorder=1)
+    ax.axhline(y=0, color='gray', linestyle='--', linewidth=1, alpha=0.5, zorder=1)
     
     # Plot each comparison
     n_comparisons = len(comparisons)

@@ -149,15 +149,7 @@ def safe_auc(y_true, y_score):
         return np.nan
 
 
-# def bootstrap_aucs(pred_dict_by_method, n_boot=1000, base_seed=12345):
-def bootstrap_aucs(
-    pred_dict_by_method,
-    mrn_inference_aero,
-    n_boot=1000,
-    base_seed=12345
-):
-    results = []
-
+def prepare_shared_auc_inputs(pred_dict_by_method, mrn_inference_aero):
     # ---- shared TEST ----
     shared_test_mrns = sorted(set.intersection(*[
         set(v["mrn_test"]) for v in pred_dict_by_method.values()
@@ -204,6 +196,36 @@ def bootstrap_aucs(
     inf_preds_other = {
         m: p[other_mask] for m, p in inf_preds.items()
     }
+
+    return {
+        "y_test": y_test,
+        "test_preds": test_preds,
+        "y_inf": y_inf,
+        "inf_preds": inf_preds,
+        "y_inf_aero": y_inf_aero,
+        "y_inf_other": y_inf_other,
+        "inf_preds_aero": inf_preds_aero,
+        "inf_preds_other": inf_preds_other,
+    }
+
+
+# def bootstrap_aucs(pred_dict_by_method, n_boot=1000, base_seed=12345):
+def bootstrap_aucs(
+    pred_dict_by_method,
+    mrn_inference_aero,
+    n_boot=1000,
+    base_seed=12345
+):
+    results = []
+    shared = prepare_shared_auc_inputs(pred_dict_by_method, mrn_inference_aero)
+    y_test = shared["y_test"]
+    test_preds = shared["test_preds"]
+    y_inf = shared["y_inf"]
+    inf_preds = shared["inf_preds"]
+    y_inf_aero = shared["y_inf_aero"]
+    y_inf_other = shared["y_inf_other"]
+    inf_preds_aero = shared["inf_preds_aero"]
+    inf_preds_other = shared["inf_preds_other"]
 
 
     for b in range(n_boot):
@@ -266,6 +288,50 @@ def bootstrap_aucs(
 
     return pd.DataFrame(results)
 
+
+def point_estimate_aucs(pred_dict_by_method, mrn_inference_aero):
+    results = []
+    shared = prepare_shared_auc_inputs(pred_dict_by_method, mrn_inference_aero)
+    y_test = shared["y_test"]
+    test_preds = shared["test_preds"]
+    y_inf = shared["y_inf"]
+    inf_preds = shared["inf_preds"]
+    y_inf_aero = shared["y_inf_aero"]
+    y_inf_other = shared["y_inf_other"]
+    inf_preds_aero = shared["inf_preds_aero"]
+    inf_preds_other = shared["inf_preds_other"]
+
+    for method, info in pred_dict_by_method.items():
+        auc_train = safe_auc(info["y_train"], info["pred_train"])
+        auc_test = safe_auc(y_test, test_preds[method])
+        auc_inf = safe_auc(y_inf, inf_preds[method])
+
+        if len(y_inf_aero) > 0:
+            auc_inf_aero = safe_auc(y_inf_aero, inf_preds_aero[method])
+        else:
+            auc_inf_aero = np.nan
+
+        if len(y_inf_other) > 0:
+            auc_inf_other = safe_auc(y_inf_other, inf_preds_other[method])
+        else:
+            auc_inf_other = np.nan
+
+        results.extend([
+            {"method": method, "split": "train", "auc": auc_train},
+            {"method": method, "split": "test", "auc": auc_test},
+            {"method": method, "split": "inference", "auc": auc_inf},
+            {"method": method, "split": "test_minus_train", "auc": auc_test - auc_train},
+            {"method": method, "split": "inference_minus_train", "auc": auc_inf - auc_train},
+            {"method": method, "split": "inference_minus_test", "auc": auc_inf - auc_test},
+            {"method": method, "split": "inference_aero", "auc": auc_inf_aero},
+            {"method": method, "split": "inference_other", "auc": auc_inf_other},
+            {"method": method,
+             "split": "inference_aero_minus_inference_other",
+             "auc": auc_inf_aero - auc_inf_other}
+        ])
+
+    return pd.DataFrame(results)
+
 # --------------------------------------------------------
 # Find aerodigestive mrns
 # --------------------------------------------------------
@@ -305,6 +371,7 @@ def build_tidy_bootstrap_dataframe(
     )
 
     all_rows = []
+    all_point_rows = []
     targets = sorted({t for (_, t) in preds.keys()})
 
     for target in tqdm(targets):
@@ -317,10 +384,21 @@ def build_tidy_bootstrap_dataframe(
         df_boot["target"] = target
         all_rows.append(df_boot)
 
+        df_point = point_estimate_aucs(pred_dict, mrn_inference_aero)
+        df_point["target"] = target
+        all_point_rows.append(df_point)
+
     df_tidy = pd.concat(all_rows, ignore_index=True)
     df_tidy['target'] = df_tidy['target'].astype(str).str.replace('_','-')
     df_tidy.to_csv(
         os.path.join(save_dir, "aggregate_bootstrap_results.csv"),
+        index=False
+    )
+
+    df_point_tidy = pd.concat(all_point_rows, ignore_index=True)
+    df_point_tidy['target'] = df_point_tidy['target'].astype(str).str.replace('_','-')
+    df_point_tidy.to_csv(
+        os.path.join(save_dir, "aggregate_point_estimate_results.csv"),
         index=False
     )
 
