@@ -5,8 +5,11 @@ from transformers import AutoTokenizer
 import seaborn as sns
 from scipy.stats import mannwhitneyu
 import matplotlib.pyplot as plt
+import os
 import importlib.util
-spec = importlib.util.spec_from_file_location("phys_names", "/cluster/projects/gliugroup/2BLAST/data/info/phys_names.py")
+from oncotrail.utils.env_loader import load_env
+load_env()
+spec = importlib.util.spec_from_file_location("phys_names", os.path.join(os.environ.get("PHYS_NAMES_DIR", ""), "phys_names.py"))
 constants = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(constants)
 aliasDictionary = constants.aliasDictionary

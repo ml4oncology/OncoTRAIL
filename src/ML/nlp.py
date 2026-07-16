@@ -1,5 +1,8 @@
 import re
+import os
 import nltk
+from oncotrail.utils.env_loader import load_env
+load_env()
 import numpy as np
 import pandas as pd
 from nltk.corpus import stopwords, wordnet
@@ -7,7 +10,7 @@ from nltk.stem import WordNetLemmatizer
 from nltk.tokenize import word_tokenize
 from nltk import pos_tag
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
-nltk.data.path.append('/cluster/projects/gliugroup/2BLAST/LLMs/custom_nltk_data')
+nltk.data.path.append(os.environ.get("NLTK_DATA_DIR", ""))
 
 def get_wordnet_pos(treebank_tag):
     """Map POS tags to WordNet POS tags."""

@@ -21,7 +21,9 @@ from sklearn.metrics import roc_auc_score
 # nltk.download('averaged_perceptron_tagger')
 from nltk import pos_tag
 import os
-nltk_data_path = '/cluster/home/t127556uhn/nltk_data'
+from oncotrail.utils.env_loader import load_env
+load_env()
+nltk_data_path = os.environ.get("NLTK_DATA_DIR", "")
 nltk.data.path.append(nltk_data_path)
 
 from rpy2 import robjects

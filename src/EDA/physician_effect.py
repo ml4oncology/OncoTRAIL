@@ -27,7 +27,9 @@ import numpy as np
 import pandas as pd
 
 import sys
-sys.path.insert(1, "/cluster/projects/gliugroup/2BLAST/data/info")
+from oncotrail.utils.env_loader import load_env
+load_env()
+sys.path.insert(1, os.environ.get("PHYS_NAMES_DIR", ""))
 from phys_names import aliasDictionary, fellow_alias
 
 from oncotrail.constants import df_physician_char_EPR, df_physician_char_EPIC

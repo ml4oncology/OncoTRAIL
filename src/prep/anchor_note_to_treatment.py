@@ -9,6 +9,8 @@ training and inference modes.
 import os
 import argparse
 import importlib.util
+from oncotrail.utils.env_loader import load_env
+load_env()
 
 import numpy as np
 import pandas as pd
@@ -44,7 +46,7 @@ logger = logging.getLogger(__name__)
 # Load physician aliases from external configuration
 spec = importlib.util.spec_from_file_location(
     "phys_names",
-    "/cluster/projects/gliugroup/2BLAST/data/info/phys_names.py"
+    os.path.join(os.environ.get("PHYS_NAMES_DIR", ""), "phys_names.py")
 )
 constants = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(constants)

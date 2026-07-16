@@ -13,7 +13,9 @@ logging.basicConfig(
 )
 import ast
 import sys
-sys.path.insert(1, "/cluster/projects/gliugroup/2BLAST/data/info")
+from oncotrail.utils.env_loader import load_env
+load_env()
+sys.path.insert(1, os.environ.get("PHYS_NAMES_DIR", ""))
 from phys_names import aliasDictionary, fellow_alias 
 
 def compute_fairness_metrics(notes_df_path, method_dfs, target_name,
