@@ -1,7 +1,11 @@
 #!/bin/bash
 export PATH=$PATH:$(pwd)
 
-DEFAULT_ROOT_PREFIX="/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT_DIR="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
+source "${PROJECT_ROOT_DIR}/env.sh"
+
+DEFAULT_ROOT_PREFIX="${CLUSTER_ROOT_PREFIX}"
 
 if [[ $# -lt 1 || $# -gt 2 ]]; then
     echo "Usage: $0 <llama_cpp_parallel|llama_cpp_sequential|vllm_offline> [root_prefix]"
@@ -13,7 +17,6 @@ fi
 # Modes: llama_cpp_parallel | llama_cpp_sequential | vllm_offline
 mode="$1"
 ROOT_PREFIX="${2:-$DEFAULT_ROOT_PREFIX}"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SRC_DIR="$(cd "${SCRIPT_DIR}/../../../src" && pwd)"
 
 case "$mode" in
@@ -31,7 +34,7 @@ else
 fi
 
 # ── Common settings ───────────────────────────────────────────────────────────
-userName="t127556uhn"
+userName="${CLUSTER_USERNAME}"
 memory=16
 condaEnv="$(conda run -n OncoTRAIL which python)"
 
@@ -147,25 +150,25 @@ do
 
     if [ "$llama_cpp" == "0" ]; then
         if [ "$LLM_name" == "Llama3-8B" ]; then
-            LLM_path=/cluster/projects/gliugroup/2BLAST/LLMs/Meta-Llama-3-8B-Instruct
-            tokenizer_path=/cluster/projects/gliugroup/2BLAST/LLMs/Meta-Llama-3-8B-Instruct
+            LLM_path=${LLM_BASE_DIR}/Meta-Llama-3-8B-Instruct
+            tokenizer_path=${LLM_BASE_DIR}/Meta-Llama-3-8B-Instruct
         elif [ "$LLM_name" == "Mistral-7B" ]; then
-            LLM_path=/cluster/projects/gliugroup/2BLAST/LLMs/Mistral-7B-Instruct-v0.3
-            tokenizer_path=/cluster/projects/gliugroup/2BLAST/LLMs/Mistral-7B-Instruct-v0.3
+            LLM_path=${LLM_BASE_DIR}/Mistral-7B-Instruct-v0.3
+            tokenizer_path=${LLM_BASE_DIR}/Mistral-7B-Instruct-v0.3
         elif [ "$LLM_name" == "Gemma2-9B" ]; then
-            LLM_path=/cluster/projects/gliugroup/2BLAST/LLMs/gemma-2-9b-it
-            tokenizer_path=/cluster/projects/gliugroup/2BLAST/LLMs/gemma-2-9b-it
+            LLM_path=${LLM_BASE_DIR}/gemma-2-9b-it
+            tokenizer_path=${LLM_BASE_DIR}/gemma-2-9b-it
         fi
     else
         if [ "$LLM_name" == "Llama3.1-8B-Q6-K" ]; then
-            LLM_path=/cluster/projects/gliugroup/2BLAST/LLMs/Meta-Llama-3.1-8B-Instruct-Q6_K.gguf
-            tokenizer_path=/cluster/projects/gliugroup/2BLAST/LLMs/Meta-Llama-3-8B-Instruct
+            LLM_path=${LLM_BASE_DIR}/Meta-Llama-3.1-8B-Instruct-Q6_K.gguf
+            tokenizer_path=${LLM_BASE_DIR}/Meta-Llama-3-8B-Instruct
         elif [ "$LLM_name" == "Mistral-Nemo-2407-IQ4-XS" ]; then
-            LLM_path=/cluster/projects/gliugroup/2BLAST/LLMs/Mistral-Nemo-Instruct-2407-IQ4_XS.gguf
-            tokenizer_path=/cluster/projects/gliugroup/2BLAST/LLMs/Mistral-Nemo-Instruct-2407
+            LLM_path=${LLM_BASE_DIR}/Mistral-Nemo-Instruct-2407-IQ4_XS.gguf
+            tokenizer_path=${LLM_BASE_DIR}/Mistral-Nemo-Instruct-2407
         elif [ "$LLM_name" == "Qwen2.5-14B-IQ4-XS" ]; then
-            LLM_path=/cluster/projects/gliugroup/2BLAST/LLMs/Qwen2.5-14B-Instruct-IQ4_XS.gguf
-            tokenizer_path=/cluster/projects/gliugroup/2BLAST/LLMs/Qwen2.5-14B-Instruct
+            LLM_path=${LLM_BASE_DIR}/Qwen2.5-14B-Instruct-IQ4_XS.gguf
+            tokenizer_path=${LLM_BASE_DIR}/Qwen2.5-14B-Instruct
         fi
     fi
 

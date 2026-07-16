@@ -9,13 +9,17 @@
 # Load python module
 module load python3
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT_DIR="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
+source "${PROJECT_ROOT_DIR}/env.sh"
+
 # Set the path to your conda environment's python
 PYTHON_ENV=~/miniforge3/envs/OncoTRAIL/bin/python
 
 # Path to the clean_csvs.py script
-SCRIPT_PATH="/cluster/home/t127556uhn/gitrepo/2024/OncoTRAIL/src/prompt/clean_csvs.py"
+SCRIPT_PATH="${PROJECT_ROOT_DIR}/src/prompt/clean_csvs.py"
 
-DEFAULT_ROOT_PREFIX="/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024"
+DEFAULT_ROOT_PREFIX="${CLUSTER_ROOT_PREFIX}"
 
 if [[ $# -lt 1 || $# -gt 2 ]]; then
     echo "Usage: $0 <stage> [root_prefix]"

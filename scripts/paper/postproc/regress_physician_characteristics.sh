@@ -3,10 +3,14 @@ set -e
 
 export PATH=$PATH:$(pwd)
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT_DIR="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
+source "${PROJECT_ROOT_DIR}/env.sh"
+
 # -------------------------
 # Usage check
 # -------------------------
-DEFAULT_ROOT_PREFIX="/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024"
+DEFAULT_ROOT_PREFIX="${CLUSTER_ROOT_PREFIX}"
 
 if [[ $# -lt 1 || $# -gt 2 ]]; then
     echo "Usage: $0 {EPR|EPIC} [root_prefix]"
@@ -25,7 +29,7 @@ fi
 # -------------------------
 # Common SLURM settings
 # -------------------------
-userName="t127556uhn"
+userName="${CLUSTER_USERNAME}"
 memory=8
 condaEnv="$(conda run -n OncoTRAIL which python)"
 nGPU=0
@@ -61,13 +65,13 @@ if [[ "$EMR_system" == "EPR" ]]; then
     anchored_notes_path="${PROJECT_ROOT}/paper/pmh_method/data/train_test/note_anchored/note_anchored_firstTreatmentOnly-medOnc-ConsultLetterClinic_deid.csv"
     prompting_data_dir="${PROJECT_ROOT}/paper/pmh_method/methods/prompting/train_test/test"
     tabular_results="${PROJECT_ROOT}/paper/pmh_method/results/aggregate/train_test/tabular_nlp/best_result_summary_firstTreatmentOnly-medOnc-ConsultLetterClinic_deid_tabular_all_Temporal.csv"
-    raw_treatment_path='/cluster/projects/gliugroup/2BLAST/data/final/data_2023-02-21/processed/treatment_centered_dataset.parquet'
+    raw_treatment_path="${DATA_BASE_DIR}/final/data_2023-02-21/processed/treatment_centered_dataset.parquet"
 else  # EPIC
     held_out_set="inference"
     anchored_notes_path="${PROJECT_ROOT}/paper/pmh_method/data/inference/note_anchored/note_anchored_firstTreatmentOnly-medOnc-ConsultLetterClinic_deid.csv"
     prompting_data_dir="${PROJECT_ROOT}/paper/pmh_method/methods/prompting/inference"
     tabular_results="${PROJECT_ROOT}/paper/pmh_method/results/aggregate/inference/tabular_nlp/best_result_summary_firstTreatmentOnly-medOnc-ConsultLetterClinic_deid_tabular_all_Temporal.csv"
-    raw_treatment_path='/cluster/projects/gliugroup/2BLAST/data/final/data_2025-03-29/processed/treatment_centered_data.parquet'
+    raw_treatment_path="${DATA_BASE_DIR}/final/data_2025-03-29/processed/treatment_centered_data.parquet"
 fi
 
 output_dir="${PROJECT_ROOT}/paper/pmh_method/results/plots/physician_variability/regression"

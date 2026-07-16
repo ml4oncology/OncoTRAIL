@@ -1,14 +1,18 @@
 #!/bin/bash
 export PATH=$PATH:$(pwd)
 
-DEFAULT_ROOT_PREFIX="/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT_DIR="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
+source "${PROJECT_ROOT_DIR}/env.sh"
+
+DEFAULT_ROOT_PREFIX="${CLUSTER_ROOT_PREFIX}"
 
 if [[ $# -lt 1 || $# -gt 2 ]]; then
     echo "Usage: $0 <dataset_type> [root_prefix]"
     exit 1
 fi
 
-userName="t127556uhn"
+userName="${CLUSTER_USERNAME}"
 memory=16
 condaEnv="$(conda run -n OncoTRAIL which python)"
 nGPU=0
@@ -102,8 +106,8 @@ stage3_csv_file=${root_dir_proj}/paper/pmh_method/methods/prompting/train_test/s
 few_shot_date=$date_few_shot
 
 LLM_name=Qwen2.5-14B-IQ4-XS
-LLM_path=/cluster/projects/gliugroup/2BLAST/LLMs/Qwen2.5-14B-Instruct-IQ4_XS.gguf
-tokenizer_path=/cluster/projects/gliugroup/2BLAST/LLMs/Qwen2.5-14B-Instruct
+LLM_path=${LLM_BASE_DIR}/Qwen2.5-14B-Instruct-IQ4_XS.gguf
+tokenizer_path=${LLM_BASE_DIR}/Qwen2.5-14B-Instruct
 
 add_tabularML_prediction=0
 

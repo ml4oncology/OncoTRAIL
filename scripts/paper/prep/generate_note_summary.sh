@@ -1,7 +1,11 @@
 #!/bin/bash
 export PATH=$PATH:$(pwd)
 
-DEFAULT_ROOT_PREFIX="/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT_DIR="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
+source "${PROJECT_ROOT_DIR}/env.sh"
+
+DEFAULT_ROOT_PREFIX="${CLUSTER_ROOT_PREFIX}"
 
 if [[ $# -gt 1 ]]; then
     echo "Usage: $0 [root_prefix]"
@@ -11,7 +15,7 @@ fi
 ROOT_PREFIX="${1:-$DEFAULT_ROOT_PREFIX}"
 PROJECT_ROOT="${ROOT_PREFIX}/OncoTRAIL"
 
-userName="t127556uhn"
+userName="${CLUSTER_USERNAME}"
 memory=16
 condaEnv="$(conda run -n OncoTRAIL which python)"
 nGPU=0
@@ -21,7 +25,7 @@ root_dir_proj=${PROJECT_ROOT}
 data_dir=${root_dir_proj}/paper/pmh_method/data/train_test/note_anchored
 file_name=note_anchored_firstTreatmentOnly-medOnc-ConsultLetterClinic_deid.csv
 LLM_name=Qwen2.5-14B-IQ4-XS
-LLM_path=/cluster/projects/gliugroup/2BLAST/LLMs/Qwen2.5-14B-Instruct-IQ4_XS.gguf
+LLM_path=${LLM_BASE_DIR}/Qwen2.5-14B-Instruct-IQ4_XS.gguf
 save_dir=${data_dir}/note_summary
 n_partitions=10
 n_hours=8

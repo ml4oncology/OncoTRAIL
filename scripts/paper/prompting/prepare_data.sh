@@ -1,14 +1,18 @@
 #!/bin/bash
 export PATH=$PATH:$(pwd)
 
-DEFAULT_ROOT_PREFIX="/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT_DIR="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
+source "${PROJECT_ROOT_DIR}/env.sh"
+
+DEFAULT_ROOT_PREFIX="${CLUSTER_ROOT_PREFIX}"
 
 if [[ $# -lt 1 || $# -gt 2 ]]; then
     echo "Usage: $0 <dataset_type> [root_prefix]"
     exit 1
 fi
 
-userName="t127556uhn"
+userName="${CLUSTER_USERNAME}"
 memory=16
 condaEnv="$(conda run -n OncoTRAIL which python)"
 nGPU=0

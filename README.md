@@ -97,7 +97,7 @@ All scripts are located under:
 ```
 scripts/paper/
 ```
-Please change the user name before running the scripts.
+Rename ```env.sh.example``` to ```env.sh``` and fill in the appropriate paths and environment variables.
 
 ## 1. Data Preparation
 

@@ -1,7 +1,11 @@
 #!/bin/bash
 export PATH=$PATH:$(pwd)
 
-DEFAULT_ROOT_PREFIX="/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT_DIR="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
+source "${PROJECT_ROOT_DIR}/env.sh"
+
+DEFAULT_ROOT_PREFIX="${CLUSTER_ROOT_PREFIX}"
 
 if [[ $# -gt 1 ]]; then
     echo "Usage: $0 [root_prefix]"
@@ -9,10 +13,9 @@ if [[ $# -gt 1 ]]; then
 fi
 
 ROOT_PREFIX="${1:-$DEFAULT_ROOT_PREFIX}"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SRC_DIR="$(cd "${SCRIPT_DIR}/../../../src" && pwd)"
 
-userName="t127556uhn"
+userName="${CLUSTER_USERNAME}"
 memory=16
 condaEnv="$(conda run -n OncoTRAIL which python)"
 nGPU=0
@@ -145,34 +148,34 @@ for LLM_name in "${LLM_list[@]}"
 do
 
     if [ "$LLM_name" == "Qwen2.5-14B-IQ2-M" ]; then
-        LLM_path=/cluster/projects/gliugroup/2BLAST/LLMs/Qwen2.5-14B-Instruct-IQ2_M.gguf
+        LLM_path=${LLM_BASE_DIR}/Qwen2.5-14B-Instruct-IQ2_M.gguf
     elif [ "$LLM_name" == "Qwen2.5-14B-Q4-K-M" ]; then
-        LLM_path=/cluster/projects/gliugroup/2BLAST/LLMs/Qwen2.5-14B-Instruct-Q4_K_M.gguf
+        LLM_path=${LLM_BASE_DIR}/Qwen2.5-14B-Instruct-Q4_K_M.gguf
     elif [ "$LLM_name" == "Qwen2.5-14B-Q6-K" ]; then
-        LLM_path=/cluster/projects/gliugroup/2BLAST/LLMs/Qwen2.5-14B-Instruct-Q6_K.gguf
+        LLM_path=${LLM_BASE_DIR}/Qwen2.5-14B-Instruct-Q6_K.gguf
     elif [ "$LLM_name" == "Qwen2.5-7B-IQ2-M" ]; then
-        LLM_path=/cluster/projects/gliugroup/2BLAST/LLMs/Qwen2.5-7B-Instruct-IQ2_M.gguf
+        LLM_path=${LLM_BASE_DIR}/Qwen2.5-7B-Instruct-IQ2_M.gguf
     elif [ "$LLM_name" == "Qwen2.5-7B-IQ3-M" ]; then
-        LLM_path=/cluster/projects/gliugroup/2BLAST/LLMs/Qwen2.5-7B-Instruct-IQ3_M.gguf
+        LLM_path=${LLM_BASE_DIR}/Qwen2.5-7B-Instruct-IQ3_M.gguf
     elif [ "$LLM_name" == "Qwen2.5-7B-IQ4-XS" ]; then
-        LLM_path=/cluster/projects/gliugroup/2BLAST/LLMs/Qwen2.5-7B-Instruct-IQ4_XS.gguf
+        LLM_path=${LLM_BASE_DIR}/Qwen2.5-7B-Instruct-IQ4_XS.gguf
     elif [ "$LLM_name" == "Qwen2.5-7B-Q4-K-M" ]; then
-        LLM_path=/cluster/projects/gliugroup/2BLAST/LLMs/Qwen2.5-7B-Instruct-Q4_K_M.gguf
+        LLM_path=${LLM_BASE_DIR}/Qwen2.5-7B-Instruct-Q4_K_M.gguf
     elif [ "$LLM_name" == "Qwen2.5-7B-Q6-K" ]; then
-        LLM_path=/cluster/projects/gliugroup/2BLAST/LLMs/Qwen2.5-7B-Instruct-Q6_K.gguf
+        LLM_path=${LLM_BASE_DIR}/Qwen2.5-7B-Instruct-Q6_K.gguf
     elif [ "$LLM_name" == "Qwen2.5-7B-Q8-0" ]; then
-        LLM_path=/cluster/projects/gliugroup/2BLAST/LLMs/Qwen2.5-7B-Instruct-Q8_0.gguf
+        LLM_path=${LLM_BASE_DIR}/Qwen2.5-7B-Instruct-Q8_0.gguf
     elif [ "$LLM_name" == "Qwen2.5-3B-IQ3-M" ]; then
-        LLM_path=/cluster/projects/gliugroup/2BLAST/LLMs/Qwen2.5-3B-Instruct-IQ3_M.gguf
+        LLM_path=${LLM_BASE_DIR}/Qwen2.5-3B-Instruct-IQ3_M.gguf
     elif [ "$LLM_name" == "Qwen2.5-3B-Q4-K-M" ]; then
-        LLM_path=/cluster/projects/gliugroup/2BLAST/LLMs/Qwen2.5-3B-Instruct-Q4_K_M.gguf
+        LLM_path=${LLM_BASE_DIR}/Qwen2.5-3B-Instruct-Q4_K_M.gguf
     elif [ "$LLM_name" == "Qwen2.5-3B-Q6-K" ]; then
-        LLM_path=/cluster/projects/gliugroup/2BLAST/LLMs/Qwen2.5-3B-Instruct-Q6_K.gguf
+        LLM_path=${LLM_BASE_DIR}/Qwen2.5-3B-Instruct-Q6_K.gguf
     elif [ "$LLM_name" == "Qwen2.5-3B-Q8-0" ]; then
-        LLM_path=/cluster/projects/gliugroup/2BLAST/LLMs/Qwen2.5-3B-Instruct-Q8_0.gguf
+        LLM_path=${LLM_BASE_DIR}/Qwen2.5-3B-Instruct-Q8_0.gguf
     fi
 
-    tokenizer_path=/cluster/projects/gliugroup/2BLAST/LLMs/Qwen2.5-14B-Instruct
+    tokenizer_path=${LLM_BASE_DIR}/Qwen2.5-14B-Instruct
 
     top_k_fmt=$(format_val "$top_k")
     min_p_fmt=$(format_val "$min_p")

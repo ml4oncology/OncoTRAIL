@@ -11,7 +11,11 @@ export PATH=$R_HOME/bin:$PATH
 
 export PATH=$PATH:$(pwd)
 
-DEFAULT_ROOT_PREFIX="/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT_DIR="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
+source "${PROJECT_ROOT_DIR}/env.sh"
+
+DEFAULT_ROOT_PREFIX="${CLUSTER_ROOT_PREFIX}"
 
 if [[ $# -gt 1 ]]; then
     echo "Usage: $0 [root_prefix]"
@@ -23,7 +27,7 @@ PROJECT_ROOT="${ROOT_PREFIX}/OncoTRAIL"
 
 # note: need to export R_HOME=$(R RHOME) after activating environment
 
-userName="t127556uhn"
+userName="${CLUSTER_USERNAME}"
 memory=1
 condaEnv="$(conda run -n OncoTRAIL which python)"
 nGPU=0

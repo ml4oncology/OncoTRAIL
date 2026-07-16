@@ -3,10 +3,14 @@ set -e
 
 export PATH=$PATH:$(pwd)
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT_DIR="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
+source "${PROJECT_ROOT_DIR}/env.sh"
+
 # -------------------------
 # Usage check
 # -------------------------
-DEFAULT_ROOT_PREFIX="/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024"
+DEFAULT_ROOT_PREFIX="${CLUSTER_ROOT_PREFIX}"
 
 if [[ $# -lt 1 || $# -gt 2 ]]; then
     echo "Usage: $0 {EPR|EPIC} [root_prefix]"
@@ -25,7 +29,7 @@ fi
 # -------------------------
 # Common SLURM settings
 # -------------------------
-userName="t127556uhn"
+userName="${CLUSTER_USERNAME}"
 memory=4
 condaEnv="$(conda run -n OncoTRAIL which python)"
 nGPU=0

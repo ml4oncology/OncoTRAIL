@@ -1,7 +1,11 @@
 #!/bin/bash
 export PATH=$PATH:$(pwd)
 
-DEFAULT_ROOT_PREFIX="/cluster/projects/gliugroup/work_dir/wayne_uy/gitrepo/2024"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT_DIR="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
+source "${PROJECT_ROOT_DIR}/env.sh"
+
+DEFAULT_ROOT_PREFIX="${CLUSTER_ROOT_PREFIX}"
 
 if [[ $# -lt 1 || $# -gt 2 ]]; then
     echo "Usage: $0 <llama_cpp_sequential|vllm_offline> [root_prefix]"
@@ -13,7 +17,6 @@ fi
 # Modes: llama_cpp_sequential | vllm_offline
 mode="$1"
 ROOT_PREFIX="${2:-$DEFAULT_ROOT_PREFIX}"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SRC_DIR="$(cd "${SCRIPT_DIR}/../../../src" && pwd)"
 
 case "$mode" in
@@ -31,7 +34,7 @@ else
 fi
 
 # ── Common settings ───────────────────────────────────────────────────────────
-userName="t127556uhn"
+userName="${CLUSTER_USERNAME}"
 memory=16
 condaEnv="$(conda run -n OncoTRAIL which python)"
 
@@ -99,8 +102,8 @@ add_tabularML_prediction=0
 few_shot_date=$date_few_shot
 
 LLM_name=Qwen2.5-14B-IQ4-XS
-LLM_path=/cluster/projects/gliugroup/2BLAST/LLMs/Qwen2.5-14B-Instruct-IQ4_XS.gguf
-tokenizer_path=/cluster/projects/gliugroup/2BLAST/LLMs/Qwen2.5-14B-Instruct
+LLM_path=${LLM_BASE_DIR}/Qwen2.5-14B-Instruct-IQ4_XS.gguf
+tokenizer_path=${LLM_BASE_DIR}/Qwen2.5-14B-Instruct
 
 stage1_csv_file=${root_dir_proj}/paper/pmh_method/methods/prompting/train_test/stage1/qwen_best_results_stage1.csv
 
