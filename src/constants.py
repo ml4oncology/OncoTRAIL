@@ -1,4 +1,17 @@
+import os
+import sys
+
 import pandas as pd
+
+from oncotrail.utils.env_loader import load_env
+
+load_env()
+
+_phys_names_dir = os.environ.get("PHYS_NAMES_DIR", "")
+if _phys_names_dir not in sys.path:
+    sys.path.insert(0, _phys_names_dir)
+
+from phys_names import _EPR_PHYSICIAN_ROWS, _EPIC_PHYSICIAN_ROWS, _COLUMNS
 
 target_dict_mapping = {
     'target-hemoglobin-grade2plus': 'Hb',
@@ -90,99 +103,6 @@ cancer_novelty_map = {
         "Other and unspecified female genital organs": 1,
         "Unknown primary site": 1,
     }
-
-_EPR_PHYSICIAN_ROWS = [
-    ("Hamzeh AdelAmin Albaba", 2006, "N", "Arabic"),
-    ("Raymond Jang", 2006, "Y", "NA"),
-    ("Xueyu Eric Chen", 1996, "Y", "Mandarin"),
-    ("Anna Spreafico", 2003, "N", "Italian"),
-    ("Frances Alice Shepherd", 1970, "Y", "French"),
-    ("Penelope Bradbury", 1994, "N", "NA"),
-    ("David William Hedley", 1970, "N", "NA"),
-    ("Natasha Basant Leighl", 1994, "Y", "NA"),
-    ("Neesha Cindy Dhani", 2001, "Y", "NA"),
-    ("Rebecca Michelle Prince", 2005, "N", "NA"),
-    # ("Grainne Mary O'Kane", 2007, "N", "NA"),
-    ("Aaron Richard Hansen", 2004, "N", "NA"),
-    ("Doreen Anuli Ezeife", 2011, "Y", "NA"),
-    ("Geoffrey Liu", 1993, "Y", "NA"),
-    # ("Jennifer Jane Knox", 1995, "Y", "NA"),
-    ("Yanshuo Cao", 2009, "N", "Mandarin"),
-    ("Lawson Eng", 2014, "Y", "NA"),
-    ("Adrian Gerold Sacher", 2009, "Y", "NA"),
-    ("Aline Fusco Fares", 2010, "N", "Portuguese"),
-    # ("Kirstin Ann Perdrizet", 2013, "Y", "NA"),
-    # ("Shari Moura", 1991, "Y", "NA"),
-    ("Mor Tal Moskovitz", 2010, "N", "Hebrew"),
-    ("Sally Lau", 2013, "Y", "NA"),
-    # ("Michael Herman", 2013, "Y", "NA"),
-    # ("Di Maria Jiang", 2012, "Y", "Mandarin"),
-    # ("Lillian L. Y. Siu", 1991, "Y", "Cantonese"),
-    ("Daniel Yokom", 2011, "Y", "NA"),
-    # ("Elaine Sarah Bouttell", 1997, "Y", "NA"),
-    # ("Ibrahim Algorashi", 2016, "N", "Arabic"),
-    # ("Kelvin Young", 2010, "N", "NA"),
-    # ("Daniel Shepshelovich", 2005, "N", "Hebrew, Russian"),
-    # ("Catherine Labbe", 2009, "Y", "French"),
-    # ("Kirsty Laura Taylor", 2011, "N", "NA"),
-    ("Charles Lim", 2012, "Y", "NA"),
-    # ("Elena Elimova", 2008, "Y", "NA"),
-    # ("Hao-Wen Sim", 2007, "N", "NA"),
-    # ("Sara Soldera", 2011, "Y", "NA"),
-    # ("Ivan Lyra Gonzalez", 2011, "N", "Spanish"),
-    # ("Kyaw Aung", 2000, "N", "Burmese")
-]
-
-_EPIC_PHYSICIAN_ROWS = [
-    ("Lawson Eng", 2014, "Y", "NA"),
-    ("Anna Spreafico", 2003, "N", "Italian"),
-    ("Raymond Jang", 2006, "Y", "NA"),
-    ("Xueyu Eric Chen", 1996, "Y", "Mandarin"),
-    ("Geoffrey Liu", 1993, "Y", "NA"),
-    ("Di Maria Jiang", 2012, "Y", "Mandarin"),
-    # ("Penelope Bradbury", 1994, "N", "NA"),
-    ("Lillian L. Y. Siu", 1991, "Y", "Cantonese"),
-    # ("Frances Alice Shepherd", 1970, "Y", "French"),
-    # ("Natasha Basant Leighl", 1994, "Y", "NA"),
-    ("Enrique Sanz Garcia", 2010, "N", "Spanish"),
-    ("Vikaash Kumar", 2005, "Y", "NA"),
-    ("Erica Tsang", 2015, "Y", "NA"),
-    ("Philippe Lucien Bedard", 2003, "Y", "French"),
-    # ("Abdulrahman Alghabban", 2013, "N", "Arabic"),
-    ("Robert Charles Grant", 2014, "Y", "NA"),
-    ("Cha Len Lee", 2009, "N", "Chinese"),
-    ("Ma, Lucy Xiaolu", 2016, "Y", "NA"),
-    ("Nazanin Fallah-Rad", 2010, "Y", "NA"),
-    ("Richard Odwyer", 2014, "N", "NA"),
-    # ("Consolacion Molto Valiente", 2014, "N", "Spanish"),
-    # ("Lucy Corke", 2011, "N", "NA"),
-    # ("Jamie Feng", 2017, "Y", "NA"),
-    # ("Thais Megid", 2015, "N", "Spanish, Portuguese"),
-    # ("Sameena Khan", 2010, "N", "NA"),
-    # ("Eitan Amir", 2003, "N", "Hebrew"),
-    # ("Marie-Philippe Saltiel", 2016, "Y", "French"),
-    # ("Danielle Cuthbert", 2017, "N", "NA"),
-    ("Massimo Di Iorio", 2018, "Y", "French, Italian"),
-    # ("Erika Martinez", 2013, "N", "Spanish"),
-    # ("Carly Barron", 2017, "Y", "NA"),
-    # ("Vikas Garg", 2011, "N", "Hindi"),
-    # ("Samuel David Saibil", 2010, "Y", "NA"),
-    # ("Ian Hirsch", 2017, "N", "French, Portuguese, Spanish"),
-    # ("Yacob Saleh", 2009, "N", "Arabic"),
-    # ("Abhenil Mittal", 2014, "N", "Hindi"),
-    # ("Sulaiman Almuthri", 2015, "N", "Arabic"),
-    # ("Gordon Moffat", 2016, "N", "NA"),
-    # ("Marcus Otho Butler", 1992, "N", "NA"),
-    # ("Abdul Rehman Farooq", 2009, "N", "Urdu"),
-    ("Thiago Pimentel Muniz", 2013, "N", "Portuguese"),
-]
-
-_COLUMNS = [
-    "med_onc",
-    "YOG",
-    "Canadian_Medical_Graduate",
-    "Other_Languages",
-]
 
 def _build_physician_char_df(physician_data) -> pd.DataFrame:
     df = pd.DataFrame(physician_data, columns=_COLUMNS)
